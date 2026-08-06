@@ -18,3 +18,38 @@ If you want to learn more about creating good readme files then refer the follow
 - [ASP.NET Core](https://github.com/aspnet/Home)
 - [Visual Studio Code](https://github.com/Microsoft/vscode)
 - [Chakra Core](https://github.com/Microsoft/ChakraCore)
+
+```text
+docs/
+│
+├── Product/
+│   ├── Product.md
+│   ├── Roadmap.md
+│   ├── Changelog.md
+│   └── Releases/
+│       ├── Release-v0.1.md
+│       ├── Release-v0.2.md
+│       └── ...
+│
+├── Technical/
+│   ├── Architecture.md
+│   ├── DevelopmentStandards.md
+│   ├── RepositoryStructure.md
+│   ├── SecurityArchitecture.md
+│   ├── APIReference.md
+│   ├── Glossary.md
+│   ├── Contributing.md
+│   │
+│   └── ADR/
+│       ├── ADR-001-ApiFirst.md
+│       ├── ADR-002-WebUiArchitecture.md
+│       └── ...
+│
+├── Assistant/
+│   ├── AgentInstructions.md
+│   ├── CodingGuidelines.md
+│   ├── PromptingGuide.md
+│   └── Context.md
+│
+└── Diagrams/
+```

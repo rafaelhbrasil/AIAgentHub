@@ -1,0 +1,460 @@
+# AI Agent Hub
+
+# API Contract
+
+**Version:** 0.1 Draft
+
+---
+
+# Purpose
+
+This document defines the public API exposed by AI Agent Hub.
+
+The API serves as the communication layer between:
+
+- Local Web UI
+- Remote Stations
+- Future native clients
+- Future mobile applications
+- Third-party integrations
+
+Every user interaction must ultimately be translated into one or more API calls.
+
+No privileged internal endpoints exist.
+
+---
+
+# Design Principles
+
+The API follows these principles.
+
+- REST for request/response operations.
+- WebSocket for real-time events.
+- Stateless requests.
+- HTTPS only.
+- JSON payloads.
+- Versioned endpoints.
+- Consistent naming.
+
+---
+
+# Base URL
+
+Examples:
+
+```
+https://localhost:4096
+```
+
+```
+https://192.168.1.100:4096
+```
+
+---
+
+# API Versioning
+
+All endpoints include an API version.
+
+Example:
+
+```
+/api/v1/
+```
+
+Future versions may introduce:
+
+```
+/api/v2/
+```
+
+Version changes should avoid breaking existing clients whenever practical.
+
+---
+
+# Authentication
+
+Authentication is required for every endpoint except those explicitly documented as anonymous.
+
+Future authentication mechanisms may include:
+
+- session cookies
+- bearer tokens
+- API keys
+
+Version 0.1 uses authenticated sessions.
+
+---
+
+# Authorization
+
+Authorization is always enforced by the Server.
+
+Clients must never assume authorization.
+
+---
+
+# Data Format
+
+Request and response bodies use JSON.
+
+Property names use camelCase.
+
+Dates use ISO-8601.
+
+Identifiers use UUIDs unless documented otherwise.
+
+---
+
+# Error Responses
+
+Errors should follow a consistent structure.
+
+Example:
+
+```json
+{
+  "code": "workspace_not_found",
+  "message": "Workspace does not exist."
+}
+```
+
+---
+
+# REST API
+
+The REST API is organized by feature.
+
+---
+
+## Authentication
+
+Examples:
+
+```
+POST /api/v1/auth/login
+
+POST /api/v1/auth/logout
+
+GET /api/v1/auth/session
+```
+
+---
+
+## Providers
+
+Examples:
+
+```
+GET /api/v1/providers
+
+GET /api/v1/providers/{id}
+
+POST /api/v1/providers/install
+
+POST /api/v1/providers/authenticate
+```
+
+---
+
+## Models
+
+Examples:
+
+```
+GET /api/v1/models
+
+GET /api/v1/providers/{id}/models
+```
+
+---
+
+## Workspaces
+
+Examples:
+
+```
+GET /api/v1/workspaces
+
+POST /api/v1/workspaces
+
+GET /api/v1/workspaces/{id}
+
+DELETE /api/v1/workspaces/{id}
+```
+
+---
+
+## Conversations
+
+Examples:
+
+```
+GET /api/v1/conversations
+
+POST /api/v1/conversations
+
+DELETE /api/v1/conversations/{id}
+```
+
+---
+
+## AI Execution
+
+Examples:
+
+```
+POST /api/v1/conversations/{id}/prompt
+
+POST /api/v1/execute
+```
+
+---
+
+## File Changes
+
+Examples:
+
+```
+GET /api/v1/diffs
+
+GET /api/v1/diffs/{id}
+
+POST /api/v1/diffs/{id}/accept
+
+POST /api/v1/diffs/{id}/reject
+```
+
+---
+
+## Preview
+
+Examples:
+
+```
+GET /api/v1/preview
+
+GET /api/v1/files/{id}/preview
+```
+
+---
+
+## MCP
+
+Examples:
+
+```
+GET /api/v1/mcps
+
+POST /api/v1/mcps/{id}/enable
+```
+
+---
+
+## Skills
+
+Examples:
+
+```
+GET /api/v1/skills
+
+POST /api/v1/skills/{id}/enable
+```
+
+---
+
+## Settings
+
+Examples:
+
+```
+GET /api/v1/settings
+
+PUT /api/v1/settings
+```
+
+---
+
+# WebSocket
+
+WebSocket is responsible for real-time communication.
+
+Examples include:
+
+- streaming responses
+- progress updates
+- provider status
+- notifications
+- Workspace synchronization
+- file changes
+
+---
+
+## Event Categories
+
+Typical events include:
+
+```
+conversation.started
+
+conversation.updated
+
+conversation.completed
+```
+
+```
+provider.status.changed
+```
+
+```
+workspace.changed
+```
+
+```
+diff.created
+```
+
+```
+notification.created
+```
+
+---
+
+# Streaming
+
+Streaming responses should use WebSocket whenever practical.
+
+Clients should begin rendering partial responses immediately.
+
+---
+
+# Pagination
+
+Large collections should support pagination.
+
+Typical parameters:
+
+```
+page
+
+pageSize
+```
+
+---
+
+# Filtering
+
+Endpoints may expose filtering parameters.
+
+Examples:
+
+```
+provider
+
+workspace
+
+conversation
+```
+
+---
+
+# Sorting
+
+Collections should support sorting.
+
+Examples:
+
+```
+name
+
+date
+
+provider
+```
+
+---
+
+# Long Running Operations
+
+Long-running operations should return immediately.
+
+Progress should be reported through WebSocket events.
+
+Examples:
+
+- provider installation
+- Workspace synchronization
+- Git clone
+- AI execution
+
+---
+
+# File Uploads
+
+Binary uploads should use multipart/form-data.
+
+Examples:
+
+- images
+- archives
+- Workspace import
+
+---
+
+# File Downloads
+
+Downloads should support:
+
+- export conversation
+- export Workspace
+- backup
+- logs
+
+---
+
+# Compatibility
+
+The API should remain backward compatible whenever possible.
+
+Breaking changes require:
+
+- documentation
+- version increment
+- migration guidance
+
+---
+
+# Client Independence
+
+The API should not expose implementation details.
+
+Clients should not need to know:
+
+- provider internals
+- CLI commands
+- storage implementation
+
+---
+
+# Future Evolution
+
+Future versions may introduce:
+
+- GraphQL
+- Plugin endpoints
+- Provider SDK
+- External integrations
+
+These additions should complement the REST API rather than replace it.
+
+---
+
+# References
+
+Related documents:
+
+- Product.md
+- Architecture.md
+- SecurityArchitecture.md
+- DevelopmentStandards.md
+- ADR/
