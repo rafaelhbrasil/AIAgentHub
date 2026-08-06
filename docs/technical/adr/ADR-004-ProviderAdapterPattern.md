@@ -29,6 +29,8 @@ The application communicates exclusively with provider interfaces.
 
 Provider-specific implementation details remain isolated inside adapters.
 
+During early implementation, `IProvider` interface signatures are refined iteratively alongside adapter capabilities to avoid premature locking and documentation drift.
+
 Example:
 
 ```

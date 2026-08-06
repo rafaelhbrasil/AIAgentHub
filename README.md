@@ -75,7 +75,7 @@ AI Agent Hub follows a layered architecture based on:
 
 Business logic always executes on the Server.
 
-Both local and remote users interact with the same Web UI through the public REST and WebSocket APIs.
+Both local and remote users interact with the same Web UI through the public REST and SignalR (WebSocket) APIs.
 
 ---
 
@@ -153,10 +153,43 @@ Project documentation is organized into four major areas.
 ```text
 docs/
 
-├── Product/
-├── Technical/
-├── Assistant/
-└── Diagrams/
+├── product/
+│   ├── Product.md
+│   ├── Glossary.md
+│   ├── Roadmap.md
+│   ├── Changelog.md
+│   └── releases/
+│       ├── Release-v0.1.md
+│       └── Release-v0.2.md
+│
+├── technical/
+│   ├── Architecture.md
+│   ├── DomainModel.md
+│   ├── ApiDesign.md
+│   ├── SecurityArchitecture.md
+│   ├── DevelopmentStandards.md
+│   ├── RepositoryStructure.md
+│   ├── ContributingGuide.md
+│   └── adr/
+│       ├── ADR-001-ApiFirst.md
+│       ├── ADR-002-ServerCentricArchitecture.md
+│       ├── ADR-003-WebUiAsPrimaryClient.md
+│       ├── ADR-004-ProviderAdapterPattern.md
+│       ├── ADR-005-SingleExecutableArchitecture.md
+│       ├── ADR-006-WorkspaceAbstraction.md
+│       ├── ADR-007-AuthenticationModel.md
+│       ├── ADR-008-SecurityModel.md
+│       ├── ADR-009-PersistenceStrategy.md
+│       ├── ADR-010-SignalRRealtimeArchitecture.md
+│       └── ADR-011-CryptographyAndSecrets.md
+│
+├── assistant/
+│   ├── Context.md
+│   └── Workflow.md
+│
+├── reviews/        # implementation reviews
+│
+└── diagrams/
 ```
 
 Refer to the documentation inside each folder for detailed information.
@@ -212,13 +245,13 @@ Before contributing, please read:
 Development standards and project conventions are documented under:
 
 ```text
-docs/Technical/
+docs/technical/
 ```
 
 Guidance for AI assistants is available under:
 
 ```text
-docs/Assistant/
+docs/assistant/
 ```
 
 ---
@@ -242,7 +275,7 @@ Before opening a Pull Request:
 The current roadmap is maintained in:
 
 ```text
-docs/Product/Roadmap.md
+docs/product/Roadmap.md
 ```
 
 ---

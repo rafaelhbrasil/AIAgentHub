@@ -39,11 +39,18 @@ Maintainability is preferred over premature optimization.
 
 Current technology choices:
 
+Backend
 - .NET 10
 - ASP.NET Core
 - C#
 - Entity Framework Core
 - SQLite
+- SignalR (real-time: streaming, events, progress) — see ADR-010
+
+Frontend
+- React
+- TypeScript
+- Vite
 
 Technology decisions are documented separately through ADRs.
 

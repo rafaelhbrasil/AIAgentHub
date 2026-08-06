@@ -26,7 +26,7 @@ The executable hosts:
 
 - Web UI
 - REST API
-- WebSocket API
+- WebSocket API (SignalR)
 - Application Services
 - Background Services
 

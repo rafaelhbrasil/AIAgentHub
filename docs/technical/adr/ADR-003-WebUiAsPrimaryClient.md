@@ -66,4 +66,4 @@ May be reconsidered in the future if native packaging provides significant value
 # References
 
 - Architecture.md
-- APIContract.md
+- ApiDesign.md

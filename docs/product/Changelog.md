@@ -75,7 +75,7 @@ The primary objective of this release is to provide a complete single-user exper
 
 For the complete functional specification, see:
 
-- `/docs/Product/Releases/Release-v0.1.md`
+- `docs/product/releases/Release-v0.1.md`
 
 ## Added
 

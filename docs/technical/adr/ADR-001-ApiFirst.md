@@ -20,7 +20,7 @@ This would duplicate code paths, increase testing complexity and make future cli
 
 Every application feature shall be exposed through the public API.
 
-The local Web UI must consume the exact same REST and WebSocket endpoints as every Remote Station.
+The local Web UI must consume the exact same REST endpoints and SignalR real-time channel as every Remote Station.
 
 No privileged internal execution path shall exist.
 
@@ -66,4 +66,4 @@ Would duplicate business logic and increase maintenance costs.
 # References
 
 - Architecture.md
-- APIContract.md
+- ApiDesign.md

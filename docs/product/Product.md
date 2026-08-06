@@ -182,7 +182,7 @@ The Server hosts:
 
 - Backend
 - REST API
-- WebSocket API
+- WebSocket API (SignalR)
 - Web UI
 - AI Providers
 - Project Storage
@@ -287,7 +287,7 @@ The objective is to unify the experience without limiting provider-specific feat
 
 Every feature available through the UI must use the same public API.
 
-The local UI consumes exactly the same REST and WebSocket endpoints used by Remote Stations.
+The local UI consumes exactly the same REST and WebSocket (SignalR) endpoints used by Remote Stations.
 
 No privileged execution path exists for localhost.
 

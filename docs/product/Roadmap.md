@@ -14,8 +14,8 @@ Detailed requirements for each release are maintained in dedicated documents.
 
 Current planning documents:
 
-- `/docs/releases/v0.1.md`
-- `/docs/releases/v0.2.md`
+- `docs/product/releases/Release-v0.1.md`
+- `docs/product/releases/Release-v0.2.md`
 
 Future versions are intentionally described at a higher level since priorities may evolve over time.
 
@@ -51,7 +51,7 @@ Primary focus:
 
 See:
 
-> `/docs/releases/v0.1.md`
+> `docs/product/releases/Release-v0.1.md`
 
 ---
 
@@ -76,7 +76,7 @@ Primary focus:
 
 See:
 
-> `/docs/releases/v0.2.md`
+> `docs/product/releases/Release-v0.2.md`
 
 ---
 
@@ -153,17 +153,18 @@ Current documentation includes:
 - Product.md
 - Roadmap.md
 - Architecture.md
-- TechnicalRequirements.md
-- Repository.md
-- Security.md
-- API.md
+- DomainModel.md
+- DevelopmentStandards.md
+- RepositoryStructure.md
+- SecurityArchitecture.md
+- ApiDesign.md
 - Glossary.md
-- Contributing.md
+- ContributingGuide.md
 
 Architecture decisions are documented separately under:
 
 ```
-docs/adr/
+docs/technical/adr/
 ```
 
 ---

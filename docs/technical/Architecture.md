@@ -12,7 +12,7 @@ This document describes the high-level architecture of AI Agent Hub.
 
 It explains how the major components interact and establishes the architectural principles that guide future development.
 
-Implementation details such as frameworks, libraries and coding standards are documented separately in **TechnicalRequirements.md**.
+Implementation details such as frameworks, libraries and coding standards are documented separately in **DevelopmentStandards.md**.
 
 ---
 
@@ -45,14 +45,14 @@ Remote Stations act as lightweight clients.
              |     (Browser)         |
              +-----------+-----------+
                          |
-                  HTTPS / WebSocket
+                  HTTPS / WebSocket (SignalR)
                          |
 +------------------------------------------------------+
 |                    AI Agent Hub                      |
 |------------------------------------------------------|
 |                    Web UI                            |
 |------------------------------------------------------|
-|                 REST / WebSocket API                 |
+|                 REST / WebSocket (SignalR) API         |
 |------------------------------------------------------|
 |                 Application Layer                    |
 |------------------------------------------------------|
@@ -74,7 +74,7 @@ Responsible for:
 
 - Web UI
 - REST API
-- WebSocket API
+- WebSocket API (SignalR)
 
 Contains no business logic.
 
@@ -164,7 +164,7 @@ Browser
 
 ↓
 
-REST API
+REST API / WebSocket (SignalR)
 
 ↓
 
@@ -176,15 +176,15 @@ Domain
 
 ↓
 
-Provider
+Provider Adapter
 
 ↓
 
-AI CLI
+AI CLI (stdin/stdout)
 
 ↓
 
-Response
+SignalR
 
 ↓
 
@@ -252,6 +252,217 @@ Examples:
 - ZIP Archive
 
 The application should treat every Workspace identically after creation.
+
+---
+
+# Content Rendering Architecture
+
+AI Agent Hub uses a pluggable content rendering architecture to preview files and visualize differences generated during AI interactions.
+
+The Web UI is responsible only for presenting rendered content.
+
+Preview selection and rendering logic always execute on the Server.
+
+---
+
+## Objectives
+
+The rendering architecture is designed to:
+
+- Support multiple file formats.
+- Provide a consistent preview experience.
+- Allow new renderers to be added without modifying existing components.
+- Support future plugin-based renderers.
+- Share infrastructure between Preview and Diff rendering.
+
+---
+
+## Architecture
+
+```text
+File
+
+↓
+
+Content Rendering Manager
+
+↓
+
+Renderer Registry
+
+↓
+
+Content Renderer
+
+↓
+
+HTML Response
+
+↓
+
+Browser
+```
+
+The browser never performs format-specific rendering decisions.
+
+---
+
+## Renderer Registry
+
+Renderers register themselves with the Content Rendering Manager.
+
+Each renderer declares:
+
+- Supported file extensions
+- Supported MIME types
+- Rendering priority
+
+The manager selects the most appropriate renderer for the requested content.
+
+---
+
+## Built-in Preview Renderers
+
+Version 0.1 includes renderers for:
+
+### Text
+
+Examples:
+
+- .txt
+- .log
+- .cs
+- .ts
+- .js
+- .css
+- .html
+- .sql
+
+Features:
+
+- Plain text
+- Syntax highlighting (when applicable)
+
+---
+
+### Markdown
+
+Examples:
+
+- .md
+- .markdown
+
+Features:
+
+- HTML rendering
+- GitHub-flavored Markdown support (planned)
+
+---
+
+### Images
+
+Examples:
+
+- .png
+- .jpg
+- .jpeg
+- .gif
+- .webp
+- .bmp
+- .svg
+
+Features:
+
+- Native image preview
+- Zoom (future)
+
+---
+
+### JSON
+
+Features:
+
+- Pretty formatting
+- Syntax highlighting
+- Collapsible nodes (future)
+
+---
+
+### XML
+
+Features:
+
+- Pretty formatting
+- Syntax highlighting
+- Collapsible nodes (future)
+
+---
+
+### YAML
+
+Examples:
+
+- .yaml
+- .yml
+
+Features:
+
+- Pretty formatting
+- Syntax highlighting
+
+---
+
+## Unsupported Files
+
+If no renderer is available, the application should:
+
+- Offer file download.
+- Display basic file information.
+- Never fail the request.
+
+---
+
+## Diff Rendering
+
+The rendering architecture is also used for file differences.
+
+Version 0.1 supports:
+
+- Unified diff
+- Side-by-side diff
+
+Diff rendering is independent from preview rendering but shares the same rendering infrastructure.
+
+---
+
+## Extensibility
+
+The rendering system is designed to be extensible.
+
+Future versions may introduce additional renderers, including:
+
+- PDF
+- CSV
+- Microsoft Office documents
+- Audio
+- Video
+- Jupyter Notebooks
+- Mermaid diagrams
+- PlantUML diagrams
+
+Third-party plugins may register additional renderers without modifying the core application.
+
+---
+
+## Design Principles
+
+The rendering architecture follows these principles:
+
+- Server-side renderer selection
+- Provider-independent rendering
+- Plugin-friendly design
+- Graceful fallback for unsupported content
+- Separation between rendering logic and presentation
 
 ---
 
@@ -386,5 +597,5 @@ This document intentionally avoids describing:
 
 These topics belong to:
 
-- TechnicalRequirements.md
+- DevelopmentStandards.md
 - ADRs

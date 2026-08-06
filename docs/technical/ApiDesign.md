@@ -22,6 +22,21 @@ Every user interaction must ultimately be translated into one or more API calls.
 
 No privileged internal endpoints exist.
 
+REST endpoints are formally documented through OpenAPI.
+
+Interactive documentation is available through Scalar during development.
+
+The OpenAPI document is considered the authoritative source for:
+
+- endpoints
+- request schemas
+- response schemas
+- examples
+- authentication requirements
+- HTTP status codes
+
+This document intentionally focuses on API design principles rather than duplicating generated contracts.
+
 ---
 
 # Design Principles
@@ -29,7 +44,7 @@ No privileged internal endpoints exist.
 The API follows these principles.
 
 - REST for request/response operations.
-- WebSocket for real-time events.
+- SignalR (real-time) for events and streaming.
 - Stateless requests.
 - HTTPS only.
 - JSON payloads.
@@ -275,9 +290,13 @@ PUT /api/v1/settings
 
 ---
 
-# WebSocket
+# SignalR (Real-Time)
 
-WebSocket is responsible for real-time communication.
+SignalR is responsible for real-time communication and streaming.
+
+SignalR builds on WebSocket where available and falls back to other transports automatically, so the real-time contract is expressed as hubs and strongly-typed messages rather than raw frames.
+
+Clients connect to a single base endpoint and subscribe to the relevant groups/streams. Reconnection is handled by the SignalR client.
 
 Examples include:
 
@@ -287,6 +306,7 @@ Examples include:
 - notifications
 - Workspace synchronization
 - file changes
+- permission requests
 
 ---
 
@@ -322,7 +342,7 @@ notification.created
 
 # Streaming
 
-Streaming responses should use WebSocket whenever practical.
+Streaming responses should use SignalR (stream to a hub client) whenever practical.
 
 Clients should begin rendering partial responses immediately.
 
@@ -378,7 +398,7 @@ provider
 
 Long-running operations should return immediately.
 
-Progress should be reported through WebSocket events.
+Progress should be reported through SignalR events.
 
 Examples:
 
@@ -457,4 +477,5 @@ Related documents:
 - Architecture.md
 - SecurityArchitecture.md
 - DevelopmentStandards.md
+- ADR-010 (SignalR for Real-Time Communication)
 - ADR/
