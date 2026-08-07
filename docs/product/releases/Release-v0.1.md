@@ -238,8 +238,15 @@ Change detection is provider-agnostic. The Server captures a snapshot of the aff
 
 Supported modes:
 
-- side-by-side diff
+- side-by-side diff (primary)
 - unified diff
+
+UI Layout & Interaction:
+
+- A bottom panel displays the list of affected files for fast selection.
+- Side-by-side diff is the primary view mode.
+- For Markdown files, a 3-pane split view is supported (original content, modified content, and a Preview tab displaying the rendered new content).
+- For Image files, a visual side-by-side comparison displays previous and new images directly.
 
 Users should be able to:
 
