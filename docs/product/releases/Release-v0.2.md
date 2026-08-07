@@ -1,0 +1,689 @@
+
+# Version 0.2 — Developer Experience
+
+## Objectives
+
+Version 0.2 expands AI Agent Hub into a complete AI-assisted development environment.
+
+The application intentionally avoids replacing a professional IDE.
+
+Instead, it focuses on the activities surrounding AI-assisted development.
+
+---
+
+# Workspace Improvements
+
+## Templates
+
+Workspace templates allow users to create new projects from predefined layouts.
+
+---
+
+## Favorites
+
+Favorite Workspaces should appear separately.
+
+---
+
+## Recent Workspaces
+
+Recently opened Workspaces should be displayed on the Dashboard.
+
+---
+
+## Workspace Search
+
+Search by:
+
+- name
+- path
+- tags
+
+---
+
+## Git Repository Cloning
+
+Users should be able to create a Workspace directly from a Git repository.
+
+---
+
+## Workspace Archive
+
+Archive inactive Workspaces without deleting them.
+
+---
+
+# Git Integration
+
+Version 0.2 introduces native Git support.
+
+Supported operations include:
+
+- repository status
+- current branch
+- checkout
+- create branch
+- commit
+- push
+- pull
+- fetch
+- stash
+- commit history
+- visual status
+
+Git integration should remain optional.
+
+The application should continue working without Git installed.
+
+---
+
+# File Explorer
+
+Integrated explorer supporting:
+
+- create file
+- create folder
+- rename
+- delete
+- drag & drop
+- search
+
+---
+
+# Embedded Editor
+
+A lightweight editor should support:
+
+- syntax highlighting
+- read-only mode
+- inline diff
+- search
+- go-to file
+
+The editor is intended for quick edits only.
+
+It is **not** a replacement for Visual Studio Code or other IDEs.
+
+---
+
+# File Preview
+
+Additional preview formats include:
+
+- PDF
+- HTML
+- CSV
+- LOG
+- INI
+- TOML
+
+Future versions may expand supported preview types.
+
+---
+
+# Conversation Improvements
+
+Users should be able to:
+
+- pin conversations
+- export conversations
+- import conversations
+- organize conversations
+- favorite conversations
+
+---
+
+# AI Enhancements
+
+New capabilities include:
+
+- switch provider during conversation
+- automatic context summarization
+- execute prompts on multiple providers
+- compare responses side by side
+- reuse generated summaries
+
+---
+
+# Prompt Library
+
+Users should be able to maintain a reusable prompt library.
+
+Features include:
+
+- categories
+- favorites
+- variables
+- import
+- export
+
+---
+
+# MCP & Skills Improvements
+
+## MCP Management
+
+Version 0.2 expands MCP management beyond simple discovery.
+
+Users should be able to:
+
+- inspect installed MCPs
+- enable or disable MCPs
+- configure MCPs per Workspace
+- configure MCP startup options
+- view MCP health status
+- restart individual MCPs
+- view provider compatibility
+
+The UI should clearly indicate which providers support each MCP.
+
+---
+
+## Skills
+
+Version 0.2 expands Skill management.
+
+Supported capabilities include:
+
+- enable or disable Skills
+- configure Skills per Workspace
+- categorize Skills
+- search Skills
+- inspect Skill metadata
+
+Experimental support may include sharing Skills between compatible providers whenever technically feasible.
+
+---
+
+# Provider Improvements
+
+Version 0.2 introduces a richer Provider Management experience.
+
+Each provider should expose:
+
+- installed version
+- available version
+- supported capabilities
+- supported models
+- authentication status
+- installation location
+
+The application should perform health checks whenever possible.
+
+---
+
+## Provider Updates
+
+Users should be notified when newer provider versions become available.
+
+The application may assist with updates but should always prefer official installation mechanisms.
+
+---
+
+## Default Configuration
+
+Users should be able to define:
+
+- default provider
+- default model
+- default Workspace behavior
+- provider priority
+
+---
+
+# Usage Analytics
+
+Version 0.2 introduces local usage analytics.
+
+Analytics remain completely local.
+
+No telemetry is sent outside the Server.
+
+Statistics may include:
+
+- conversations
+- prompts
+- provider usage
+- model usage
+- Workspace activity
+- estimated token consumption
+- estimated cost
+
+Analytics should help users understand usage patterns without compromising privacy.
+
+---
+
+# Dashboard
+
+The Dashboard evolves into the primary entry point.
+
+It may include:
+
+- recent Workspaces
+- favorite Workspaces
+- recent conversations
+- provider status
+- update notifications
+- usage statistics
+
+---
+
+# User Interface
+
+Version 0.2 improves usability.
+
+---
+
+## Appearance
+
+Supported themes:
+
+- Light
+- Dark
+- Follow System
+
+---
+
+## Layout
+
+Users may customize:
+
+- panel sizes
+- sidebar visibility
+- default landing page
+
+---
+
+## Multiple Conversations
+
+Multiple conversations should remain open simultaneously.
+
+Conversation tabs should preserve their state.
+
+---
+
+## Split View
+
+Users may compare:
+
+- two conversations
+- conversation and file
+- conversation and diff
+- two providers
+
+---
+
+## Keyboard Shortcuts
+
+Common operations should support keyboard shortcuts.
+
+Examples:
+
+- open Workspace
+- search
+- switch conversation
+- new conversation
+- accept changes
+- reject changes
+
+---
+
+## Command Palette
+
+A command palette provides quick access to common actions.
+
+Inspired by modern development tools, it should allow searching commands without navigating menus.
+
+---
+
+## Notifications
+
+The application should notify users about:
+
+- completed tasks
+- permission requests
+- provider errors
+- updates
+- authentication issues
+
+---
+
+# Server Improvements
+
+Version 0.2 expands Server administration.
+
+---
+
+## Backup
+
+Users should be able to export:
+
+- settings
+- Workspaces metadata
+- conversations
+- provider configuration
+
+Restoring a backup should recreate the previous environment whenever possible.
+
+---
+
+## Configuration Import/Export
+
+Configuration should be portable between installations.
+
+This enables migration to another machine.
+
+---
+
+## Update Checker
+
+The Server may periodically check whether:
+
+- AI Agent Hub updates are available
+- provider updates are available
+
+Users remain responsible for approving updates.
+
+---
+
+# Version 0.3 — Collaboration
+
+## Objectives
+
+Version 0.3 introduces collaboration features while preserving the Server-centric architecture.
+
+The focus shifts from a personal assistant to a shared AI environment.
+
+---
+
+# Multi-user
+
+Multiple users become available.
+
+Capabilities include:
+
+- user creation
+- password management
+- account disablement
+- account deletion
+- user roles
+
+---
+
+## Roles
+
+Initial roles may include:
+
+- Administrator
+- Developer
+- Read-only
+
+Future versions may support custom roles.
+
+---
+
+## Workspace Permissions
+
+Permissions become configurable per Workspace.
+
+Examples:
+
+- read
+- write
+- execute AI
+- manage providers
+- manage conversations
+
+---
+
+## Provider Permissions
+
+Administrators may restrict:
+
+- available providers
+- available models
+- MCP usage
+- Skill usage
+
+---
+
+## Audit Log
+
+Sensitive actions should be recorded.
+
+Examples:
+
+- authentication
+- permission changes
+- Workspace deletion
+- provider configuration
+- file modifications
+
+---
+
+## Session Management
+
+Administrators should be able to:
+
+- list active sessions
+- revoke sessions
+- terminate users
+
+---
+
+# Project Sharing
+
+Version 0.3 introduces Workspace sharing.
+
+---
+
+## Workspace Origin
+
+A Workspace may originate from:
+
+- Server
+- Remote Station
+
+The origin determines synchronization behavior.
+
+---
+
+## Snapshot Mode
+
+The Workspace is uploaded once.
+
+Synchronization occurs only when explicitly requested.
+
+Suitable for:
+
+- temporary work
+- occasional collaboration
+
+---
+
+## Synchronization Mode
+
+Changes synchronize automatically.
+
+Synchronization behavior should be configurable.
+
+Examples:
+
+- manual
+- save-triggered
+- scheduled
+
+---
+
+## Conflict Resolution
+
+Synchronization conflicts should be presented visually.
+
+Users decide which version to keep.
+
+---
+
+# Remote Station Improvements
+
+Remote Stations gain additional capabilities.
+
+Examples:
+
+- upload Workspaces
+- synchronize Workspaces
+- manage local synchronization
+- monitor transfer status
+
+Remote Stations remain lightweight.
+
+AI providers continue executing exclusively on the Server.
+
+---
+
+# Security Improvements
+
+Future releases may introduce:
+
+- Multi-factor authentication
+- API Keys
+- external identity providers
+- IP allow lists
+- IP deny lists
+- certificate management
+- HTTPS certificate wizard
+- automatic certificate renewal
+
+## Operator-supplied Certificates
+
+Version 0.1 ships with an automatically generated self-signed certificate only.
+
+Version 0.2 adds support for operator-supplied certificates so local/LAN deployments can use a certificate issued by an internal or trusted CA, or terminate TLS at a reverse proxy.
+
+Supported options:
+
+- operator-supplied certificate (PFX file path or operating-system store thumbprint)
+- internal ACME CA (e.g. step-ca) or reverse proxy with an internal CA (e.g. Caddy `tls internal`)
+- Let's Encrypt for deployments with a public domain
+
+The certificate Subject Alternative Names (SANs) must cover every address the Server is reachable at (see SecurityArchitecture.md §HTTPS).
+
+---
+
+# Plugin System
+
+The application should eventually support plugins.
+
+Potential plugin categories include:
+
+- providers
+- file previews
+- exporters
+- analytics
+- authentication
+- themes
+- integrations
+
+The plugin model should isolate third-party code from the application core.
+
+---
+
+# SDK
+
+A future SDK may simplify development of:
+
+- provider adapters
+- plugins
+- Workspace integrations
+- import/export extensions
+
+---
+
+# Platform Evolution
+
+Potential future targets include:
+
+- native desktop shell
+- mobile companion
+- Internet remote access
+- cloud synchronization (optional)
+
+The Server architecture should remain unchanged.
+
+---
+
+# Deferred Features
+
+The following ideas are intentionally postponed.
+
+They are considered valuable but not essential for the first public releases.
+
+- collaborative real-time editing
+- Workspace marketplace
+- cloud-hosted Server
+- distributed AI execution
+- telemetry dashboard
+- team productivity analytics
+- billing
+- subscription management
+
+---
+
+# Release Strategy
+
+Each release should remain usable and production-ready.
+
+The project should prioritize:
+
+- stability
+- backward compatibility
+- documentation
+- testing
+
+Large architectural changes should be avoided after Version 0.1.
+
+Future features should build upon the original architecture rather than replacing it.
+
+---
+
+# Versioning Policy
+
+The project follows semantic versioning.
+
+Examples:
+
+- 0.1.x
+- 0.2.x
+- 0.3.x
+- 1.0.0
+
+Patch releases should contain:
+
+- bug fixes
+- performance improvements
+- security updates
+
+Minor releases introduce new functionality without intentionally breaking compatibility.
+
+Major releases may introduce architectural changes when necessary.
+
+---
+
+# Long-Term Vision
+
+The long-term objective is to establish AI Agent Hub as the reference platform for AI coding agents.
+
+Success is measured not by replacing existing providers, but by making them easier to discover, configure, compare and use.
+
+As new AI providers emerge, users should not need to learn entirely new workflows.
+
+Instead, AI Agent Hub should continue providing a familiar, transparent and extensible experience while allowing every provider to expose its unique strengths.
+
+The platform should evolve around three enduring principles:
+
+- Provider Agnostic
+- Server-Centric
+- API First
+
+These principles should guide every architectural and product decision throughout the lifetime of the project.
+
+---

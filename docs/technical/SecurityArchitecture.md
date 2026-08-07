@@ -268,7 +268,43 @@ HTTPS is mandatory.
 
 Authenticated endpoints must never be exposed over HTTP.
 
-Development environments may use self-signed certificates.
+## Certificate Provisioning
+
+Version 0.1 supports a single certificate mode.
+
+### Automatic Self-Signed Certificate (Version 0.1 only)
+
+The application generates a self-signed certificate on first launch.
+
+Suitable for localhost and quick-start usage.
+
+For the browser to trust it without warnings, the certificate (or its issuing CA) must be installed in the local machine's trusted store. On the Server's own machine this follows the behavior of `dotnet dev-certs`.
+
+## Operator-supplied Certificates & Deployment Options (Version 0.2+)
+
+Version 0.2 expands certificate handling to include:
+
+- operator-supplied certificates (PFX file path or operating-system store thumbprint)
+- certificates issued by an internal or trusted CA for LAN deployments
+- TLS termination at a reverse proxy
+- internal ACME CA (e.g. step-ca) or reverse proxy with an internal CA (e.g. Caddy `tls internal`)
+- Let's Encrypt for deployments with a public domain
+
+Public Certificate Authorities cannot issue certificates for bare LAN IP addresses or `localhost`, so warning-free LAN access with operator-supplied certificates requires trust distribution on client machines (e.g. mkcert / local CA, enterprise / Active Directory CA, Tailscale certificates).
+
+Detailed deployment guidance remains a deployment/infrastructure concern, not an application responsibility.
+
+See Release-v0.2.md §Security Improvements.
+
+## Hard Requirement (applies to every option)
+
+**The leaf certificate Subject Alternative Names (SANs) must include *all* addresses the Server is reachable at** — at minimum `localhost`, the machine hostname, and every configured LAN/listening IP.
+
+This applies to the Version 0.1 self-signed certificate as well: it must cover every address it is used with.
+
+Without matching SANs, browsers report hostname/IP certificate mismatches even when the CA is trusted, degrading both correctness and security perception. The Server should therefore bind only to addresses that are covered by the certificate SANs.
+
+## Future
 
 Future versions may provide:
 
