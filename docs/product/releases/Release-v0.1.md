@@ -61,15 +61,9 @@ The application should never rely on unofficial installation methods.
 
 The application should guide users through the provider's official authentication process.
 
-Each installed provider that is not yet authenticated displays an API key input and "Authenticate" button in the UI.
+Each installed provider that is not yet authenticated displays an "Authenticate" button. Clicking it opens the provider's native CLI for authentication (e.g., a PowerShell/terminal window running the provider's own auth command).
 
-Authentication may include:
-
-- API Keys
-- OAuth
-- Provider-specific login flows
-
-The application should never implement unofficial authentication mechanisms.
+The application should never collect credentials directly or implement unofficial authentication mechanisms.
 
 ---
 
