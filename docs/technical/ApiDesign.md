@@ -58,11 +58,11 @@ The API follows these principles.
 Examples:
 
 ```
-https://localhost:4096
+https://localhost:5432
 ```
 
 ```
-https://192.168.1.100:4096
+https://192.168.1.100:5432
 ```
 
 ---

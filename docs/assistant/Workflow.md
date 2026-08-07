@@ -89,6 +89,18 @@ Prefer the smallest implementation that fully satisfies the requirements.
 
 ---
 
+# Step 2.5 — Update Spec First
+
+Before writing any code:
+
+* Update the affected specification documents (Product, Release, ADRs).
+* Spec changes must be committed separately or co-committed with code — but never after.
+* Code that changes behavior without corresponding spec updates is incomplete.
+
+This rule takes precedence. No exception for "small" or "obvious" changes.
+
+---
+
 # Step 3 — Implement
 
 During implementation:

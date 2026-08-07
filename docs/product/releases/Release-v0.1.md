@@ -61,6 +61,8 @@ The application should never rely on unofficial installation methods.
 
 The application should guide users through the provider's official authentication process.
 
+Each installed provider that is not yet authenticated displays an API key input and "Authenticate" button in the UI.
+
 Authentication may include:
 
 - API Keys
@@ -107,6 +109,18 @@ Users should be able to:
 - open existing Workspaces
 - remove Workspaces
 - reopen recent Workspaces
+
+### Create Workspace Dialog
+
+The dialog asks for the folder first using a folder browser dialog.
+
+The folder browser allows browsing drives and directories on the Server filesystem via a backend API:
+- `GET /api/v1/filesystem/drives` — list available drives
+- `GET /api/v1/filesystem/browse?path=...` — list subdirectories
+
+When the user selects a folder, the application suggests a name based on the last directory component.
+
+Example: path `D:\Code\ai\AgentHub` (with or without trailing slash) suggests name `AgentHub`.
 
 ---
 
@@ -352,6 +366,41 @@ Version 0.1 supports:
 - password hashing
 - encrypted provider credentials
 - session management
+
+### First Run & Setup
+
+On first launch, when no administrator account exists, the application enters **Setup Mode**.
+
+The setup wizard:
+
+- prompts for username and password (entered twice for confirmation)
+- creates the administrator account
+- automatically authenticates the user (no separate login step required after setup)
+- displays a recovery code that must be saved for password recovery
+
+Subsequent launches require username/password authentication.
+
+### Persistent Authentication
+
+Login creates a persistent cookie valid for 30 days with sliding expiration.
+
+Closing and reopening the browser does not require re-authentication as long as the cookie remains valid.
+
+### Password Recovery
+
+A recovery code is generated on first startup and displayed:
+
+- during setup completion
+- in the application console on every startup
+- on the Settings page for authenticated administrators
+
+From the login page (localhost only), the user may enter the recovery code to reset all data and return to Setup Mode.
+
+If the recovery code is lost, the user must manually delete the data directory (`%LocalAppData%\AIAgentHub`) and restart the application.
+
+### Default Port
+
+The Server listens on port 5432 (HTTPS) and 5433 (HTTP) by default.
 
 ### HTTPS Certificates
 
