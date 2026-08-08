@@ -131,8 +131,9 @@ A Provider represents an AI execution engine.
 
 Examples include:
 
-* OpenAI Codex CLI
+* Antigravity CLI (`agy`) — Google DeepMind
 * Gemini CLI
+* OpenAI Codex CLI
 * Claude Code
 * OpenCode
 

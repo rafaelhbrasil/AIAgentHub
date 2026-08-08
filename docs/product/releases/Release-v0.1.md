@@ -23,8 +23,9 @@ The application should automatically detect compatible providers installed on th
 
 Initially supported providers include:
 
-- Codex CLI
+- Antigravity CLI (`agy`) — Google DeepMind
 - Gemini CLI
+- Codex CLI
 - Claude Code
 - OpenCode
 
@@ -36,8 +37,8 @@ The architecture must allow adding additional providers without modifying the ap
 
 The application shall:
 
-- scan known installation locations
-- verify executable availability
+- scan known installation locations and system PATH
+- verify executable availability (including platform binaries and aliases)
 - determine provider version
 - determine provider capabilities
 - detect supported models
@@ -106,7 +107,11 @@ Users should be able to:
 
 ### Create Workspace Dialog
 
-The dialog asks for the folder first using a folder browser dialog.
+The dialog asks for the folder first using an interactive Windows-style visual folder browser dialog:
+- Quick Access shortcuts (Code Projects, User Home, Desktop, Documents, Downloads, ready Drives/Partitions)
+- Clickable Breadcrumb address bar with "Up" navigation
+- Interactive folder tile grid with single-click selection and double-click navigation
+- Native browser folder picker integration (`webkitdirectory`)
 
 The folder browser allows browsing drives and directories on the Server filesystem via a backend API:
 - `GET /api/v1/filesystem/drives` — list available drives

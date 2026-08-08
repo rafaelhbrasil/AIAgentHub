@@ -12,7 +12,7 @@
 
 AI Agent Hub is a self-hosted application that provides a unified graphical interface for AI coding agents.
 
-Instead of interacting directly with multiple command-line tools such as Codex CLI, Gemini CLI, Claude Code, OpenCode and future providers, users interact with a single, consistent interface capable of orchestrating all supported AI agents.
+Instead of interacting directly with multiple command-line tools such as Antigravity CLI, Codex CLI, Gemini CLI, Claude Code, OpenCode and future providers, users interact with a single, consistent interface capable of orchestrating all supported AI agents.
 
 The application is **provider-agnostic**.
 
@@ -256,8 +256,9 @@ A software component capable of communicating with one AI system.
 
 Examples include:
 
-- Codex CLI
+- Antigravity CLI (`agy`) — Google DeepMind
 - Gemini CLI
+- Codex CLI
 - Claude Code
 - OpenCode
 

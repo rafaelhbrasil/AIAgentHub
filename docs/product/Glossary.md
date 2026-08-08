@@ -92,8 +92,9 @@ An integration capable of communicating with an AI system.
 
 Examples include:
 
-- Codex CLI
+- Antigravity CLI (`agy`) — Google DeepMind
 - Gemini CLI
+- Codex CLI
 - Claude Code
 - OpenCode
 

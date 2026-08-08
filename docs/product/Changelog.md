@@ -88,17 +88,17 @@ For the complete functional specification, see:
 
 ### Provider Management
 
-- Automatic provider detection.
+- Automatic provider detection (including Google DeepMind Antigravity CLI `agy`, Gemini CLI, OpenAI Codex CLI, Claude Code, and OpenCode).
 - Guided provider installation.
 - Guided authentication.
-- Model discovery.
+- Model discovery and real-time streaming tokens.
 - Model selection.
 - Provider capability detection.
 
 ### Workspace Management
 
-- Workspace creation.
-- Workspace opening.
+- Workspace creation with interactive Windows-style visual folder navigator (Quick Access shortcuts, Breadcrumbs address bar, folder tile grid, and native folder picker integration).
+- Workspace opening and drive selection.
 - Workspace explorer.
 - Persistent Workspace settings.
 - Global application settings.

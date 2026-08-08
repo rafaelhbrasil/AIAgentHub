@@ -142,16 +142,24 @@ The REST API is organized by feature.
 
 ---
 
-## Authentication
+## Authentication & Setup
 
 Examples:
 
 ```
+GET /api/v1/auth/setup/status
+
+POST /api/v1/auth/setup/initialize
+
+POST /api/v1/auth/setup/reset
+
 POST /api/v1/auth/login
 
 POST /api/v1/auth/logout
 
 GET /api/v1/auth/session
+
+POST /api/v1/auth/recover
 ```
 
 ---

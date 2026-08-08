@@ -26,6 +26,7 @@ It provides a unified interface capable of orchestrating multiple AI providers t
 
 Supported providers may include, but are not limited to:
 
+* Antigravity CLI (`agy`) — Google DeepMind
 * OpenAI Codex CLI
 * Gemini CLI
 * Claude Code
