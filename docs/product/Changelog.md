@@ -57,13 +57,18 @@ Security-related improvements.
 
 ## Added
 
-- Initial documentation structure.
-- Product documentation.
-- Technical documentation.
-- Release planning.
-- Architecture Decision Records (ADR) structure.
+- **Reasoning Effort Control**: Added model reasoning effort / thinking level configuration (`low`, `medium`, `high`, `max`) mapped to provider CLI flags (`--effort` for Antigravity, `--variant` for OpenCode) and exposed via UI header dropdown.
+- **Dynamic CLI Model Discovery & Caching**: Added dynamic model listing from CLI (`opencode models`) with fallback catalogs, model caching, and forced refresh support (`GET /api/v1/providers/{id}/models?refresh=true`).
+- **Provider Status Monitoring**: Added real-time detailed provider status endpoint (`GET /api/v1/providers/{id}/status?refresh=true`) with enum status indicators (`Ready`, `NotInstalled`, `Unauthenticated`, `QuotaExceeded`, `Error`, `Running`).
+- **Per-Conversation CLI Session Tracking**: Implemented `ProviderSessionId` persistence per conversation to isolate CLI agent sessions across chats (`agy --conversation <id>`, `opencode run --session <id>`).
+- **EF Core Code-First Migrations**: Introduced EF Core Code-First Migrations (`Microsoft.EntityFrameworkCore.Migrations`) with automated runtime migration (`Database.MigrateAsync()`) on application startup.
+- **PowerShell Execution Modes**: Enhanced execution engine to support both headless streaming and visible PowerShell windows in non-headless mode.
+- **SPA Client-Side Routing**: Added browser history and client-side URL hash routing (`#workspace/...`, `#conversation/...`).
 
----
+## Fixed
+
+- Fixed provider status showing "Unknown" by enabling global string enum serialization in ASP.NET Core (`JsonStringEnumConverter`).
+- Fixed OpenCode "Session not found" error by tagging initial runs with `--title agenthub-{conversationId}` and resolving generated native IDs (`ses_...`).
 
 # [0.1.0] - Initial MVP
 

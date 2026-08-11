@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AIAgentHub.Application/AIAgentHub.Application.csproj" />
+    <Project Path="src/AIAgentHub.Domain/AIAgentHub.Domain.csproj" />
+    <Project Path="src/AIAgentHub.Infrastructure/AIAgentHub.Infrastructure.csproj" />
+    <Project Path="src/AIAgentHub.Web/AIAgentHub.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AIAgentHub.Application.Tests/AIAgentHub.Application.Tests.csproj" />
+    <Project Path="tests/AIAgentHub.Domain.Tests/AIAgentHub.Domain.Tests.csproj" />
+    <Project Path="tests/AIAgentHub.Infrastructure.Tests/AIAgentHub.Infrastructure.Tests.csproj" />
+    <Project Path="tests/AIAgentHub.Integration.Tests/AIAgentHub.Integration.Tests.csproj" />
+    <Project Path="tests/AIAgentHub.Web.Tests/AIAgentHub.Web.Tests.csproj" />
+  </Folder>
+</Solution>

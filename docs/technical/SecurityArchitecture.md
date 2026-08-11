@@ -501,6 +501,28 @@ Significant architectural security decisions should be documented through ADRs.
 
 ---
 
+# System Recovery & Emergency Reset
+
+Emergency reset and account recovery follow strict security boundaries:
+
+## Sign-In Page & Setup Button Visibility
+- **First Run (No Users)**: The Sign In page displays the `#resetSetupBtn` ("Run Setup Wizard") allowing initial creation of the administrator account. The `#recoverLink` is hidden.
+- **Normal Operation (User Exists)**: Once an administrator account exists, `#resetSetupBtn` is permanently hidden from unauthenticated users. The `#recoverLink` is displayed instead.
+- **Enforced Authentication**: The Sign In screen is presented as a non-dismissible full page without a close button. Unauthenticated requests cannot bypass authentication.
+
+## Recovery Code Authentication
+- Standard password reset requires the 16-character recovery code generated during initial setup.
+- Recovery modal explicitly includes help instructions regarding server startup options (`--recovery`).
+
+## Emergency Unassisted Recovery (`--recovery` CLI Flag)
+- An unassisted reset option (resetting without a recovery code) is ONLY available when:
+  1. The server process is launched with the command-line flag `--recovery`.
+  2. The HTTP request originates from the local host (loopback interface `127.0.0.1` / `::1`).
+- Connection attempts from remote IPs attempting unassisted recovery are strictly forbidden (`403 Forbidden`).
+- When executed, unassisted recovery requires **double confirmation** from the user, explicitly warning that all database records (workspaces, user accounts, conversations, secrets, and settings) will be forcefully erased.
+
+---
+
 # References
 
 Related documents:

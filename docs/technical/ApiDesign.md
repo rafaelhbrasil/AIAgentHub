@@ -217,7 +217,33 @@ GET /api/v1/conversations
 
 POST /api/v1/conversations
 
+GET /api/v1/conversations/{id}
+
+PATCH /api/v1/conversations/{id}
+
+PUT /api/v1/conversations/{id}/model
+
 DELETE /api/v1/conversations/{id}
+```
+
+---
+
+## Providers
+
+Examples:
+
+```
+GET /api/v1/providers
+
+GET /api/v1/providers/{id}
+
+GET /api/v1/providers/{id}/status?refresh=true
+
+GET /api/v1/providers/{id}/models?refresh=true
+
+PUT /api/v1/providers/{id}/models/settings
+
+POST /api/v1/providers/{id}/authenticate
 ```
 
 ---

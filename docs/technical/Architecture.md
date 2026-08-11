@@ -228,6 +228,7 @@ Every provider implements a common interface.
 ```
 IProvider
 
+├── AntigravityProvider (agy)
 ├── CodexProvider
 ├── GeminiProvider
 ├── ClaudeProvider

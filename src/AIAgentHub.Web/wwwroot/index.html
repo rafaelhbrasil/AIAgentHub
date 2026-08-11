@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Agent Hub — Provider-Agnostic AI Coding Assistant Platform</title>
+  <meta name="description" content="Self-hosted, provider-agnostic platform for orchestrating AI coding assistants with unified workspaces, file diffs, and real-time streaming." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <!-- SignalR Client from cdn / local fallback -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+</head>
+<body>
+  <div id="app" class="app-root">
+    <!-- Navigation Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-badge">
+          <span class="logo-icon">⚡</span>
+          <div class="logo-text">
+            <span class="logo-title">AI Agent Hub</span>
+            <span class="logo-version">v0.1 MVP</span>
+          </div>
+        </div>
+        <nav class="nav-links" id="mainNav">
+          <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+          <button class="nav-btn" data-tab="workspaces">Workspaces</button>
+          <button class="nav-btn" data-tab="providers">Providers</button>
+          <button class="nav-btn" data-tab="tools">MCPs & Skills</button>
+          <button class="nav-btn" data-tab="settings">Settings</button>
+        </nav>
+      </div>
+
+      <div class="header-right">
+        <div class="status-indicator online" id="serverStatus">
+          <span class="status-dot"></span>
+          <span class="status-label">HTTPS :5432</span>
+        </div>
+        <div class="user-menu" id="userMenu" style="display: none;">
+          <span class="user-avatar" id="userAvatar">A</span>
+          <span class="user-name" id="userNameLabel">admin</span>
+          <button class="icon-btn" id="logoutBtn" title="Sign Out" aria-label="Sign Out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-main" id="mainContent">
+      <!-- Views will be dynamically mounted here -->
+    </main>
+
+    <!-- Global Notification Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Modals Container -->
+    <div id="modalContainer" class="modal-overlay hidden">
+      <div class="modal-box glass" id="modalBox">
+        <div class="modal-header">
+          <h3 id="modalTitle">Modal Title</h3>
+          <button class="modal-close" id="modalCloseBtn">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

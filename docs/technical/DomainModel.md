@@ -89,6 +89,8 @@ A Conversation always belongs to exactly one Workspace.
 * Maintains message order.
 * Tracks the active provider.
 * Tracks the active model.
+* Tracks reasoning effort / thinking level setting (`Effort`).
+* Persists external CLI session mapping (`ProviderSessionId`).
 * Records execution metadata.
 
 ### Relationships
@@ -167,6 +169,8 @@ Examples:
 * Describe execution capabilities.
 * Expose provider-specific metadata.
 * Support model selection.
+* Track user visibility state (`IsDisplayed` toggle flag, default `true`).
+* Reconcile model availability during provider detection/refresh (purge deleted, add new as enabled, preserve existing toggles).
 
 ---
 

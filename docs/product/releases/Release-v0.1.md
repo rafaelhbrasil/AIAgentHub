@@ -74,7 +74,8 @@ Users should be able to:
 
 - list available models
 - select a default model
-- override the model per conversation
+- override the model per conversation via an active model dropdown in the conversation header
+- configure reasoning effort where supported by the provider (e.g. low, medium, high)
 
 ---
 

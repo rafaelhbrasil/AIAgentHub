@@ -33,13 +33,17 @@ The persistence mechanism should also support future migration to more powerful 
 
 AI Agent Hub adopts the following persistence strategy.
 
-## Object-Relational Mapping
+## Object-Relational Mapping & Database Migrations
 
 Entity Framework Core is the persistence framework used throughout the application.
 
 The Domain and Application layers remain independent from Entity Framework Core.
 
 Persistence concerns belong exclusively to the Infrastructure layer.
+
+Schema evolution and versioning use EF Core Code-First Migrations (`Microsoft.EntityFrameworkCore.Migrations`). 
+
+On application startup, database initialization invokes `Database.MigrateAsync()` to automatically apply all pending migrations against the SQLite database file without manual table inspection or custom ALTER statements.
 
 ---
 

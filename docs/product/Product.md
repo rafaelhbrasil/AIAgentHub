@@ -264,6 +264,19 @@ Examples include:
 
 Additional providers should be installable without modifying the application core.
 
+### Provider Model Visibility & Reconciliation
+
+Providers expose lists of available models (e.g., OpenCode exposes large catalogs). Instead of cluttering provider cards with expansive model lists:
+
+- Cards summarize available models via a model count link (e.g., "X models available").
+- Opening the model modal presents a searchable list of models with visibility toggles (ON = displayed, OFF = hidden).
+- Default visibility for newly discovered models is ON (displayed).
+- Refreshing a provider reconciles model configurations:
+  - Models no longer reported by the provider are purged.
+  - Newly added models are inserted with default visibility (ON).
+  - Existing models maintain their configured visibility setting (ON or OFF).
+- Only models marked as displayed (toggle ON) appear in conversation model selectors and workspace settings.
+
 ---
 
 # 10. Product Principles
