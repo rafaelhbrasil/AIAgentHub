@@ -16,6 +16,111 @@ const state = {
   activeStreamingMessageId: null
 };
 
+// --- Loading Skeleton Renderers ---
+function renderDashboardSkeletons() {
+  return `
+    <div class="grid-cols-3">
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-line skeleton-line-medium"></div>
+        <div class="skeleton skeleton-line skeleton-line-short"></div>
+        <div class="skeleton skeleton-stat"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-line skeleton-line-medium"></div>
+        <div class="skeleton skeleton-line skeleton-line-short"></div>
+        <div class="skeleton skeleton-stat"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-line skeleton-line-medium"></div>
+        <div class="skeleton skeleton-line skeleton-line-short"></div>
+        <div class="skeleton skeleton-stat"></div>
+      </div>
+    </div>
+    <div class="skeleton-card" style="margin-bottom: 24px;">
+      <div class="skeleton skeleton-line skeleton-line-long"></div>
+      <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+        ${Array(5).fill('').map(() => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(0,0,0,0.25); border-radius: 6px;">
+            <div style="flex: 1;">
+              <div class="skeleton skeleton-line skeleton-line-medium"></div>
+              <div class="skeleton skeleton-line skeleton-line-short" style="margin-top: 6px;"></div>
+            </div>
+            <div class="skeleton skeleton-badge" style="margin-left: 12px;"></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderProviderSkeletons() {
+  return `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h2>AI Providers</h2>
+      <button class="btn btn-secondary" disabled>🔄 Refresh All Providers</button>
+    </div>
+    <div class="grid-cols-3">
+      ${Array(4).fill('').map(() => `
+        <div class="skeleton-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="skeleton skeleton-line skeleton-line-medium"></div>
+            <div class="skeleton skeleton-badge"></div>
+          </div>
+          <div class="skeleton skeleton-line skeleton-line-short" style="margin-top: 8px;"></div>
+          <div class="skeleton skeleton-line skeleton-line-long" style="margin-top: 12px;"></div>
+          <div style="display: flex; gap: 8px; margin-top: 12px;">
+            <div class="skeleton skeleton-badge"></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// --- Loading Overlay ---
+function showLoadingOverlay(text = 'Loading...') {
+  let overlay = document.getElementById('loadingOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'loadingOverlay';
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = `
+      <div class="loading-spinner"></div>
+      <div class="loading-text">${text}</div>
+    `;
+    document.body.appendChild(overlay);
+  } else {
+    overlay.querySelector('.loading-text').textContent = text;
+    overlay.classList.remove('hidden');
+  }
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+// --- Performance Benchmarks ---
+const BENCHMARKS_ENABLED = true;
+
+function benchmarkMark(name) {
+  if (BENCHMARKS_ENABLED) performance.mark(name);
+}
+
+function benchmarkMeasure(name, startMark, endMark) {
+  if (!BENCHMARKS_ENABLED) return;
+  try {
+    performance.measure(name, startMark, endMark);
+    const entries = performance.getEntriesByName(name);
+    if (entries.length > 0) {
+      const duration = entries[entries.length - 1].duration.toFixed(2);
+      console.log(`[Benchmark] ${name}: ${duration}ms`);
+    }
+  } catch {
+    // Marks may not exist
+  }
+}
+
 // --- Client-Side Router ---
 function navigateTo(path, pushState = true) {
   if (pushState) {
@@ -357,13 +462,23 @@ function renderActiveTab() {
 
 // --- Dashboard View ---
 async function renderDashboard(container) {
-  const wsRes = await apiFetch('/api/v1/workspaces');
-  const provRes = await apiFetch('/api/v1/providers');
+  benchmarkMark('dashboard-render-start');
+  
+  // Show skeletons while loading
+  container.innerHTML = renderDashboardSkeletons();
+
+  // Fetch data from backend (backend handles caching)
+  const [wsRes, provRes] = await Promise.all([
+    apiFetch('/api/v1/workspaces'),
+    apiFetch('/api/v1/providers')
+  ]);
 
   state.workspaces = (wsRes.ok && wsRes.data) ? wsRes.data : [];
   state.providers = (provRes.ok && provRes.data) ? provRes.data : [];
 
   const installedCount = state.providers.filter((p) => p.isInstalled).length;
+
+  benchmarkMark('dashboard-render-end');
 
   container.innerHTML = `
     <div class="grid-cols-3">
@@ -411,6 +526,8 @@ async function renderDashboard(container) {
       </div>
     </div>
   `;
+
+  benchmarkMeasure('dashboard-render', 'dashboard-render-start', 'dashboard-render-end');
 
   document.getElementById('dashNewWsBtn')?.addEventListener('click', showCreateWorkspaceModal);
   container.querySelectorAll('.open-ws-btn').forEach((btn) => {
@@ -920,20 +1037,49 @@ async function loadGlobalProviders() {
 
 // --- Providers View ---
 async function renderProviders(container) {
+  benchmarkMark('providers-render-start');
+  
+  // Show skeletons while loading
+  container.innerHTML = renderProviderSkeletons();
+
+  // Fetch data from backend (backend handles caching)
   const res = await apiFetch('/api/v1/providers');
   state.providers = (res.ok && res.data) ? res.data : [];
 
+  benchmarkMark('providers-render-end');
+
+  renderProviderCards(container);
+
+  benchmarkMeasure('providers-render', 'providers-render-start', 'providers-render-end');
+}
+
+function renderProviderCards(container) {
   container.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
       <h2>AI Providers</h2>
       <button class="btn btn-secondary" id="refreshProvBtn">🔄 Refresh All Providers</button>
     </div>
     <div class="grid-cols-3" id="providersGrid">
-      ${state.providers.map((p) => `
+      ${state.providers.map((p) => {
+        const statusText = p.status === 'Ready' || p.status === 2 ? 'Available' : 
+                          p.status === 'NotInstalled' || p.status === 0 ? 'Not Installed' :
+                          p.status === 'Unauthenticated' || p.status === 1 ? 'Not Authenticated' :
+                          p.status === 'QuotaExceeded' || p.status === 5 ? 'Quota Exceeded' : 'Unknown';
+        const statusClass = p.status === 'Ready' || p.status === 2 ? 'badge-provider' :
+                           p.status === 'NotInstalled' || p.status === 0 ? 'badge-model' : '';
+        const message = p.message || '';
+        const showMessage = message ? 'block' : 'none';
+        const messageBg = p.status === 'Ready' || p.status === 2 ? 'rgba(34, 197, 94, 0.1)' :
+                         p.status === 'NotInstalled' || p.status === 0 ? 'rgba(239, 68, 68, 0.1)' :
+                         'rgba(251, 191, 36, 0.1)';
+        const messageColor = p.status === 'Ready' || p.status === 2 ? '#22c55e' :
+                            p.status === 'NotInstalled' || p.status === 0 ? '#ef4444' :
+                            '#fbbf24';
+        return `
         <div class="card glass" id="provider-card-${p.id}">
           <div class="card-title">
             <span>${escapeHtml(p.displayName)}</span>
-            <span class="badge badge-provider" id="provider-status-${p.id}">Checking...</span>
+            <span class="badge ${statusClass}" id="provider-status-${p.id}">${statusText}</span>
           </div>
           <div class="card-subtitle">${escapeHtml(p.description)}</div>
           
@@ -944,23 +1090,32 @@ async function renderProviders(container) {
             </button>
           </div>
 
-          <div id="provider-message-${p.id}" style="padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 12px; display: none;"></div>
+          <div id="provider-message-${p.id}" style="padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 12px; display: ${showMessage}; background: ${messageBg}; color: ${messageColor};">${escapeHtml(message)}</div>
 
           <div id="provider-actions-${p.id}" style="display: flex; gap: 8px;">
             <button class="btn btn-secondary" onclick="refreshProvider('${p.id}')">🔄 Refresh</button>
           </div>
         </div>
-      `).join('')}
+      `}).join('')}
     </div>
   `;
 
   document.getElementById('refreshProvBtn').addEventListener('click', async () => {
-    showToast('Refreshing all providers...', 'info');
-    await Promise.all(state.providers.map(p => refreshProvider(p.id)));
+    showLoadingOverlay('Refreshing all providers...');
+    
+    // Single batch refresh endpoint
+    const res = await apiFetch('/api/v1/providers?refresh=true');
+    if (res.ok && res.data) {
+      state.providers = res.data;
+      hideLoadingOverlay();
+      showToast('All providers refreshed.', 'success');
+      // Re-render cards with new data (no API call)
+      renderProviderCards(document.getElementById('mainContent'));
+    } else {
+      hideLoadingOverlay();
+      showToast('Failed to refresh providers.', 'error');
+    }
   });
-
-  // Load detailed status for each provider
-  await Promise.all(state.providers.map(p => refreshProvider(p.id)));
 }
 
 async function refreshProvider(providerId) {
