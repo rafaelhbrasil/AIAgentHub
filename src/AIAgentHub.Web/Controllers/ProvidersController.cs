@@ -1,4 +1,5 @@
 using AIAgentHub.Application.Providers;
+using AIAgentHub.Domain.Providers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
@@ -15,9 +16,21 @@ public sealed class ProvidersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll([FromQuery] bool refresh = false, CancellationToken cancellationToken = default)
     {
-        var providers = await _providerManager.DetectAllAsync(cancellationToken);
+        IReadOnlyList<ProviderInfo> providers;
+        
+        if (refresh)
+        {
+            // Force refresh all providers in parallel
+            providers = await _providerManager.RefreshAllAsync(cancellationToken);
+        }
+        else
+        {
+            // Read from DB cache
+            providers = await _providerManager.GetAllAsync(cancellationToken);
+        }
+        
         return Ok(providers);
     }
 

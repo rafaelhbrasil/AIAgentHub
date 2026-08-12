@@ -23,6 +23,7 @@ public sealed class AgentHubDbContext : DbContext
     public DbSet<McpServer> McpServers => Set<McpServer>();
     public DbSet<PermissionRequest> PermissionRequests => Set<PermissionRequest>();
     public DbSet<AIAgentHub.Domain.Providers.ProviderModelSetting> ProviderModelSettings => Set<AIAgentHub.Domain.Providers.ProviderModelSetting>();
+    public DbSet<AIAgentHub.Domain.Providers.ProviderDetectionRecord> ProviderDetectionRecords => Set<AIAgentHub.Domain.Providers.ProviderDetectionRecord>();
 
     public AgentHubDbContext(DbContextOptions<AgentHubDbContext> options) : base(options)
     {
@@ -178,6 +179,17 @@ public sealed class AgentHubDbContext : DbContext
             b.Property(s => s.ProviderId).IsRequired().HasMaxLength(64);
             b.Property(s => s.ModelId).IsRequired().HasMaxLength(128);
             b.HasIndex(s => new { s.ProviderId, s.ModelId }).IsUnique();
+        });
+
+        // ProviderDetectionRecord
+        modelBuilder.Entity<AIAgentHub.Domain.Providers.ProviderDetectionRecord>(b =>
+        {
+            b.HasKey(r => r.Id);
+            b.Property(r => r.ProviderId).IsRequired().HasMaxLength(64);
+            b.Property(r => r.Message).HasMaxLength(1024);
+            b.Property(r => r.Version).HasMaxLength(64);
+            b.Property(r => r.ExecutablePath).HasMaxLength(1024);
+            b.HasIndex(r => r.ProviderId).IsUnique();
         });
     }
 }

@@ -426,6 +426,89 @@ public sealed class PermissionRequestRepository : IPermissionRequestRepository
     }
 }
 
+public sealed class ProviderDetectionRecordRepository : IProviderDetectionRecordRepository
+{
+    private readonly AgentHubDbContext _context;
+
+    public ProviderDetectionRecordRepository(AgentHubDbContext context) => _context = context;
+
+    private async Task EnsureTableCreatedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""ProviderDetectionRecords"" (
+                    ""Id"" TEXT NOT NULL CONSTRAINT ""PK_ProviderDetectionRecords"" PRIMARY KEY,
+                    ""ProviderId"" TEXT NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Message"" TEXT NULL,
+                    ""Version"" TEXT NULL,
+                    ""ExecutablePath"" TEXT NULL,
+                    ""IsInstalled"" INTEGER NOT NULL,
+                    ""IsAuthenticated"" INTEGER NOT NULL,
+                    ""QuotaResetsAt"" TEXT NULL,
+                    ""DetectedAtUtc"" TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ProviderDetectionRecords_ProviderId"" ON ""ProviderDetectionRecords"" (""ProviderId"");
+            ", cancellationToken);
+        }
+        catch
+        {
+            // Ignore if concurrently created or unsupported
+        }
+    }
+
+    public async Task<IReadOnlyList<AIAgentHub.Domain.Providers.ProviderDetectionRecord>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureTableCreatedAsync(cancellationToken);
+        return await _context.ProviderDetectionRecords.ToListAsync(cancellationToken);
+    }
+
+    public async Task<AIAgentHub.Domain.Providers.ProviderDetectionRecord?> GetByProviderIdAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        await EnsureTableCreatedAsync(cancellationToken);
+        return await _context.ProviderDetectionRecords
+            .FirstOrDefaultAsync(r => r.ProviderId == providerId, cancellationToken);
+    }
+
+    public async Task UpsertAsync(AIAgentHub.Domain.Providers.ProviderDetectionRecord record, CancellationToken cancellationToken = default)
+    {
+        await EnsureTableCreatedAsync(cancellationToken);
+        var existing = await _context.ProviderDetectionRecords
+            .FirstOrDefaultAsync(r => r.ProviderId == record.ProviderId, cancellationToken);
+
+        if (existing != null)
+        {
+            existing.Status = record.Status;
+            existing.Message = record.Message;
+            existing.Version = record.Version;
+            existing.ExecutablePath = record.ExecutablePath;
+            existing.IsInstalled = record.IsInstalled;
+            existing.IsAuthenticated = record.IsAuthenticated;
+            existing.QuotaResetsAt = record.QuotaResetsAt;
+            existing.DetectedAtUtc = record.DetectedAtUtc;
+        }
+        else
+        {
+            _context.ProviderDetectionRecords.Add(record);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        await EnsureTableCreatedAsync(cancellationToken);
+        var existing = await _context.ProviderDetectionRecords
+            .FirstOrDefaultAsync(r => r.ProviderId == providerId, cancellationToken);
+        if (existing != null)
+        {
+            _context.ProviderDetectionRecords.Remove(existing);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+}
+
 public sealed class ProviderModelSettingRepository : IProviderModelSettingRepository
 {
     private readonly AgentHubDbContext _context;

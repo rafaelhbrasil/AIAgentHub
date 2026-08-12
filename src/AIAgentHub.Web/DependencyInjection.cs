@@ -10,6 +10,7 @@ using AIAgentHub.Application.Workspaces;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Cryptography;
+using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Providers;
 using AIAgentHub.Infrastructure.Realtime;
@@ -48,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IMcpServerRepository, McpServerRepository>();
         services.AddScoped<IPermissionRequestRepository, PermissionRequestRepository>();
         services.AddScoped<IProviderModelSettingRepository, ProviderModelSettingRepository>();
+        services.AddScoped<IProviderDetectionRecordRepository, ProviderDetectionRecordRepository>();
         services.AddScoped<DatabaseInitializer>();
         services.AddScoped<IDatabaseResetter, DatabaseResetter>();
 
@@ -75,6 +77,15 @@ public static class DependencyInjection
 
         // 7. Provider Adapters & Manager (including Antigravity CLI / agy)
         services.Configure<AIAgentHub.Domain.Configuration.CliExecutionOptions>(configuration.GetSection("AgentHub:CliExecution"));
+        services.AddSingleton<HeadlessProcessExecutor>();
+        services.AddSingleton<HeadedProcessExecutor>();
+        services.AddSingleton<IProcessExecutor>(sp =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AIAgentHub.Domain.Configuration.CliExecutionOptions>>().Value;
+            return options.Headless
+                ? sp.GetRequiredService<HeadlessProcessExecutor>()
+                : sp.GetRequiredService<HeadedProcessExecutor>();
+        });
         services.AddSingleton<IProvider, AntigravityProvider>();
         services.AddSingleton<IProvider, GeminiCliProvider>();
         services.AddSingleton<IProvider, CodexCliProvider>();
@@ -82,8 +93,12 @@ public static class DependencyInjection
         services.AddSingleton<IProvider, OpenCodeProvider>();
         services.AddSingleton<IProviderManager>(sp => new ProviderManager(
             sp.GetServices<IProvider>(),
-            () => sp.CreateScope().ServiceProvider.GetRequiredService<IProviderModelSettingRepository>()
+            () => sp.CreateScope().ServiceProvider.GetRequiredService<IProviderModelSettingRepository>(),
+            () => sp.CreateScope().ServiceProvider.GetRequiredService<IProviderDetectionRecordRepository>()
         ));
+
+        // 7b. Prompt Logging
+        services.AddSingleton<IPromptLogger, PromptLogger>();
 
         // 8. Application Services
         services.AddScoped<IWorkspaceService, WorkspaceService>();

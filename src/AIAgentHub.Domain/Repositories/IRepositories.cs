@@ -95,3 +95,11 @@ public interface IProviderModelSettingRepository
     Task UpdateSettingsAsync(string providerId, Dictionary<string, bool> modelStates, CancellationToken cancellationToken = default);
 }
 
+public interface IProviderDetectionRecordRepository
+{
+    Task<IReadOnlyList<AIAgentHub.Domain.Providers.ProviderDetectionRecord>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<AIAgentHub.Domain.Providers.ProviderDetectionRecord?> GetByProviderIdAsync(string providerId, CancellationToken cancellationToken = default);
+    Task UpsertAsync(AIAgentHub.Domain.Providers.ProviderDetectionRecord record, CancellationToken cancellationToken = default);
+    Task DeleteAsync(string providerId, CancellationToken cancellationToken = default);
+}
+
