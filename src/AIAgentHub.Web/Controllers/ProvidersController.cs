@@ -1,25 +1,21 @@
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Providers;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/providers")]
-public sealed class ProvidersController : ControllerBase
+public sealed class ProvidersController(IProviderManager providerManager) : ApiControllerBase
 {
-    private readonly IProviderManager _providerManager;
-
-    public ProvidersController(IProviderManager providerManager)
-    {
-        _providerManager = providerManager;
-    }
+    private readonly IProviderManager _providerManager = providerManager;
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool refresh = false, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ProviderInfo> providers;
-        
+
         if (refresh)
         {
             // Force refresh all providers in parallel
@@ -30,7 +26,7 @@ public sealed class ProvidersController : ControllerBase
             // Read from DB cache
             providers = await _providerManager.GetAllAsync(cancellationToken);
         }
-        
+
         return Ok(providers);
     }
 
@@ -38,9 +34,7 @@ public sealed class ProvidersController : ControllerBase
     public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
     {
         var info = await _providerManager.GetProviderInfoAsync(id, cancellationToken);
-        if (info == null)
-            return NotFound(new { code = "provider_not_found", message = $"Provider '{id}' was not found." });
-        return Ok(info);
+        return info == null ? NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.") : Ok(info);
     }
 
     [HttpGet("{id}/status")]
@@ -53,7 +47,7 @@ public sealed class ProvidersController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "provider_not_found", message = $"Provider '{id}' was not found." });
+            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
         }
     }
 
@@ -67,7 +61,7 @@ public sealed class ProvidersController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "provider_not_found", message = $"Provider '{id}' was not found." });
+            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
         }
     }
 
@@ -82,7 +76,7 @@ public sealed class ProvidersController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "provider_not_found", message = $"Provider '{id}' was not found." });
+            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
         }
     }
 
@@ -93,12 +87,12 @@ public sealed class ProvidersController : ControllerBase
     {
         try
         {
-            await _providerManager.UpdateModelSettingsAsync(id, request.ModelStates ?? new(), cancellationToken);
+            await _providerManager.UpdateModelSettingsAsync(id, request.ModelStates ?? [], cancellationToken);
             return Ok(new { success = true });
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "provider_not_found", message = $"Provider '{id}' was not found." });
+            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
         }
     }
 }

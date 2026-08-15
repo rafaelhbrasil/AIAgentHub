@@ -16,21 +16,20 @@ public sealed class FileChange : Entity
 
     public static FileChange Create(Guid conversationId, string relativePath, FileChangeType changeType, string? snapshotPath = null)
     {
-        if (conversationId == Guid.Empty)
-            throw new ArgumentException("Conversation ID must be valid.", nameof(conversationId));
-        if (string.IsNullOrWhiteSpace(relativePath))
-            throw new ArgumentException("Relative path cannot be empty.", nameof(relativePath));
-
-        return new FileChange
-        {
-            Id = Guid.NewGuid(),
-            ConversationId = conversationId,
-            RelativePath = relativePath.Replace('\\', '/').TrimStart('/'),
-            ChangeType = changeType,
-            SnapshotPath = snapshotPath,
-            Status = ReviewStatus.Pending,
-            CreatedAtUtc = DateTimeOffset.UtcNow
-        };
+        return conversationId == Guid.Empty
+            ? throw new ArgumentException("Conversation ID must be valid.", nameof(conversationId))
+            : string.IsNullOrWhiteSpace(relativePath)
+            ? throw new ArgumentException("Relative path cannot be empty.", nameof(relativePath))
+            : new FileChange
+            {
+                Id = Guid.NewGuid(),
+                ConversationId = conversationId,
+                RelativePath = relativePath.Replace('\\', '/').TrimStart('/'),
+                ChangeType = changeType,
+                SnapshotPath = snapshotPath,
+                Status = ReviewStatus.Pending,
+                CreatedAtUtc = DateTimeOffset.UtcNow
+            };
     }
 
     public void Accept()

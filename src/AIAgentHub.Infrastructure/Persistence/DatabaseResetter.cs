@@ -1,27 +1,21 @@
 using AIAgentHub.Application.Security;
 using AIAgentHub.Domain.Repositories;
+
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentHub.Infrastructure.Persistence;
 
-public sealed class DatabaseResetter : IDatabaseResetter
+public sealed class DatabaseResetter(AgentHubDbContext context, IServerSettingsRepository settingsRepository) : IDatabaseResetter
 {
-    private readonly AgentHubDbContext _context;
-    private readonly IServerSettingsRepository _settingsRepository;
-
-    public DatabaseResetter(AgentHubDbContext context, IServerSettingsRepository settingsRepository)
-    {
-        _context = context;
-        _settingsRepository = settingsRepository;
-    }
+    private readonly AgentHubDbContext _context = context;
+    private readonly IServerSettingsRepository _settingsRepository = settingsRepository;
 
     public async Task WipeAllDataAsync(CancellationToken cancellationToken = default)
     {
         _context.ChangeTracker.Clear();
         SqliteConnection.ClearAllPools();
-        await _context.Database.EnsureDeletedAsync(cancellationToken);
-        await _context.Database.MigrateAsync(cancellationToken);
-        await _settingsRepository.GetAsync(cancellationToken);
+        _ = await _context.Database.EnsureDeletedAsync(cancellationToken);
+        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
+        _ = await _settingsRepository.GetAsync(cancellationToken);
     }
 }

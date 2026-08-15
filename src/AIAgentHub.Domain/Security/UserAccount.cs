@@ -15,24 +15,20 @@ public sealed class UserAccount : AggregateRoot
 
     public static UserAccount Create(string username, string passwordHash, string passwordSalt, string recoveryCodeHash)
     {
-        if (string.IsNullOrWhiteSpace(username))
-            throw new ArgumentException("Username cannot be empty.", nameof(username));
-
-        return new UserAccount
-        {
-            Id = Guid.NewGuid(),
-            Username = username.Trim(),
-            PasswordHash = passwordHash,
-            PasswordSalt = passwordSalt,
-            RecoveryCodeHash = recoveryCodeHash,
-            CreatedAtUtc = DateTimeOffset.UtcNow
-        };
+        return string.IsNullOrWhiteSpace(username)
+            ? throw new ArgumentException("Username cannot be empty.", nameof(username))
+            : new UserAccount
+            {
+                Id = Guid.NewGuid(),
+                Username = username.Trim(),
+                PasswordHash = passwordHash,
+                PasswordSalt = passwordSalt,
+                RecoveryCodeHash = recoveryCodeHash,
+                CreatedAtUtc = DateTimeOffset.UtcNow
+            };
     }
 
-    public void RecordLogin()
-    {
-        LastLoginAtUtc = DateTimeOffset.UtcNow;
-    }
+    public void RecordLogin() => LastLoginAtUtc = DateTimeOffset.UtcNow;
 
     public void UpdatePassword(string passwordHash, string passwordSalt)
     {

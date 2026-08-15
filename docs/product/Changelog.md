@@ -63,12 +63,22 @@ Security-related improvements.
 - **Per-Conversation CLI Session Tracking**: Implemented `ProviderSessionId` persistence per conversation to isolate CLI agent sessions across chats (`agy --conversation <id>`, `opencode run --session <id>`).
 - **EF Core Code-First Migrations**: Introduced EF Core Code-First Migrations (`Microsoft.EntityFrameworkCore.Migrations`) with automated runtime migration (`Database.MigrateAsync()`) on application startup.
 - **PowerShell Execution Modes**: Enhanced execution engine to support both headless streaming and visible PowerShell windows in non-headless mode.
+- **Universal Headed CLI Execution**: When Headed mode is enabled (`Headless: false`), all auxiliary provider commands (dynamic model discovery, status/version detection, authentication checks, and session listings) execute via visible desktop PowerShell console windows instead of silent background processes.
 - **SPA Client-Side Routing**: Added browser history and client-side URL hash routing (`#workspace/...`, `#conversation/...`).
+
+- **Responsive Mobile & Tablet Design**: Overhauled all application views with multi-breakpoint media queries, replacing desktop navbar on mobile with a compact hamburger drawer menu, compact server status indicator, and mobile layout switcher.
+- **Compact Studio Header & Action Options**: Consolidated workspace and conversation headers into a single 42px topbar with an Options dropdown menu, maximizing vertical chat space.
+- **Auto-Growing Prompt Textbox & Circular Send Button**: Textarea dynamically expands up to 30% of screen height with a dedicated circular send button. On mobile devices, Enter inserts newlines while Shift+Enter/Enter behavior is preserved on desktop.
+- **User Cancellation Notice on Abort**: Explicitly records and broadcasts `*(AI response was cancelled by the user.)*` when an ongoing execution is cancelled, saving it to persistent message history.
+- **Single-Click Visual Folder Navigation**: Replaced double-click folder navigation with single-click directory traversal in the folder explorer modal, dynamically defaulting to the user's home profile directory.
 
 ## Fixed
 
 - Fixed provider status showing "Unknown" by enabling global string enum serialization in ASP.NET Core (`JsonStringEnumConverter`).
 - Fixed OpenCode "Session not found" error by tagging initial runs with `--title agenthub-{conversationId}` and resolving generated native IDs (`ses_...`).
+- Fixed active model count not updating on provider cards after closing the model configuration modal by syncing provider state and fetching fresh DB model catalogs.
+- Fixed returning from conversation studio requiring two clicks on the Back button due to URL synchronization race condition.
+- Fixed options dropdown menu clipping behind the conversation message pane on mobile by correcting stacking context z-indexes.
 
 # [0.1.0] - Initial MVP
 

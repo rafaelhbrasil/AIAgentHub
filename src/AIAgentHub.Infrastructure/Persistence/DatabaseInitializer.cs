@@ -1,34 +1,20 @@
 using AIAgentHub.Domain.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentHub.Infrastructure.Persistence;
 
-public sealed class DatabaseInitializer
+public sealed class DatabaseInitializer(AgentHubDbContext context, IServerSettingsRepository settingsRepository)
 {
-    private readonly AgentHubDbContext _context;
-    private readonly IServerSettingsRepository _settingsRepository;
-
-    public DatabaseInitializer(AgentHubDbContext context, IServerSettingsRepository settingsRepository)
-    {
-        _context = context;
-        _settingsRepository = settingsRepository;
-    }
+    private readonly AgentHubDbContext _context = context;
+    private readonly IServerSettingsRepository _settingsRepository = settingsRepository;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            await _context.Database.MigrateAsync(cancellationToken);
-        }
-        catch
-        {
-            await _context.Database.EnsureCreatedAsync(cancellationToken);
-        }
+        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
 
         try
         {
             // Ensure default settings record exists
-            await _settingsRepository.GetAsync(cancellationToken);
+            _ = await _settingsRepository.GetAsync(cancellationToken);
         }
         catch
         {

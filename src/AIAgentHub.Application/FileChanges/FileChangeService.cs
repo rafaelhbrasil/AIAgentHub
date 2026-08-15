@@ -3,67 +3,42 @@ using AIAgentHub.Domain.Repositories;
 
 namespace AIAgentHub.Application.FileChanges;
 
-public sealed class FileChangeService : IFileChangeService
+public sealed class FileChangeService(
+    IFileChangeRepository fileChangeRepository,
+    ISnapshotService snapshotService,
+    IDiffEngine diffEngine) : IFileChangeService
 {
-    private readonly IFileChangeRepository _fileChangeRepository;
-    private readonly ISnapshotService _snapshotService;
-    private readonly IDiffEngine _diffEngine;
+    private readonly IFileChangeRepository _fileChangeRepository = fileChangeRepository;
+    private readonly ISnapshotService _snapshotService = snapshotService;
+    private readonly IDiffEngine _diffEngine = diffEngine;
 
-    public FileChangeService(
-        IFileChangeRepository fileChangeRepository,
-        ISnapshotService snapshotService,
-        IDiffEngine diffEngine)
-    {
-        _fileChangeRepository = fileChangeRepository;
-        _snapshotService = snapshotService;
-        _diffEngine = diffEngine;
-    }
+    public Task<IReadOnlyList<FileChange>> GetChangesAsync(Guid conversationId, CancellationToken cancellationToken = default) => _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
 
-    public Task<IReadOnlyList<FileChange>> GetChangesAsync(Guid conversationId, CancellationToken cancellationToken = default)
-    {
-        return _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
-    }
-
-    public Task<FileChange?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return _fileChangeRepository.GetByIdAsync(id, cancellationToken);
-    }
+    public Task<FileChange?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _fileChangeRepository.GetByIdAsync(id, cancellationToken);
 
     public async Task<DiffResult> GetDiffAsync(Guid fileChangeId, string workspacePath, CancellationToken cancellationToken = default)
     {
-        var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken);
-        if (change == null)
-            throw new KeyNotFoundException($"File change {fileChangeId} not found.");
-
+        var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken) ?? throw new KeyNotFoundException($"File change {fileChangeId} not found.");
         var fullCurrentPath = Path.Combine(workspacePath, change.RelativePath);
-        string? currentText = File.Exists(fullCurrentPath) ? await File.ReadAllTextAsync(fullCurrentPath, cancellationToken) : null;
-        string? originalText = await _snapshotService.GetSnapshotContentAsync(change, cancellationToken);
+        var currentText = File.Exists(fullCurrentPath) ? await File.ReadAllTextAsync(fullCurrentPath, cancellationToken) : null;
+        var originalText = await _snapshotService.GetSnapshotContentAsync(change, cancellationToken);
 
         var ext = Path.GetExtension(change.RelativePath).ToLowerInvariant();
-        if (IsImageExtension(ext))
-        {
-            return _diffEngine.CalculateImageDiff(change.RelativePath, originalText, currentText);
-        }
-
-        return _diffEngine.CalculateTextDiff(change.RelativePath, originalText, currentText);
+        return IsImageExtension(ext)
+            ? _diffEngine.CalculateImageDiff(change.RelativePath, originalText, currentText)
+            : _diffEngine.CalculateTextDiff(change.RelativePath, originalText, currentText);
     }
 
     public async Task AcceptAsync(Guid fileChangeId, CancellationToken cancellationToken = default)
     {
-        var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken);
-        if (change == null)
-            throw new KeyNotFoundException($"File change {fileChangeId} not found.");
-
+        var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken) ?? throw new KeyNotFoundException($"File change {fileChangeId} not found.");
         change.Accept();
         await _fileChangeRepository.UpdateAsync(change, cancellationToken);
     }
 
     public async Task RejectAsync(Guid fileChangeId, string workspacePath, CancellationToken cancellationToken = default)
     {
-        var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken);
-        if (change == null)
-            throw new KeyNotFoundException($"File change {fileChangeId} not found.");
-
+        var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken) ?? throw new KeyNotFoundException($"File change {fileChangeId} not found.");
         await _snapshotService.RollbackFileAsync(change, workspacePath, cancellationToken);
         change.Reject();
         await _fileChangeRepository.UpdateAsync(change, cancellationToken);

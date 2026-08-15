@@ -7,6 +7,7 @@ using AIAgentHub.Application.Realtime;
 using AIAgentHub.Application.Rendering;
 using AIAgentHub.Application.Security;
 using AIAgentHub.Application.Workspaces;
+using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Cryptography;
@@ -15,8 +16,11 @@ using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Providers;
 using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Infrastructure.Snapshots;
+
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+
 using IAppAuthService = AIAgentHub.Application.Security.IAuthenticationService;
 
 namespace AIAgentHub.Web;
@@ -28,93 +32,98 @@ public static class DependencyInjection
         // 1. Data Directory & SQLite DB Configuration
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var dataDir = Path.Combine(localAppData, "AIAgentHub", "Data");
-        if (!Directory.Exists(dataDir)) Directory.CreateDirectory(dataDir);
+        if (!Directory.Exists(dataDir))
+        {
+            _ = Directory.CreateDirectory(dataDir);
+        }
+
         var dbPath = Path.Combine(dataDir, "AIAgentHub.db");
 
-        services.AddDbContext<AgentHubDbContext>(options =>
+        _ = services.AddDbContext<AgentHubDbContext>(options =>
         {
-            options.UseSqlite($"Data Source={dbPath}");
-            options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+            _ = options.UseSqlite($"Data Source={dbPath}");
+            _ = options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         });
 
         // 2. Repositories
-        services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
-        services.AddScoped<IConversationRepository, ConversationRepository>();
-        services.AddScoped<IUserAccountRepository, UserAccountRepository>();
-        services.AddScoped<IServerSettingsRepository, ServerSettingsRepository>();
-        services.AddScoped<IFileChangeRepository, FileChangeRepository>();
-        services.AddScoped<IFileSnapshotRepository, FileSnapshotRepository>();
-        services.AddScoped<IEncryptedSecretRepository, EncryptedSecretRepository>();
-        services.AddScoped<ISkillRepository, SkillRepository>();
-        services.AddScoped<IMcpServerRepository, McpServerRepository>();
-        services.AddScoped<IPermissionRequestRepository, PermissionRequestRepository>();
-        services.AddScoped<IProviderModelSettingRepository, ProviderModelSettingRepository>();
-        services.AddScoped<IProviderDetectionRecordRepository, ProviderDetectionRecordRepository>();
-        services.AddScoped<DatabaseInitializer>();
-        services.AddScoped<IDatabaseResetter, DatabaseResetter>();
+        _ = services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+        _ = services.AddScoped<IConversationRepository, ConversationRepository>();
+        _ = services.AddScoped<IUserAccountRepository, UserAccountRepository>();
+        _ = services.AddScoped<IServerSettingsRepository, ServerSettingsRepository>();
+        _ = services.AddScoped<IFileChangeRepository, FileChangeRepository>();
+        _ = services.AddScoped<IFileSnapshotRepository, FileSnapshotRepository>();
+        _ = services.AddScoped<IEncryptedSecretRepository, EncryptedSecretRepository>();
+        _ = services.AddScoped<ISkillRepository, SkillRepository>();
+        _ = services.AddScoped<IMcpServerRepository, McpServerRepository>();
+        _ = services.AddScoped<IPermissionRequestRepository, PermissionRequestRepository>();
+        _ = services.AddScoped<IProviderModelSettingRepository, ProviderModelSettingRepository>();
+        _ = services.AddScoped<IProviderDetectionRecordRepository, ProviderDetectionRecordRepository>();
+        _ = services.AddScoped<DatabaseInitializer>();
+        _ = services.AddScoped<IDatabaseResetter, DatabaseResetter>();
 
         // 3. Cryptography & Security
-        services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
-        services.AddSingleton<IMasterKeyProvider, MasterKeyProvider>();
-        services.AddSingleton<ISecretEncryptor, AesGcmSecretEncryptor>();
-        services.AddSingleton<ICertificateManager, CertificateManager>();
+        _ = services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
+        _ = services.AddSingleton<IMasterKeyProvider, MasterKeyProvider>();
+        _ = services.AddSingleton<ISecretEncryptor, AesGcmSecretEncryptor>();
+        _ = services.AddSingleton<ICertificateManager, CertificateManager>();
 
         // 4. Filesystem & Snapshots
-        services.AddSingleton<IFilesystemService, FilesystemService>();
-        services.AddScoped<ISnapshotService, LocalDiskSnapshotStore>();
+        _ = services.AddSingleton<IFilesystemService, FilesystemService>();
+        _ = services.AddScoped<ISnapshotService, LocalDiskSnapshotStore>();
 
         // 5. Diff Engine
-        services.AddSingleton<IDiffEngine, DiffEngine>();
+        _ = services.AddSingleton<IDiffEngine, DiffEngine>();
 
         // 6. Content Renderers
-        services.AddSingleton<IContentRenderer, TextContentRenderer>();
-        services.AddSingleton<IContentRenderer, MarkdownContentRenderer>();
-        services.AddSingleton<IContentRenderer, ImageContentRenderer>();
-        services.AddSingleton<IContentRenderer, JsonContentRenderer>();
-        services.AddSingleton<IContentRenderer, XmlContentRenderer>();
-        services.AddSingleton<IContentRenderer, YamlContentRenderer>();
-        services.AddSingleton<IContentRenderingManager, ContentRenderingManager>();
+        _ = services.AddSingleton<IContentRenderer, TextContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, MarkdownContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, ImageContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, JsonContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, XmlContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, YamlContentRenderer>();
+        _ = services.AddSingleton<IContentRenderingManager, ContentRenderingManager>();
 
         // 7. Provider Adapters & Manager (including Antigravity CLI / agy)
-        services.Configure<AIAgentHub.Domain.Configuration.CliExecutionOptions>(configuration.GetSection("AgentHub:CliExecution"));
-        services.AddSingleton<HeadlessProcessExecutor>();
-        services.AddSingleton<HeadedProcessExecutor>();
-        services.AddSingleton<IProcessExecutor>(sp =>
+        _ = services.Configure<CliExecutionOptions>(configuration.GetSection("AgentHub:CliExecution"));
+        _ = services.Configure<ProvidersOptions>(configuration.GetSection(ProvidersOptions.SectionName));
+        _ = services.AddSingleton<HeadlessProcessExecutor>();
+        _ = services.AddSingleton<HeadedProcessExecutor>();
+        _ = services.AddSingleton<IProcessExecutor>(sp =>
         {
-            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AIAgentHub.Domain.Configuration.CliExecutionOptions>>().Value;
+            var options = sp.GetRequiredService<IOptions<CliExecutionOptions>>().Value;
             return options.Headless
                 ? sp.GetRequiredService<HeadlessProcessExecutor>()
                 : sp.GetRequiredService<HeadedProcessExecutor>();
         });
-        services.AddSingleton<IProvider, AntigravityProvider>();
-        services.AddSingleton<IProvider, GeminiCliProvider>();
-        services.AddSingleton<IProvider, CodexCliProvider>();
-        services.AddSingleton<IProvider, ClaudeCodeProvider>();
-        services.AddSingleton<IProvider, OpenCodeProvider>();
-        services.AddSingleton<IProviderManager>(sp => new ProviderManager(
+        _ = services.AddSingleton<IProvider, AntigravityProvider>();
+        _ = services.AddSingleton<IProvider, GeminiCliProvider>();
+        _ = services.AddSingleton<IProvider, CodexCliProvider>();
+        _ = services.AddSingleton<IProvider, ClaudeCodeProvider>();
+        _ = services.AddSingleton<IProvider, OpenCodeProvider>();
+        _ = services.AddSingleton<IProviderManager>(sp => new ProviderManager(
             sp.GetServices<IProvider>(),
             () => sp.CreateScope().ServiceProvider.GetRequiredService<IProviderModelSettingRepository>(),
             () => sp.CreateScope().ServiceProvider.GetRequiredService<IProviderDetectionRecordRepository>()
         ));
 
         // 7b. Prompt Logging
-        services.AddSingleton<IPromptLogger, PromptLogger>();
+        _ = services.AddSingleton<IPromptLogger, PromptLogger>();
 
         // 8. Application Services
-        services.AddScoped<IWorkspaceService, WorkspaceService>();
-        services.AddScoped<IConversationService, ConversationService>();
-        services.AddScoped<IFileChangeService, FileChangeService>();
-        services.AddScoped<ISetupService, SetupService>();
-        services.AddScoped<IAppAuthService, AIAgentHub.Application.Security.AuthenticationService>();
-        services.AddScoped<IPermissionService, PermissionService>();
-        services.AddScoped<IExecutionOrchestrator, ExecutionOrchestrator>();
+        _ = services.AddScoped<IWorkspaceService, WorkspaceService>();
+        _ = services.AddScoped<IConversationService, ConversationService>();
+        _ = services.AddScoped<IFileChangeService, FileChangeService>();
+        _ = services.AddScoped<ISetupService, SetupService>();
+        _ = services.AddScoped<IAppAuthService, AuthenticationService>();
+        _ = services.AddScoped<IPermissionService, PermissionService>();
+        _ = services.AddScoped<IExecutionOrchestrator, ExecutionOrchestrator>();
 
         // 9. Real-time (SignalR)
-        services.AddSignalR();
-        services.AddScoped<IAgentRealtimeBroadcaster, SignalRAgentRealtimeBroadcaster>();
+        _ = services.AddSignalR();
+        _ = services.AddScoped<IAgentRealtimeBroadcaster, SignalRAgentRealtimeBroadcaster>();
 
         // 10. Authentication & Cookie Sessions
-        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+        _ = services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
             {
                 options.Cookie.Name = "AIAgentHub.Session";
@@ -130,7 +139,7 @@ public static class DependencyInjection
                 };
             });
 
-        services.AddAuthorization();
+        _ = services.AddAuthorization();
 
         return services;
     }

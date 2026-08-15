@@ -1,18 +1,14 @@
 using AIAgentHub.Application.Conversations;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/conversations")]
-public sealed class ConversationsController : ControllerBase
+public sealed class ConversationsController(IConversationService conversationService) : ApiControllerBase
 {
-    private readonly IConversationService _conversationService;
-
-    public ConversationsController(IConversationService conversationService)
-    {
-        _conversationService = conversationService;
-    }
+    private readonly IConversationService _conversationService = conversationService;
 
     [HttpGet]
     public async Task<IActionResult> GetByWorkspace([FromQuery] Guid workspaceId, CancellationToken cancellationToken)
@@ -25,9 +21,7 @@ public sealed class ConversationsController : ControllerBase
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var conv = await _conversationService.GetByIdAsync(id, cancellationToken);
-        if (conv == null)
-            return NotFound(new { code = "conversation_not_found", message = $"Conversation {id} was not found." });
-        return Ok(conv);
+        return conv == null ? NotFoundResponse("conversation_not_found", $"Conversation {id} was not found.") : Ok(conv);
     }
 
     [HttpPost]
@@ -52,7 +46,9 @@ public sealed class ConversationsController : ControllerBase
     {
         var conv = await _conversationService.GetByIdAsync(id, cancellationToken);
         if (conv == null)
-            return NotFound(new { code = "conversation_not_found", message = $"Conversation {id} was not found." });
+        {
+            return NotFoundResponse("conversation_not_found", $"Conversation {id} was not found.");
+        }
 
         var providerId = string.IsNullOrWhiteSpace(request.ProviderId) ? conv.ProviderId : request.ProviderId;
         await _conversationService.SetProviderAndModelAsync(id, providerId, request.ModelId, request.Effort, cancellationToken);
@@ -61,10 +57,7 @@ public sealed class ConversationsController : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
-    public async Task<IActionResult> Patch(Guid id, [FromBody] UpdateConversationModelRequest request, CancellationToken cancellationToken)
-    {
-        return await UpdateModel(id, request, cancellationToken);
-    }
+    public async Task<IActionResult> Patch(Guid id, [FromBody] UpdateConversationModelRequest request, CancellationToken cancellationToken) => await UpdateModel(id, request, cancellationToken);
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

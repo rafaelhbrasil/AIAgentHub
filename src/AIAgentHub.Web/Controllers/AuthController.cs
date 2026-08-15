@@ -1,30 +1,26 @@
 using System.Security.Claims;
+
 using AIAgentHub.Application.Security;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 using IAppAuthService = AIAgentHub.Application.Security.IAuthenticationService;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
-public sealed class AuthController : ControllerBase
+public sealed class AuthController(
+    ISetupService setupService,
+    IAppAuthService authService,
+    RecoveryOptions recoveryOptions) : ControllerBase
 {
-    private readonly ISetupService _setupService;
-    private readonly IAppAuthService _authService;
-    private readonly RecoveryOptions _recoveryOptions;
-
-    public AuthController(
-        ISetupService setupService,
-        IAppAuthService authService,
-        RecoveryOptions recoveryOptions)
-    {
-        _setupService = setupService;
-        _authService = authService;
-        _recoveryOptions = recoveryOptions;
-    }
+    private readonly ISetupService _setupService = setupService;
+    private readonly IAppAuthService _authService = authService;
+    private readonly RecoveryOptions _recoveryOptions = recoveryOptions;
 
     [HttpGet("setup/status")]
     [AllowAnonymous]
@@ -40,8 +36,8 @@ public sealed class AuthController : ControllerBase
         {
             isSetupCompleted = isCompleted,
             isRecoveryModeEnabled = isRecoveryEnabled,
-            isLocalRequest = isLocalRequest,
-            canResetWithoutCode = canResetWithoutCode
+            isLocalRequest,
+            canResetWithoutCode
         });
     }
 
@@ -83,7 +79,7 @@ public sealed class AuthController : ControllerBase
             }
         }
 
-        await _setupService.ResetToSetupModeAsync(null, cancellationToken);
+        _ = await _setupService.ResetToSetupModeAsync(null, cancellationToken);
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Ok(new { success = true, message = "System reset to Setup Mode." });
     }
@@ -162,7 +158,7 @@ public sealed class AuthController : ControllerBase
             return Forbid();
         }
 
-        await _setupService.WipeAllDataAsync(cancellationToken);
+        _ = await _setupService.WipeAllDataAsync(cancellationToken);
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
         return Ok(new { success = true, message = "Database forcefully wiped and system reset to Setup Mode." });

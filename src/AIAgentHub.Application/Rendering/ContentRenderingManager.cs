@@ -16,10 +16,7 @@ public sealed class TextContentRenderer : IContentRenderer
         ".sln", ".csproj", ".props", ".targets", ".rs", ".go", ".py", ".java", ".cpp", ".c", ".h"
     };
 
-    public bool CanRender(string fileExtension, string? mimeType)
-    {
-        return SupportedExts.Contains(fileExtension) || (mimeType?.StartsWith("text/") ?? false);
-    }
+    public bool CanRender(string fileExtension, string? mimeType) => SupportedExts.Contains(fileExtension) || (mimeType?.StartsWith("text/") ?? false);
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
     {
@@ -54,11 +51,14 @@ public sealed class MarkdownContentRenderer : IContentRenderer
 
     public static string RenderMarkdownToHtml(string md)
     {
-        if (string.IsNullOrWhiteSpace(md)) return "<p><em>Empty markdown document</em></p>";
+        if (string.IsNullOrWhiteSpace(md))
+        {
+            return "<p><em>Empty markdown document</em></p>";
+        }
 
-        var lines = md.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        var lines = md.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
         var sb = new StringBuilder();
-        bool inCodeBlock = false;
+        var inCodeBlock = false;
         string? codeLang = null;
         var codeSb = new StringBuilder();
 
@@ -71,63 +71,59 @@ public sealed class MarkdownContentRenderer : IContentRenderer
                 if (!inCodeBlock)
                 {
                     inCodeBlock = true;
-                    codeLang = line.TrimStart().Substring(3).Trim();
-                    codeSb.Clear();
+                    codeLang = line.TrimStart()[3..].Trim();
+                    _ = codeSb.Clear();
                 }
                 else
                 {
                     inCodeBlock = false;
                     var escapedCode = System.Net.WebUtility.HtmlEncode(codeSb.ToString());
-                    sb.AppendLine($"<pre class=\"code-block\"><code class=\"language-{codeLang}\">{escapedCode}</code></pre>");
+                    _ = sb.AppendLine($"<pre class=\"code-block\"><code class=\"language-{codeLang}\">{escapedCode}</code></pre>");
                 }
                 continue;
             }
 
             if (inCodeBlock)
             {
-                codeSb.AppendLine(line);
+                _ = codeSb.AppendLine(line);
                 continue;
             }
 
             // Headers
             if (line.StartsWith("# "))
             {
-                sb.AppendLine($"<h1 class=\"md-h1\">{FormatInline(line[2..])}</h1>");
+                _ = sb.AppendLine($"<h1 class=\"md-h1\">{FormatInline(line[2..])}</h1>");
             }
             else if (line.StartsWith("## "))
             {
-                sb.AppendLine($"<h2 class=\"md-h2\">{FormatInline(line[3..])}</h2>");
+                _ = sb.AppendLine($"<h2 class=\"md-h2\">{FormatInline(line[3..])}</h2>");
             }
             else if (line.StartsWith("### "))
             {
-                sb.AppendLine($"<h3 class=\"md-h3\">{FormatInline(line[4..])}</h3>");
+                _ = sb.AppendLine($"<h3 class=\"md-h3\">{FormatInline(line[4..])}</h3>");
             }
             else if (line.StartsWith("#### "))
             {
-                sb.AppendLine($"<h4 class=\"md-h4\">{FormatInline(line[5..])}</h4>");
+                _ = sb.AppendLine($"<h4 class=\"md-h4\">{FormatInline(line[5..])}</h4>");
             }
             else if (line.StartsWith("> "))
             {
-                sb.AppendLine($"<blockquote class=\"md-quote\">{FormatInline(line[2..])}</blockquote>");
-            }
-            else if (line.StartsWith("- ") || line.StartsWith("* "))
-            {
-                sb.AppendLine($"<li class=\"md-list-item\">{FormatInline(line[2..])}</li>");
-            }
-            else if (string.IsNullOrWhiteSpace(line))
-            {
-                sb.AppendLine("<div class=\"md-spacer\"></div>");
+                _ = sb.AppendLine($"<blockquote class=\"md-quote\">{FormatInline(line[2..])}</blockquote>");
             }
             else
             {
-                sb.AppendLine($"<p class=\"md-p\">{FormatInline(line)}</p>");
+                _ = line.StartsWith("- ") || line.StartsWith("* ")
+                    ? sb.AppendLine($"<li class=\"md-list-item\">{FormatInline(line[2..])}</li>")
+                    : string.IsNullOrWhiteSpace(line)
+                    ? sb.AppendLine("<div class=\"md-spacer\"></div>")
+                    : sb.AppendLine($"<p class=\"md-p\">{FormatInline(line)}</p>");
             }
         }
 
         if (inCodeBlock)
         {
             var escapedCode = System.Net.WebUtility.HtmlEncode(codeSb.ToString());
-            sb.AppendLine($"<pre class=\"code-block\"><code class=\"language-{codeLang}\">{escapedCode}</code></pre>");
+            _ = sb.AppendLine($"<pre class=\"code-block\"><code class=\"language-{codeLang}\">{escapedCode}</code></pre>");
         }
 
         return $"<div class=\"markdown-rendered\">{sb}</div>";
@@ -159,10 +155,7 @@ public sealed class ImageContentRenderer : IContentRenderer
         { ".bmp", "image/bmp" }
     };
 
-    public bool CanRender(string fileExtension, string? mimeType)
-    {
-        return MimeMap.ContainsKey(fileExtension) || (mimeType?.StartsWith("image/") ?? false);
-    }
+    public bool CanRender(string fileExtension, string? mimeType) => MimeMap.ContainsKey(fileExtension) || (mimeType?.StartsWith("image/") ?? false);
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
     {
@@ -218,8 +211,8 @@ public sealed class XmlContentRenderer : IContentRenderer
     {
         return string.Equals(fileExtension, ".xml", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(fileExtension, ".config", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(fileExtension, ".svg", StringComparison.OrdinalIgnoreCase) == false &&
-               (mimeType?.Contains("xml") ?? false);
+               (!string.Equals(fileExtension, ".svg", StringComparison.OrdinalIgnoreCase) &&
+               (mimeType?.Contains("xml") ?? false));
     }
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
@@ -264,14 +257,9 @@ public sealed class YamlContentRenderer : IContentRenderer
     }
 }
 
-public sealed class ContentRenderingManager : IContentRenderingManager
+public sealed class ContentRenderingManager(IEnumerable<IContentRenderer> renderers) : IContentRenderingManager
 {
-    private readonly IEnumerable<IContentRenderer> _renderers;
-
-    public ContentRenderingManager(IEnumerable<IContentRenderer> renderers)
-    {
-        _renderers = renderers.OrderByDescending(r => r.Priority);
-    }
+    private readonly IEnumerable<IContentRenderer> _renderers = renderers.OrderByDescending(r => r.Priority);
 
     public IReadOnlyList<IContentRenderer> GetRegisteredRenderers() => _renderers.ToList();
 

@@ -246,7 +246,11 @@ Future versions may allow Workspaces originating from Remote Stations.
 
 A persistent interaction between users and AI providers.
 
-Conversations belong to a Workspace.
+Conversations belong to a Workspace and support full lifecycle management:
+- Creation and provider/model selection
+- Renaming conversation topics
+- Deletion with confirmation (purges message and execution history)
+- Workspace and conversation switching with clean state isolation
 
 ---
 

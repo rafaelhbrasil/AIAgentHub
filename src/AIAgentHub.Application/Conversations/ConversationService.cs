@@ -3,16 +3,10 @@ using AIAgentHub.Domain.Repositories;
 
 namespace AIAgentHub.Application.Conversations;
 
-public sealed class ConversationService : IConversationService
+public sealed class ConversationService(IConversationRepository conversationRepository, IWorkspaceRepository workspaceRepository) : IConversationService
 {
-    private readonly IConversationRepository _conversationRepository;
-    private readonly IWorkspaceRepository _workspaceRepository;
-
-    public ConversationService(IConversationRepository conversationRepository, IWorkspaceRepository workspaceRepository)
-    {
-        _conversationRepository = conversationRepository;
-        _workspaceRepository = workspaceRepository;
-    }
+    private readonly IConversationRepository _conversationRepository = conversationRepository;
+    private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
 
     public async Task<IReadOnlyList<ConversationDto>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken cancellationToken = default)
     {
@@ -23,7 +17,10 @@ public sealed class ConversationService : IConversationService
     public async Task<ConversationDetailDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var conv = await _conversationRepository.GetByIdAsync(id, cancellationToken);
-        if (conv == null) return null;
+        if (conv == null)
+        {
+            return null;
+        }
 
         var messages = conv.Messages
             .OrderBy(m => m.CreatedAtUtc)
@@ -45,10 +42,7 @@ public sealed class ConversationService : IConversationService
 
     public async Task<ConversationDto> CreateAsync(CreateConversationRequest request, CancellationToken cancellationToken = default)
     {
-        var workspace = await _workspaceRepository.GetByIdAsync(request.WorkspaceId, cancellationToken);
-        if (workspace == null)
-            throw new KeyNotFoundException($"Workspace with ID {request.WorkspaceId} not found.");
-
+        var workspace = await _workspaceRepository.GetByIdAsync(request.WorkspaceId, cancellationToken) ?? throw new KeyNotFoundException($"Workspace with ID {request.WorkspaceId} not found.");
         var providerId = string.IsNullOrWhiteSpace(request.ProviderId)
             ? (workspace.Settings.DefaultProviderId ?? "gemini")
             : request.ProviderId;
@@ -66,10 +60,7 @@ public sealed class ConversationService : IConversationService
 
     public async Task<ConversationDto> RenameAsync(Guid id, string newTitle, CancellationToken cancellationToken = default)
     {
-        var conversation = await _conversationRepository.GetByIdAsync(id, cancellationToken);
-        if (conversation == null)
-            throw new KeyNotFoundException($"Conversation with ID {id} not found.");
-
+        var conversation = await _conversationRepository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException($"Conversation with ID {id} not found.");
         conversation.Rename(newTitle);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
 
@@ -78,35 +69,28 @@ public sealed class ConversationService : IConversationService
 
     public async Task SetProviderAndModelAsync(Guid id, string providerId, string? modelId, string? effort = null, CancellationToken cancellationToken = default)
     {
-        var conversation = await _conversationRepository.GetByIdAsync(id, cancellationToken);
-        if (conversation == null)
-            throw new KeyNotFoundException($"Conversation with ID {id} not found.");
-
+        var conversation = await _conversationRepository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException($"Conversation with ID {id} not found.");
         conversation.SetProviderAndModel(providerId, modelId, effort);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
     }
 
     public async Task<MessageDto> AddMessageAsync(Guid conversationId, MessageRole role, string content, ExecutionMetadata? metadata = null, CancellationToken cancellationToken = default)
     {
-        var conversation = await _conversationRepository.GetByIdAsync(conversationId, cancellationToken);
-        if (conversation == null)
-            throw new KeyNotFoundException($"Conversation with ID {conversationId} not found.");
-
+        var conversation = await _conversationRepository.GetByIdAsync(conversationId, cancellationToken) ?? throw new KeyNotFoundException($"Conversation with ID {conversationId} not found.");
         var msg = conversation.AddMessage(role, content, metadata);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
 
         return new MessageDto(msg.Id, msg.ConversationId, msg.Role, msg.Content, msg.CreatedAtUtc, msg.Metadata);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        await _conversationRepository.DeleteAsync(id, cancellationToken);
-    }
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) => await _conversationRepository.DeleteAsync(id, cancellationToken);
 
     public async Task<IReadOnlyList<ConversationDto>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
+        {
             return Array.Empty<ConversationDto>();
+        }
 
         var workspaces = await _workspaceRepository.GetAllAsync(cancellationToken);
         var allConversations = new List<ConversationDto>();

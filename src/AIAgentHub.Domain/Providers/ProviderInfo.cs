@@ -22,7 +22,7 @@ public sealed class ProviderInfo
     public string? Version { get; set; }
     public string? ExecutablePath { get; set; }
     public ProviderCapability Capabilities { get; set; } = ProviderCapability.None;
-    public List<ModelInfo> SupportedModels { get; set; } = new();
+    public List<ModelInfo> SupportedModels { get; set; } = [];
     public string? InstallInstructions { get; set; }
     public string? InstallCommand { get; set; }
     public string? AuthCommand { get; set; }

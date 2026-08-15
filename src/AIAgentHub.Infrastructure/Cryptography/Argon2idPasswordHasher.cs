@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using AIAgentHub.Application.Security;
+
 using Konscious.Security.Cryptography;
 
 namespace AIAgentHub.Infrastructure.Cryptography;
@@ -15,8 +17,8 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
 
     public (string HashBase64, string SaltBase64) HashPassword(string password)
     {
-        byte[] salt = RandomNumberGenerator.GetBytes(SaltSizeBytes);
-        byte[] hash = GenerateHash(password, salt);
+        var salt = RandomNumberGenerator.GetBytes(SaltSizeBytes);
+        var hash = GenerateHash(password, salt);
 
         return (Convert.ToBase64String(hash), Convert.ToBase64String(salt));
     }
@@ -25,9 +27,9 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
     {
         try
         {
-            byte[] salt = Convert.FromBase64String(saltBase64);
-            byte[] expectedHash = Convert.FromBase64String(hashBase64);
-            byte[] actualHash = GenerateHash(password, salt);
+            var salt = Convert.FromBase64String(saltBase64);
+            var expectedHash = Convert.FromBase64String(hashBase64);
+            var actualHash = GenerateHash(password, salt);
 
             return CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
         }
@@ -44,10 +46,14 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
         var base32Chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var sb = new StringBuilder();
 
-        for (int i = 0; i < 16; i++)
+        for (var i = 0; i < 16; i++)
         {
-            if (i > 0 && i % 4 == 0) sb.Append('-');
-            sb.Append(base32Chars[randomBytes[i % randomBytes.Length] % base32Chars.Length]);
+            if (i > 0 && i % 4 == 0)
+            {
+                _ = sb.Append('-');
+            }
+
+            _ = sb.Append(base32Chars[randomBytes[i % randomBytes.Length] % base32Chars.Length]);
         }
 
         var plainCode = sb.ToString();
@@ -61,7 +67,7 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
         try
         {
             var normalized = plainCode.Replace("-", "").Trim().ToUpperInvariant();
-            byte[] expectedHash = Convert.FromBase64String(hashBase64);
+            var expectedHash = Convert.FromBase64String(hashBase64);
             // Since recovery codes use SHA-256 or Argon2, we can verify with SHA-256 for fast recovery check or Argon2
             using var sha = SHA256.Create();
             var testHash = sha.ComputeHash(Encoding.UTF8.GetBytes(normalized));

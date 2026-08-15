@@ -4,16 +4,10 @@ using AIAgentHub.Domain.Workspaces;
 
 namespace AIAgentHub.Application.Workspaces;
 
-public sealed class WorkspaceService : IWorkspaceService
+public sealed class WorkspaceService(IWorkspaceRepository workspaceRepository, IFilesystemService filesystemService) : IWorkspaceService
 {
-    private readonly IWorkspaceRepository _workspaceRepository;
-    private readonly IFilesystemService _filesystemService;
-
-    public WorkspaceService(IWorkspaceRepository workspaceRepository, IFilesystemService filesystemService)
-    {
-        _workspaceRepository = workspaceRepository;
-        _filesystemService = filesystemService;
-    }
+    private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
+    private readonly IFilesystemService _filesystemService = filesystemService;
 
     public async Task<IReadOnlyList<WorkspaceDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -32,7 +26,7 @@ public sealed class WorkspaceService : IWorkspaceService
         var fullPath = Path.GetFullPath(request.Path.Trim());
         if (!Directory.Exists(fullPath))
         {
-            Directory.CreateDirectory(fullPath);
+            _ = Directory.CreateDirectory(fullPath);
         }
 
         var existing = await _workspaceRepository.GetByPathAsync(fullPath, cancellationToken);
@@ -61,10 +55,7 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public async Task<WorkspaceDto> UpdateAsync(Guid id, UpdateWorkspaceRequest request, CancellationToken cancellationToken = default)
     {
-        var workspace = await _workspaceRepository.GetByIdAsync(id, cancellationToken);
-        if (workspace == null)
-            throw new KeyNotFoundException($"Workspace with ID {id} not found.");
-
+        var workspace = await _workspaceRepository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException($"Workspace with ID {id} not found.");
         workspace.Rename(request.Name);
         workspace.UpdateSettings(request.Settings);
 
@@ -72,10 +63,7 @@ public sealed class WorkspaceService : IWorkspaceService
         return MapToDto(workspace);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        await _workspaceRepository.DeleteAsync(id, cancellationToken);
-    }
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) => await _workspaceRepository.DeleteAsync(id, cancellationToken);
 
     public async Task TouchAsync(Guid id, CancellationToken cancellationToken = default)
     {

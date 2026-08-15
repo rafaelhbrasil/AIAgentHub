@@ -25,6 +25,6 @@ public sealed record DiffResult(
 
 public interface IDiffEngine
 {
-    DiffResult CalculateTextDiff(string relativePath, string? oldText, string? newText);
-    DiffResult CalculateImageDiff(string relativePath, string? oldDataUri, string? newDataUri);
+    public DiffResult CalculateTextDiff(string relativePath, string? oldText, string? newText);
+    public DiffResult CalculateImageDiff(string relativePath, string? oldDataUri, string? newDataUri);
 }

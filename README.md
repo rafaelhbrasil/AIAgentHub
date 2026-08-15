@@ -201,6 +201,7 @@ Refer to the documentation inside each folder for detailed information.
 ## Requirements
 
 * .NET 10 SDK
+* Node.js 18+ & npm (for frontend development and asset builds)
 * Git
 * One or more supported AI provider CLIs
 
@@ -224,13 +225,43 @@ dotnet build
 
 ## Run
 
+### Option 1: Standard / Self-Contained Execution
+The production React frontend bundle is pre-built into `src/AIAgentHub.Web/wwwroot`. You only need to run the .NET application:
+
 ```bash
 dotnet run --project src/AIAgentHub.Web
 ```
 
-The application starts a local web server.
+Open **`https://localhost:5432`** in your browser.
 
-By default, it is intended to be accessed through a web browser.
+### Option 2: Live Frontend Development (HMR)
+If you are developing or modifying the React + TypeScript frontend and want instant hot-module reloading:
+
+1. **Install frontend dependencies (first time only, from repository root):**
+```bash
+npm install
+```
+
+2. **Start the .NET backend:**
+```bash
+dotnet run --project src/AIAgentHub.Web
+```
+
+3. **Start the Vite development server (in a separate terminal):**
+```bash
+npm run dev
+```
+
+4. **Open the live application:**
+Navigate to **`http://localhost:5173`** in your browser. The Vite dev server automatically proxies API (`/api`) and SignalR (`/hubs`) requests to `https://localhost:5432`.
+
+### Frontend Scripts (npm Workspaces)
+You can run all frontend scripts directly from the repository root:
+
+- **`npm install`** — Installs all workspace dependencies (run once after cloning)
+- **`npm run dev`** — Starts the Vite dev server with Hot Module Reloading
+- **`npm run build`** — Compiles TypeScript and builds production assets into `src/AIAgentHub.Web/wwwroot/assets/`
+- **`npm test`** — Runs frontend unit tests with Vitest
 
 ---
 

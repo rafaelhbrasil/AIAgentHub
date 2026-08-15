@@ -12,34 +12,35 @@ public sealed class Workspace : AggregateRoot
     public DateTimeOffset LastAccessedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
     public WorkspaceSettings Settings { get; private set; } = new();
 
-    private readonly List<Conversation> _conversations = new();
+    private readonly List<Conversation> _conversations = [];
     public IReadOnlyCollection<Conversation> Conversations => _conversations.AsReadOnly();
 
     private Workspace() { }
 
     public static Workspace Create(string name, string path, WorkspaceOrigin origin = WorkspaceOrigin.Server, WorkspaceSettings? settings = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Workspace name cannot be empty.", nameof(name));
-        if (string.IsNullOrWhiteSpace(path))
-            throw new ArgumentException("Workspace path cannot be empty.", nameof(path));
-
-        return new Workspace
-        {
-            Id = Guid.NewGuid(),
-            Name = name.Trim(),
-            Path = System.IO.Path.GetFullPath(path.Trim()),
-            Origin = origin,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            LastAccessedAtUtc = DateTimeOffset.UtcNow,
-            Settings = settings ?? new WorkspaceSettings()
-        };
+        return string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("Workspace name cannot be empty.", nameof(name))
+            : string.IsNullOrWhiteSpace(path)
+            ? throw new ArgumentException("Workspace path cannot be empty.", nameof(path))
+            : new Workspace
+            {
+                Id = Guid.NewGuid(),
+                Name = name.Trim(),
+                Path = System.IO.Path.GetFullPath(path.Trim()),
+                Origin = origin,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                LastAccessedAtUtc = DateTimeOffset.UtcNow,
+                Settings = settings ?? new WorkspaceSettings()
+            };
     }
 
     public void Rename(string newName)
     {
         if (string.IsNullOrWhiteSpace(newName))
+        {
             throw new ArgumentException("Workspace name cannot be empty.", nameof(newName));
+        }
 
         Name = newName.Trim();
         Touch();
@@ -51,8 +52,5 @@ public sealed class Workspace : AggregateRoot
         Touch();
     }
 
-    public void Touch()
-    {
-        LastAccessedAtUtc = DateTimeOffset.UtcNow;
-    }
+    public void Touch() => LastAccessedAtUtc = DateTimeOffset.UtcNow;
 }

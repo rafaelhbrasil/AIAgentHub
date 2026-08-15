@@ -1,17 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
+
 using AIAgentHub.Application.Conversations;
 using AIAgentHub.Application.Execution;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Workspaces;
+using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Providers;
 using AIAgentHub.Infrastructure.Persistence;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AIAgentHub.Integration.Tests;
 
@@ -21,8 +23,8 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
-        builder.ConfigureServices(services =>
+        _ = builder.UseEnvironment("Testing");
+        _ = builder.ConfigureServices(services =>
         {
             var descriptors = services.Where(d =>
                 d.ServiceType == typeof(DbContextOptions<AgentHubDbContext>) ||
@@ -30,13 +32,20 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>
                 d.ServiceType == typeof(AgentHubDbContext)).ToList();
 
             foreach (var d in descriptors)
-                services.Remove(d);
-
-            services.AddDbContext<AgentHubDbContext>(options =>
             {
-                options.UseSqlite($"Data Source={_testDbPath}")
+                _ = services.Remove(d);
+            }
+
+            _ = services.AddDbContext<AgentHubDbContext>(options =>
+            {
+                _ = options.UseSqlite($"Data Source={_testDbPath}")
                        .EnableSensitiveDataLogging()
                        .LogTo(Console.WriteLine, Microsoft.Extensions.Logging.LogLevel.Information);
+            });
+
+            _ = services.Configure<CliExecutionOptions>(options =>
+            {
+                options.Headless = true;
             });
         });
     }
@@ -101,7 +110,7 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
 
         // 4. Create Workspace in a safe temporary directory
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubTestWorkspace_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         var sampleFile = Path.Combine(tempFolder, "sample.txt");
         await File.WriteAllTextAsync(sampleFile, "important user code");
 
@@ -136,7 +145,9 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
         finally
         {
             if (Directory.Exists(tempFolder))
+            {
                 Directory.Delete(tempFolder, true);
+            }
         }
     }
 
@@ -154,7 +165,7 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
         // Verify Antigravity provider is present with its models
         var agyProvider = providers.FirstOrDefault(p => p.Id == "antigravity");
         Assert.NotNull(agyProvider);
-        Assert.Equal("Antigravity CLI (agy)", agyProvider.DisplayName);
+        Assert.Equal("Antigravity CLI", agyProvider.DisplayName);
         Assert.NotEmpty(agyProvider.SupportedModels);
     }
 
@@ -164,7 +175,7 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
         var client = _factory.CreateClient();
 
         // Ensure user is logged in
-        await client.PostAsJsonAsync("/api/v1/auth/login", new
+        _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             Username = "admin",
             Password = "SecurePassword123!"
@@ -172,7 +183,7 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
 
         // Setup test workspace in safe folder
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubAgyTest_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
 
         try
         {
@@ -219,12 +230,12 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
 
             // 5. Verify snapshot lifecycle detects created and modified files
             var token = await snapshotService.CaptureWorkspaceSnapshotAsync(ws.Id, conv.Id, tempFolder, Array.Empty<string>());
-            
+
             var testFilePath = Path.Combine(tempFolder, "hello_agent.txt");
             await File.WriteAllTextAsync(testFilePath, "Hello from Antigravity Agent Hub test!");
 
             var createdChanges = await snapshotService.DetectAndRecordChangesAsync(ws.Id, conv.Id, tempFolder, token, Array.Empty<string>());
-            Assert.Single(createdChanges);
+            _ = Assert.Single(createdChanges);
             Assert.Equal(FileChangeType.Created, createdChanges[0].ChangeType);
 
             // 6. Test Modifying the same file
@@ -232,7 +243,7 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
             await File.WriteAllTextAsync(testFilePath, "Updated line 2 in file!");
 
             var modifiedChanges = await snapshotService.DetectAndRecordChangesAsync(ws.Id, conv.Id, tempFolder, token2, Array.Empty<string>());
-            Assert.Single(modifiedChanges);
+            _ = Assert.Single(modifiedChanges);
             Assert.Equal(FileChangeType.Modified, modifiedChanges[0].ChangeType);
         }
         finally

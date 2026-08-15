@@ -2,45 +2,28 @@ using AIAgentHub.Application.Realtime;
 using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Permissions;
 using AIAgentHub.Domain.Providers;
+
 using Microsoft.AspNetCore.SignalR;
 
 namespace AIAgentHub.Infrastructure.Realtime;
 
 public sealed class AgentHubHub : Hub
 {
-    public async Task JoinConversation(string conversationId)
-    {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
-    }
+    public async Task JoinConversation(string conversationId) => await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
 
-    public async Task LeaveConversation(string conversationId)
-    {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
-    }
+    public async Task LeaveConversation(string conversationId) => await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
 }
 
-public sealed class SignalRAgentRealtimeBroadcaster : IAgentRealtimeBroadcaster
+public sealed class SignalRAgentRealtimeBroadcaster(IHubContext<AgentHubHub> hubContext) : IAgentRealtimeBroadcaster
 {
-    private readonly IHubContext<AgentHubHub> _hubContext;
-
-    public SignalRAgentRealtimeBroadcaster(IHubContext<AgentHubHub> hubContext)
-    {
-        _hubContext = hubContext;
-    }
+    private readonly IHubContext<AgentHubHub> _hubContext = hubContext;
 
     public async Task SendMessageStreamChunkAsync(Guid conversationId, string chunk, CancellationToken cancellationToken = default)
     {
-        // Broadcast to both the specific conversation channel and connected active sessions
         await _hubContext.Clients.Group($"conv_{conversationId}").SendAsync("streamChunk", new
         {
-            conversationId = conversationId,
-            chunk = chunk
-        }, cancellationToken);
-
-        await _hubContext.Clients.All.SendAsync("streamChunk", new
-        {
-            conversationId = conversationId,
-            chunk = chunk
+            conversationId,
+            chunk
         }, cancellationToken);
     }
 
@@ -48,9 +31,9 @@ public sealed class SignalRAgentRealtimeBroadcaster : IAgentRealtimeBroadcaster
     {
         await _hubContext.Clients.All.SendAsync("conversationEvent", new
         {
-            eventName = eventName,
-            conversationId = conversationId,
-            payload = payload
+            eventName,
+            conversationId,
+            payload
         }, cancellationToken);
     }
 
@@ -58,7 +41,7 @@ public sealed class SignalRAgentRealtimeBroadcaster : IAgentRealtimeBroadcaster
     {
         await _hubContext.Clients.All.SendAsync("providerStatusChanged", new
         {
-            providerId = providerId,
+            providerId,
             status = status.ToString()
         }, cancellationToken);
     }
@@ -67,7 +50,7 @@ public sealed class SignalRAgentRealtimeBroadcaster : IAgentRealtimeBroadcaster
     {
         await _hubContext.Clients.All.SendAsync("diffCreated", new
         {
-            conversationId = conversationId,
+            conversationId,
             fileChangeId = change.Id,
             relativePath = change.RelativePath,
             changeType = change.ChangeType.ToString(),
@@ -92,9 +75,9 @@ public sealed class SignalRAgentRealtimeBroadcaster : IAgentRealtimeBroadcaster
     {
         await _hubContext.Clients.All.SendAsync("notification", new
         {
-            level = level,
-            title = title,
-            message = message,
+            level,
+            title,
+            message,
             timestamp = DateTimeOffset.UtcNow
         }, cancellationToken);
     }

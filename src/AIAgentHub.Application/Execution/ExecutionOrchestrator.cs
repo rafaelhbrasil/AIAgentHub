@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using AIAgentHub.Application.Conversations;
+
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Realtime;
@@ -11,27 +11,21 @@ namespace AIAgentHub.Application.Execution;
 
 public interface IPermissionService
 {
-    Task<PermissionRequest> RequestPermissionAsync(Guid conversationId, string providerId, PermissionType type, string target, string reason, CancellationToken cancellationToken = default);
-    Task<PermissionRequest> DecideAsync(Guid requestId, bool approve, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<PermissionRequest>> GetRequestsByConversationAsync(Guid conversationId, CancellationToken cancellationToken = default);
+    public Task<PermissionRequest> RequestPermissionAsync(Guid conversationId, string providerId, PermissionType type, string target, string reason, CancellationToken cancellationToken = default);
+    public Task<PermissionRequest> DecideAsync(Guid requestId, bool approve, CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<PermissionRequest>> GetRequestsByConversationAsync(Guid conversationId, CancellationToken cancellationToken = default);
 }
 
 public interface IExecutionOrchestrator
 {
-    Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default);
-    Task AbortAsync(Guid conversationId);
+    public Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default);
+    public Task AbortAsync(Guid conversationId);
 }
 
-public sealed class PermissionService : IPermissionService
+public sealed class PermissionService(IPermissionRequestRepository permissionRepository, IAgentRealtimeBroadcaster broadcaster) : IPermissionService
 {
-    private readonly IPermissionRequestRepository _permissionRepository;
-    private readonly IAgentRealtimeBroadcaster _broadcaster;
-
-    public PermissionService(IPermissionRequestRepository permissionRepository, IAgentRealtimeBroadcaster broadcaster)
-    {
-        _permissionRepository = permissionRepository;
-        _broadcaster = broadcaster;
-    }
+    private readonly IPermissionRequestRepository _permissionRepository = permissionRepository;
+    private readonly IAgentRealtimeBroadcaster _broadcaster = broadcaster;
 
     public async Task<PermissionRequest> RequestPermissionAsync(Guid conversationId, string providerId, PermissionType type, string target, string reason, CancellationToken cancellationToken = default)
     {
@@ -43,58 +37,38 @@ public sealed class PermissionService : IPermissionService
 
     public async Task<PermissionRequest> DecideAsync(Guid requestId, bool approve, CancellationToken cancellationToken = default)
     {
-        var req = await _permissionRepository.GetByIdAsync(requestId, cancellationToken);
-        if (req == null)
-            throw new KeyNotFoundException($"Permission request {requestId} not found.");
-
+        var req = await _permissionRepository.GetByIdAsync(requestId, cancellationToken) ?? throw new KeyNotFoundException($"Permission request {requestId} not found.");
         req.Decide(approve);
         await _permissionRepository.UpdateAsync(req, cancellationToken);
         return req;
     }
 
-    public Task<IReadOnlyList<PermissionRequest>> GetRequestsByConversationAsync(Guid conversationId, CancellationToken cancellationToken = default)
-    {
-        return _permissionRepository.GetByConversationIdAsync(conversationId, cancellationToken);
-    }
+    public Task<IReadOnlyList<PermissionRequest>> GetRequestsByConversationAsync(Guid conversationId, CancellationToken cancellationToken = default) => _permissionRepository.GetByConversationIdAsync(conversationId, cancellationToken);
 }
 
-public sealed class ExecutionOrchestrator : IExecutionOrchestrator
+public sealed class ExecutionOrchestrator(
+    IConversationRepository conversationRepository,
+    IWorkspaceRepository workspaceRepository,
+    IProviderManager providerManager,
+    ISnapshotService snapshotService,
+    IAgentRealtimeBroadcaster broadcaster,
+    IPermissionService permissionService) : IExecutionOrchestrator
 {
-    private readonly IConversationRepository _conversationRepository;
-    private readonly IWorkspaceRepository _workspaceRepository;
-    private readonly IProviderManager _providerManager;
-    private readonly ISnapshotService _snapshotService;
-    private readonly IAgentRealtimeBroadcaster _broadcaster;
-    private readonly IPermissionService _permissionService;
-
-    public ExecutionOrchestrator(
-        IConversationRepository conversationRepository,
-        IWorkspaceRepository workspaceRepository,
-        IProviderManager providerManager,
-        ISnapshotService snapshotService,
-        IAgentRealtimeBroadcaster broadcaster,
-        IPermissionService permissionService)
-    {
-        _conversationRepository = conversationRepository;
-        _workspaceRepository = workspaceRepository;
-        _providerManager = providerManager;
-        _snapshotService = snapshotService;
-        _broadcaster = broadcaster;
-        _permissionService = permissionService;
-    }
+    private readonly IConversationRepository _conversationRepository = conversationRepository;
+    private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
+    private readonly IProviderManager _providerManager = providerManager;
+    private readonly ISnapshotService _snapshotService = snapshotService;
+    private readonly IAgentRealtimeBroadcaster _broadcaster = broadcaster;
+    private readonly IPermissionService _permissionService = permissionService;
 
     public async Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default)
     {
-        var conversation = await _conversationRepository.GetByIdAsync(conversationId, cancellationToken);
-        if (conversation == null)
-            throw new KeyNotFoundException($"Conversation {conversationId} not found.");
+        var conversation = await _conversationRepository.GetByIdAsync(conversationId, cancellationToken) ?? throw new KeyNotFoundException($"Conversation {conversationId} not found.");
 
-        var workspace = await _workspaceRepository.GetByIdAsync(conversation.WorkspaceId, cancellationToken);
-        if (workspace == null)
-            throw new KeyNotFoundException($"Workspace {conversation.WorkspaceId} not found.");
+        var workspace = await _workspaceRepository.GetByIdAsync(conversation.WorkspaceId, cancellationToken) ?? throw new KeyNotFoundException($"Workspace {conversation.WorkspaceId} not found.");
 
         // 1. Add User Message
-        conversation.AddMessage(MessageRole.User, prompt);
+        _ = conversation.AddMessage(MessageRole.User, prompt);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
         await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, cancellationToken);
 
@@ -132,7 +106,7 @@ public sealed class ExecutionOrchestrator : IExecutionOrchestrator
             workspace.Settings.IgnoredFiles,
             async (token) =>
             {
-                assistantResponseBuilder.Append(token);
+                _ = assistantResponseBuilder.Append(token);
                 await _broadcaster.SendMessageStreamChunkAsync(conversationId, token, cancellationToken);
             },
             async (actionType, target) =>
@@ -160,12 +134,17 @@ public sealed class ExecutionOrchestrator : IExecutionOrchestrator
         );
 
         // 4. Run Execution through Provider
-        bool isSuccess = true;
+        var isSuccess = true;
         string? error = null;
 
         try
         {
             await provider.ExecuteAsync(execContext);
+        }
+        catch (OperationCanceledException)
+        {
+            isSuccess = false;
+            error = "AI response was cancelled by the user.";
         }
         catch (Exception ex)
         {
@@ -205,13 +184,19 @@ public sealed class ExecutionOrchestrator : IExecutionOrchestrator
             ErrorMessage = error
         };
 
-        var finalAssistantText = assistantResponseBuilder.ToString();
-        if (string.IsNullOrWhiteSpace(finalAssistantText) && !string.IsNullOrWhiteSpace(error))
+        var finalAssistantText = assistantResponseBuilder.ToString().Trim();
+        if (error == "AI response was cancelled by the user." || (!isSuccess && error != null && error.Contains("cancel", StringComparison.OrdinalIgnoreCase)))
+        {
+            finalAssistantText = string.IsNullOrWhiteSpace(finalAssistantText)
+                ? "*(AI response was cancelled by the user.)*"
+                : $"{finalAssistantText}\n\n*(AI response was cancelled by the user.)*";
+        }
+        else if (string.IsNullOrWhiteSpace(finalAssistantText) && !string.IsNullOrWhiteSpace(error))
         {
             finalAssistantText = $"Error: {error}";
         }
 
-        conversation.AddMessage(MessageRole.Assistant, finalAssistantText, metadata);
+        _ = conversation.AddMessage(MessageRole.Assistant, finalAssistantText, metadata);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
 
         await _broadcaster.SendConversationEventAsync("conversation.completed", conversationId, new
@@ -229,7 +214,10 @@ public sealed class ExecutionOrchestrator : IExecutionOrchestrator
         {
             var provider = _providerManager.GetProvider(conversation.ProviderId);
             await provider.AbortAsync(conversationId);
-            await _broadcaster.SendConversationEventAsync("conversation.aborted", conversationId, new { }, CancellationToken.None);
+            await _broadcaster.SendConversationEventAsync("conversation.aborted", conversationId, new
+            {
+                message = "AI response was cancelled by the user."
+            }, CancellationToken.None);
         }
     }
 }

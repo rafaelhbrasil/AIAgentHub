@@ -1,14 +1,90 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Providers;
 
+using Microsoft.Extensions.Options;
+
 namespace AIAgentHub.Infrastructure.Executors;
 
-public class HeadedProcessExecutor : ProcessExecutorBase
+public class HeadedProcessExecutor(IOptions<CliExecutionOptions>? options = null) : ProcessExecutorBase
 {
+    private readonly IOptions<CliExecutionOptions>? _options = options;
+
+    public override async Task<ProcessCommandResult> RunCommandAsync(
+        string executable,
+        string arguments,
+        string? workingDirectory = null,
+        CancellationToken cancellationToken = default,
+        string? operationTitle = null)
+    {
+        EnsureWindowsPlatform(nameof(HeadedProcessExecutor));
+        var exePath = ResolveExecutablePath(executable);
+
+        var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLogs");
+        _ = Directory.CreateDirectory(tempFolder);
+        var logFilePath = Path.Combine(tempFolder, $"cmd_{Guid.NewGuid():N}.log");
+        var runnerScriptPath = Path.Combine(tempFolder, $"cmd_run_{Guid.NewGuid():N}.ps1");
+
+        using var process = new Process();
+        try
+        {
+            var escapedRunnerScriptPath = runnerScriptPath.Replace("'", "''");
+            var escapedLogFilePath = logFilePath.Replace("'", "''");
+
+            var autoCloseDelay = _options?.Value?.HeadedAutoCloseDelaySeconds ?? 0;
+            var autoCloseScript = autoCloseDelay >= 0
+                ? (autoCloseDelay > 0
+                    ? $"\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green; Write-Host 'Window will close in {autoCloseDelay}s...' -ForegroundColor DarkGray; Start-Sleep -Seconds {autoCloseDelay}; [System.Environment]::Exit($LASTEXITCODE)\r\n"
+                    : "\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green; [System.Environment]::Exit($LASTEXITCODE)\r\n")
+                : "\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green\r\n";
+
+            var safeArguments = arguments
+                .Replace("`", "``")
+                .Replace("$", "`$");
+
+            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; & \"{exePath}\" {safeArguments} 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
+            File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
+
+            var title = operationTitle ?? $"{executable} — {arguments}";
+            var psArguments = $"-NoExit -ExecutionPolicy Bypass -Command \"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $Host.UI.RawUI.WindowTitle = 'AI Agent Hub — {title}'; Write-Host '=== [AI Agent Hub] Command: {title} ===' -ForegroundColor Cyan; & '{escapedRunnerScriptPath}'\"";
+
+            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
+
+            process.StartInfo = CreateStartInfo(
+                fileName: shellExe,
+                arguments: psArguments,
+                workingDirectory: workingDirectory ?? "",
+                useShellExecute: true,
+                createNoWindow: false);
+
+            _ = process.Start();
+            await process.WaitForExitAsync(cancellationToken);
+
+            var output = File.Exists(logFilePath) ? await File.ReadAllTextAsync(logFilePath, cancellationToken) : "";
+            return new ProcessCommandResult(process.ExitCode, output, "");
+        }
+        catch
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch { }
+            throw;
+        }
+        finally
+        {
+            try { if (File.Exists(logFilePath)) { File.Delete(logFilePath); } } catch { }
+            try { if (File.Exists(runnerScriptPath)) { File.Delete(runnerScriptPath); } } catch { }
+        }
+    }
+
     public override async Task ExecuteAsync(
         string displayName,
         string executableName,
@@ -21,17 +97,35 @@ public class HeadedProcessExecutor : ProcessExecutorBase
 
         var exePath = ResolveExecutablePath(executableName);
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLogs");
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         var logFilePath = Path.Combine(tempFolder, $"stream_{context.ConversationId:N}_{Guid.NewGuid():N}.log");
+        var runnerScriptPath = Path.Combine(tempFolder, $"run_{context.ConversationId:N}_{Guid.NewGuid():N}.ps1");
 
         try
         {
+            var escapedRunnerScriptPath = runnerScriptPath.Replace("'", "''");
             var escapedLogFilePath = logFilePath.Replace("'", "''");
-            var escapedArguments = arguments.Replace("\"", "\\\"");
-            var psArguments = $"-NoExit -Command \"$Host.UI.RawUI.WindowTitle = 'AI Agent Hub — {displayName}'; Write-Host '=== [AI Agent Hub] Active Session: {displayName} ===' -ForegroundColor Cyan; & '{exePath}' {escapedArguments} | Tee-Object -FilePath '{escapedLogFilePath}'\"";
+
+            // Write temporary PowerShell runner script that writes to console and appends immediately to log file
+            var autoCloseScript = options.HeadedAutoCloseDelaySeconds >= 0
+                ? (options.HeadedAutoCloseDelaySeconds > 0
+                    ? $"\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green; Write-Host 'Window will close in {options.HeadedAutoCloseDelaySeconds}s...' -ForegroundColor DarkGray; Start-Sleep -Seconds {options.HeadedAutoCloseDelaySeconds}; [System.Environment]::Exit(0)\r\n"
+                    : "\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green; [System.Environment]::Exit(0)\r\n")
+                : "\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green\r\n";
+
+            var safeArguments = arguments
+                .Replace("`", "``")
+                .Replace("$", "`$");
+
+            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; & \"{exePath}\" {safeArguments} 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
+            File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
+
+            var psArguments = $"-NoExit -ExecutionPolicy Bypass -Command \"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $Host.UI.RawUI.WindowTitle = 'AI Agent Hub — {displayName}'; Write-Host '=== [AI Agent Hub] Active Session: {displayName} ===' -ForegroundColor Cyan; & '{escapedRunnerScriptPath}'\"";
+
+            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
 
             var psStartInfo = CreateStartInfo(
-                fileName: "powershell.exe",
+                fileName: shellExe,
                 arguments: psArguments,
                 workingDirectory: context.WorkspacePath,
                 useShellExecute: true,
@@ -41,7 +135,7 @@ public class HeadedProcessExecutor : ProcessExecutorBase
                 promptLogger,
                 displayName,
                 context.ModelId,
-                psStartInfo.Arguments,
+                $"\"{exePath}\" {arguments}",
                 context.Prompt?.Length ?? 0);
 
             await context.OnStreamToken($"[{displayName}] External PowerShell session launched on desktop.\n\n");
@@ -53,35 +147,26 @@ public class HeadedProcessExecutor : ProcessExecutorBase
 
             try
             {
-                var delaySeconds = options.HeadedAutoCloseDelaySeconds;
-                if (delaySeconds > 0)
-                {
-                    using var delayCts = new CancellationTokenSource(TimeSpan.FromSeconds(delaySeconds));
-                    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, delayCts.Token);
-                    try
-                    {
-                        await processScope.WaitForExitAsync(linkedCts.Token);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        if (!processScope.HasExited && delayCts.IsCancellationRequested && !context.CancellationToken.IsCancellationRequested)
-                        {
-                            try
-                            {
-                                processScope.Kill(entireProcessTree: true);
-                            }
-                            catch { }
-                        }
-                    }
-                }
-                else
+                try
                 {
                     await processScope.WaitForExitAsync(context.CancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (!processScope.HasExited)
+                    {
+                        try
+                        {
+                            processScope.Kill(entireProcessTree: true);
+                        }
+                        catch { }
+                    }
+                    throw;
                 }
             }
             finally
             {
-                await Task.Delay(200);
+                await Task.Delay(300);
                 tailCts.Cancel();
                 try { await tailTask; } catch { }
             }
@@ -96,63 +181,76 @@ public class HeadedProcessExecutor : ProcessExecutorBase
                 }
             }
             catch { }
+
+            try
+            {
+                if (File.Exists(runnerScriptPath))
+                {
+                    File.Delete(runnerScriptPath);
+                }
+            }
+            catch { }
         }
     }
 
     public async Task StreamLogFileAsync(string logFilePath, ProviderExecutionContext context, CancellationToken cancellationToken)
     {
-        var startWait = DateTime.UtcNow;
-        while (!File.Exists(logFilePath) && !cancellationToken.IsCancellationRequested)
+        long lastReadPosition = 0;
+
+        while (!cancellationToken.IsCancellationRequested)
         {
-            if (DateTime.UtcNow - startWait > TimeSpan.FromSeconds(5))
-                break;
+            if (File.Exists(logFilePath))
+            {
+                try
+                {
+                    using var fs = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    if (fs.Length > lastReadPosition)
+                    {
+                        _ = fs.Seek(lastReadPosition, SeekOrigin.Begin);
+                        var buffer = new byte[fs.Length - lastReadPosition];
+                        var bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+                        if (bytesRead > 0)
+                        {
+                            lastReadPosition += bytesRead;
+                            var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                            await context.OnStreamToken(text).ConfigureAwait(false);
+                        }
+                    }
+                }
+                catch (IOException) { }
+                catch (OperationCanceledException) { break; }
+            }
+
             try
             {
-                await Task.Delay(50, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
-                return;
+                break;
             }
         }
 
-        if (!File.Exists(logFilePath)) return;
-
-        try
+        // Final read pass after cancellation / process completion
+        if (File.Exists(logFilePath))
         {
-            using var fs = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var sr = new StreamReader(fs, Encoding.UTF8);
-
-            var buffer = new char[1024];
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
-                var read = await sr.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
-                if (read > 0)
+                using var fs = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                if (fs.Length > lastReadPosition)
                 {
-                    var chunk = new string(buffer, 0, read);
-                    await context.OnStreamToken(chunk).ConfigureAwait(false);
-                }
-                else
-                {
-                    try
+                    _ = fs.Seek(lastReadPosition, SeekOrigin.Begin);
+                    var buffer = new byte[fs.Length - lastReadPosition];
+                    var bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length, CancellationToken.None).ConfigureAwait(false);
+                    if (bytesRead > 0)
                     {
-                        await Task.Delay(50, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
+                        var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        await context.OnStreamToken(text).ConfigureAwait(false);
                     }
                 }
             }
-
-            int readCount;
-            while ((readCount = await sr.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
-            {
-                var chunk = new string(buffer, 0, readCount);
-                await context.OnStreamToken(chunk).ConfigureAwait(false);
-            }
+            catch (IOException) { }
+            catch { }
         }
-        catch (OperationCanceledException) { }
-        catch { }
     }
 }

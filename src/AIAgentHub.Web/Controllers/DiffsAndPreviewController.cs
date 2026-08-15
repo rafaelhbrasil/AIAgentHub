@@ -1,22 +1,17 @@
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Rendering;
 using AIAgentHub.Application.Workspaces;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/diffs")]
-public sealed class DiffsController : ControllerBase
+public sealed class DiffsController(IFileChangeService fileChangeService, IWorkspaceService workspaceService) : ControllerBase
 {
-    private readonly IFileChangeService _fileChangeService;
-    private readonly IWorkspaceService _workspaceService;
-
-    public DiffsController(IFileChangeService fileChangeService, IWorkspaceService workspaceService)
-    {
-        _fileChangeService = fileChangeService;
-        _workspaceService = workspaceService;
-    }
+    private readonly IFileChangeService _fileChangeService = fileChangeService;
+    private readonly IWorkspaceService _workspaceService = workspaceService;
 
     [HttpGet]
     public async Task<IActionResult> GetByConversation([FromQuery] Guid conversationId, CancellationToken cancellationToken)
@@ -30,7 +25,9 @@ public sealed class DiffsController : ControllerBase
     {
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
+        {
             return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+        }
 
         try
         {
@@ -62,7 +59,9 @@ public sealed class DiffsController : ControllerBase
     {
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
+        {
             return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+        }
 
         try
         {
@@ -78,27 +77,25 @@ public sealed class DiffsController : ControllerBase
 
 [ApiController]
 [Route("api/v1/preview")]
-public sealed class PreviewController : ControllerBase
+public sealed class PreviewController(IWorkspaceService workspaceService, IContentRenderingManager renderingManager) : ControllerBase
 {
-    private readonly IWorkspaceService _workspaceService;
-    private readonly IContentRenderingManager _renderingManager;
-
-    public PreviewController(IWorkspaceService workspaceService, IContentRenderingManager renderingManager)
-    {
-        _workspaceService = workspaceService;
-        _renderingManager = renderingManager;
-    }
+    private readonly IWorkspaceService _workspaceService = workspaceService;
+    private readonly IContentRenderingManager _renderingManager = renderingManager;
 
     [HttpGet]
     public async Task<IActionResult> GetPreview([FromQuery] Guid workspaceId, [FromQuery] string path, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
+        {
             return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+        }
 
         var fullPath = Path.Combine(ws.Path, path.Replace('/', Path.DirectorySeparatorChar));
         if (!System.IO.File.Exists(fullPath))
+        {
             return NotFound(new { code = "file_not_found", message = $"File '{path}' was not found in workspace." });
+        }
 
         var bytes = await System.IO.File.ReadAllBytesAsync(fullPath, cancellationToken);
         var result = await _renderingManager.RenderFileAsync(fullPath, bytes, null, cancellationToken);

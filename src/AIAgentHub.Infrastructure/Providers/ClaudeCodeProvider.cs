@@ -1,44 +1,63 @@
-using System.Diagnostics;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Providers;
 using AIAgentHub.Infrastructure.Executors;
+
 using Microsoft.Extensions.Options;
 
 namespace AIAgentHub.Infrastructure.Providers;
 
-public sealed class ClaudeCodeProvider : CliProviderBase
+public sealed class ClaudeCodeProvider(
+    IOptions<CliExecutionOptions> options,
+    IPromptLogger promptLogger,
+    IProcessExecutor processExecutor,
+    IOptions<ProvidersOptions>? providersOptions = null) : CliProviderBase(options, promptLogger, processExecutor, providersOptions)
 {
-    public ClaudeCodeProvider(
-        IOptions<CliExecutionOptions> options,
-        IPromptLogger promptLogger,
-        IProcessExecutor processExecutor)
-        : base(options, promptLogger, processExecutor)
-    {
-    }
-
     public override string Id => "claude";
-    public override string DisplayName => "Claude Code";
-    public override string Description => "Anthropic Claude Code CLI assistant for deep repository exploration and refactoring.";
     public override string ExecutableName => "claude";
-    public override string? InstallInstructions => "Install Claude Code CLI via npm or brew.";
     public override string? InstallCommand => "npm install -g @anthropic-ai/claude-code";
-    public override string? AuthCommand => "login";
-    public override string? DocumentationUrl => "https://docs.anthropic.com/en/docs/agents-and-tools/claude-code";
+
+    protected override string DefaultDisplayName => "Claude Code";
+    protected override string DefaultDescription => "Anthropic Claude Code CLI assistant for deep repository exploration and refactoring.";
+    protected override string? DefaultInstallInstructions => "Install Claude Code CLI via npm or brew.";
+    protected override string? DefaultAuthCommand => "/login";
     public override ProviderCapability Capabilities =>
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.Skills | ProviderCapability.ModelSelection;
 
-    public override string BuildArguments(ProviderExecutionContext context)
+    protected override async Task<TestCommandResult> RunTestCommandAsync(string exePath, CancellationToken cancellationToken)
     {
-        var modelArg = (!string.IsNullOrEmpty(context.ModelId) && !context.ModelId.Equals("Default Model", StringComparison.OrdinalIgnoreCase))
-            ? $" --model \"{context.ModelId.Replace("\"", "\\\"")}\""
-            : "";
-        var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
-        return $"--prompt \"{escapedPrompt}\"{modelArg}";
+        // 1. Check if ANTHROPIC_API_KEY environment variable is set
+        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            return new TestCommandResult(true, null);
+        }
+
+        // 2. Otherwise test authentication via claude CLI auth status
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var result = await RunCommandAsync(exePath, "auth status", null, timeoutCts.Token, "Claude Code — Auth Status Check");
+            var combined = (result.Output + " " + result.Error).ToLowerInvariant();
+            return combined.Contains("logged in") || combined.Contains("authenticated") || combined.Contains("active session")
+                ? new TestCommandResult(true, null)
+                : result.ExitCode != 0 || combined.Contains("not logged in") || combined.Contains("unauthenticated") || combined.Contains("login required") || combined.Contains("error")
+                ? new TestCommandResult(false, "Claude Code is not authenticated. Please run 'claude login' in terminal or set ANTHROPIC_API_KEY.")
+                : new TestCommandResult(true, null);
+        }
+        catch (Exception ex)
+        {
+            return new TestCommandResult(false, $"Claude Code authentication check failed: {ex.Message}");
+        }
     }
 
-    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    public override string BuildArguments(ProviderExecutionContext context)
     {
-        return TryFetchDynamicModelsAsync("models", cancellationToken);
+        var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
+        return $"--prompt \"{escapedPrompt}\"{FormatFlag("--model", context.ModelId, skipDefaultModel: true)}";
     }
+
+    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);
 }

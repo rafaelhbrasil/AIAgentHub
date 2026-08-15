@@ -3,24 +3,16 @@ using AIAgentHub.Domain.Security;
 
 namespace AIAgentHub.Application.Security;
 
-public sealed class SetupService : ISetupService
+public sealed class SetupService(
+    IServerSettingsRepository settingsRepository,
+    IUserAccountRepository userRepository,
+    IPasswordHasher passwordHasher,
+    IDatabaseResetter databaseResetter) : ISetupService
 {
-    private readonly IServerSettingsRepository _settingsRepository;
-    private readonly IUserAccountRepository _userRepository;
-    private readonly IPasswordHasher _passwordHasher;
-    private readonly IDatabaseResetter _databaseResetter;
-
-    public SetupService(
-        IServerSettingsRepository settingsRepository,
-        IUserAccountRepository userRepository,
-        IPasswordHasher passwordHasher,
-        IDatabaseResetter databaseResetter)
-    {
-        _settingsRepository = settingsRepository;
-        _userRepository = userRepository;
-        _passwordHasher = passwordHasher;
-        _databaseResetter = databaseResetter;
-    }
+    private readonly IServerSettingsRepository _settingsRepository = settingsRepository;
+    private readonly IUserAccountRepository _userRepository = userRepository;
+    private readonly IPasswordHasher _passwordHasher = passwordHasher;
+    private readonly IDatabaseResetter _databaseResetter = databaseResetter;
 
     public async Task<bool> IsSetupCompletedAsync(CancellationToken cancellationToken = default)
     {
@@ -32,20 +24,28 @@ public sealed class SetupService : ISetupService
     public async Task<SetupResult> InitializeAdminAsync(string username, string password, string confirmPassword, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(username))
+        {
             return new SetupResult(false, null, "Username cannot be empty.");
+        }
 
         if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+        {
             return new SetupResult(false, null, "Password must be at least 6 characters long.");
+        }
 
         if (password != confirmPassword)
+        {
             return new SetupResult(false, null, "Passwords do not match.");
+        }
 
         var existingAdmin = await _userRepository.GetAdminAsync(cancellationToken);
         if (existingAdmin != null)
         {
             var currentSettings = await _settingsRepository.GetAsync(cancellationToken);
             if (currentSettings.IsSetupCompleted)
+            {
                 return new SetupResult(false, null, "Setup has already been completed.");
+            }
         }
 
         var (passwordHash, salt) = _passwordHasher.HashPassword(password);
@@ -64,10 +64,7 @@ public sealed class SetupService : ISetupService
     public async Task<bool> ValidateRecoveryCodeAsync(string recoveryCode, CancellationToken cancellationToken = default)
     {
         var admin = await _userRepository.GetAdminAsync(cancellationToken);
-        if (admin == null || string.IsNullOrWhiteSpace(admin.RecoveryCodeHash))
-            return false;
-
-        return _passwordHasher.VerifyRecoveryCode(recoveryCode, admin.RecoveryCodeHash);
+        return admin != null && !string.IsNullOrWhiteSpace(admin.RecoveryCodeHash) && _passwordHasher.VerifyRecoveryCode(recoveryCode, admin.RecoveryCodeHash);
     }
 
     public async Task<bool> ResetToSetupModeAsync(string? recoveryCode, CancellationToken cancellationToken = default)
@@ -76,7 +73,9 @@ public sealed class SetupService : ISetupService
         if (admin != null && !string.IsNullOrWhiteSpace(recoveryCode))
         {
             if (!_passwordHasher.VerifyRecoveryCode(recoveryCode, admin.RecoveryCodeHash))
+            {
                 return false;
+            }
         }
 
         // Wipe existing admin and reset setup status

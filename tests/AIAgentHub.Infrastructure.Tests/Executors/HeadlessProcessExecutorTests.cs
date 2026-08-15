@@ -1,12 +1,13 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
+
 using NSubstitute;
-using Xunit;
 
 namespace AIAgentHub.Infrastructure.Tests.Executors;
 
@@ -29,7 +30,10 @@ public sealed class HeadlessProcessExecutorTests
     [Fact]
     public async Task ExecuteAsync_OnWindows_ExecutesProcessAndStreamsOutput()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
 
         var executor = new HeadlessProcessExecutor();
         var loggerMock = Substitute.For<IPromptLogger>();
@@ -46,7 +50,7 @@ public sealed class HeadlessProcessExecutorTests
             Array.Empty<string>(),
             token =>
             {
-                outputBuilder.Append(token);
+                _ = outputBuilder.Append(token);
                 return Task.CompletedTask;
             },
             (type, target) => Task.FromResult(true),

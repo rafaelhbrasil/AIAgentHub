@@ -2,19 +2,19 @@ using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Mcp;
 using AIAgentHub.Domain.Permissions;
+using AIAgentHub.Domain.Providers;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Security;
 using AIAgentHub.Domain.Skills;
 using AIAgentHub.Domain.Workspaces;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentHub.Infrastructure.Persistence;
 
-public sealed class WorkspaceRepository : IWorkspaceRepository
+public sealed class WorkspaceRepository(AgentHubDbContext context) : IWorkspaceRepository
 {
-    private readonly AgentHubDbContext _context;
-
-    public WorkspaceRepository(AgentHubDbContext context) => _context = context;
+    private readonly AgentHubDbContext _context = context;
 
     public async Task<IReadOnlyList<Workspace>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -42,32 +42,30 @@ public sealed class WorkspaceRepository : IWorkspaceRepository
 
     public async Task AddAsync(Workspace workspace, CancellationToken cancellationToken = default)
     {
-        await _context.Workspaces.AddAsync(workspace, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.Workspaces.AddAsync(workspace, cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(Workspace workspace, CancellationToken cancellationToken = default)
     {
-        _context.Workspaces.Update(workspace);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = _context.Workspaces.Update(workspace);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var ws = await _context.Workspaces.FindAsync(new object[] { id }, cancellationToken);
+        var ws = await _context.Workspaces.FindAsync([id], cancellationToken);
         if (ws != null)
         {
-            _context.Workspaces.Remove(ws);
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = _context.Workspaces.Remove(ws);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }
 
-public sealed class ConversationRepository : IConversationRepository
+public sealed class ConversationRepository(AgentHubDbContext context) : IConversationRepository
 {
-    private readonly AgentHubDbContext _context;
-
-    public ConversationRepository(AgentHubDbContext context) => _context = context;
+    private readonly AgentHubDbContext _context = context;
 
     public async Task<IReadOnlyList<Conversation>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken cancellationToken = default)
     {
@@ -90,8 +88,8 @@ public sealed class ConversationRepository : IConversationRepository
 
     public async Task AddAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
-        await _context.Conversations.AddAsync(conversation, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.Conversations.AddAsync(conversation, cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(Conversation conversation, CancellationToken cancellationToken = default)
@@ -99,7 +97,7 @@ public sealed class ConversationRepository : IConversationRepository
         foreach (var message in conversation.Messages)
         {
             var entry = _context.Entry(message);
-            if (entry.State == EntityState.Detached || entry.State == EntityState.Modified)
+            if (entry.State is EntityState.Detached or EntityState.Modified)
             {
                 var exists = await _context.Messages.AnyAsync(m => m.Id == message.Id, cancellationToken);
                 if (!exists)
@@ -112,7 +110,7 @@ public sealed class ConversationRepository : IConversationRepository
         foreach (var fileChange in conversation.FileChanges)
         {
             var entry = _context.Entry(fileChange);
-            if (entry.State == EntityState.Detached || entry.State == EntityState.Modified)
+            if (entry.State is EntityState.Detached or EntityState.Modified)
             {
                 var exists = await _context.FileChanges.AnyAsync(fc => fc.Id == fileChange.Id, cancellationToken);
                 if (!exists)
@@ -124,57 +122,50 @@ public sealed class ConversationRepository : IConversationRepository
 
         if (_context.Entry(conversation).State == EntityState.Detached)
         {
-            _context.Conversations.Update(conversation);
+            _ = _context.Conversations.Update(conversation);
         }
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var conv = await _context.Conversations.FindAsync(new object[] { id }, cancellationToken);
+        var conv = await _context.Conversations.FindAsync([id], cancellationToken);
         if (conv != null)
         {
-            _context.Conversations.Remove(conv);
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = _context.Conversations.Remove(conv);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }
 
-public sealed class UserAccountRepository : IUserAccountRepository
+public sealed class UserAccountRepository(AgentHubDbContext context) : IUserAccountRepository
 {
-    private readonly AgentHubDbContext _context;
+    private readonly AgentHubDbContext _context = context;
 
-    public UserAccountRepository(AgentHubDbContext context) => _context = context;
-
-    public async Task<UserAccount?> GetAdminAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Users.FirstOrDefaultAsync(cancellationToken);
-    }
+    public async Task<UserAccount?> GetAdminAsync(CancellationToken cancellationToken = default) => await _context.Users.FirstOrDefaultAsync(cancellationToken);
 
     public async Task AddAsync(UserAccount account, CancellationToken cancellationToken = default)
     {
-        await _context.Users.AddAsync(account, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.Users.AddAsync(account, cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(UserAccount account, CancellationToken cancellationToken = default)
     {
-        _context.Users.Update(account);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = _context.Users.Update(account);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAllAsync(CancellationToken cancellationToken = default)
     {
         _context.Users.RemoveRange(_context.Users);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 }
 
-public sealed class ServerSettingsRepository : IServerSettingsRepository
+public sealed class ServerSettingsRepository(AgentHubDbContext context) : IServerSettingsRepository
 {
-    private readonly AgentHubDbContext _context;
-
-    public ServerSettingsRepository(AgentHubDbContext context) => _context = context;
+    private readonly AgentHubDbContext _context = context;
 
     public async Task<ServerSettings> GetAsync(CancellationToken cancellationToken = default)
     {
@@ -189,24 +180,22 @@ public sealed class ServerSettingsRepository : IServerSettingsRepository
                 ListeningPortHttp = 5433,
                 Theme = "dark"
             };
-            await _context.ServerSettings.AddAsync(settings, cancellationToken);
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = await _context.ServerSettings.AddAsync(settings, cancellationToken);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
         return settings;
     }
 
     public async Task UpdateAsync(ServerSettings settings, CancellationToken cancellationToken = default)
     {
-        _context.ServerSettings.Update(settings);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = _context.ServerSettings.Update(settings);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 }
 
-public sealed class FileChangeRepository : IFileChangeRepository
+public sealed class FileChangeRepository(AgentHubDbContext context) : IFileChangeRepository
 {
-    private readonly AgentHubDbContext _context;
-
-    public FileChangeRepository(AgentHubDbContext context) => _context = context;
+    private readonly AgentHubDbContext _context = context;
 
     public async Task<IReadOnlyList<FileChange>> GetByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default)
     {
@@ -217,29 +206,24 @@ public sealed class FileChangeRepository : IFileChangeRepository
         return list.OrderByDescending(fc => fc.CreatedAtUtc).ToList();
     }
 
-    public async Task<FileChange?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.FileChanges.FindAsync(new object[] { id }, cancellationToken);
-    }
+    public async Task<FileChange?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => await _context.FileChanges.FindAsync([id], cancellationToken);
 
     public async Task AddAsync(FileChange change, CancellationToken cancellationToken = default)
     {
-        await _context.FileChanges.AddAsync(change, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.FileChanges.AddAsync(change, cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(FileChange change, CancellationToken cancellationToken = default)
     {
-        _context.FileChanges.Update(change);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = _context.FileChanges.Update(change);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 }
 
-public sealed class FileSnapshotRepository : IFileSnapshotRepository
+public sealed class FileSnapshotRepository(AgentHubDbContext context) : IFileSnapshotRepository
 {
-    private readonly AgentHubDbContext _context;
-
-    public FileSnapshotRepository(AgentHubDbContext context) => _context = context;
+    private readonly AgentHubDbContext _context = context;
 
     public async Task<IReadOnlyList<FileSnapshot>> GetByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default)
     {
@@ -260,21 +244,16 @@ public sealed class FileSnapshotRepository : IFileSnapshotRepository
 
     public async Task AddAsync(FileSnapshot snapshot, CancellationToken cancellationToken = default)
     {
-        await _context.FileSnapshots.AddAsync(snapshot, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.FileSnapshots.AddAsync(snapshot, cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 }
 
-public sealed class EncryptedSecretRepository : IEncryptedSecretRepository
+public sealed class EncryptedSecretRepository(AgentHubDbContext context) : IEncryptedSecretRepository
 {
-    private readonly AgentHubDbContext _context;
+    private readonly AgentHubDbContext _context = context;
 
-    public EncryptedSecretRepository(AgentHubDbContext context) => _context = context;
-
-    public async Task<IReadOnlyList<EncryptedSecret>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Secrets.ToListAsync(cancellationToken);
-    }
+    public async Task<IReadOnlyList<EncryptedSecret>> GetAllAsync(CancellationToken cancellationToken = default) => await _context.Secrets.ToListAsync(cancellationToken);
 
     public async Task<EncryptedSecret?> GetAsync(string providerId, string keyName, CancellationToken cancellationToken = default)
     {
@@ -291,13 +270,13 @@ public sealed class EncryptedSecretRepository : IEncryptedSecretRepository
             existing.NonceBase64 = secret.NonceBase64;
             existing.TagBase64 = secret.TagBase64;
             existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
-            _context.Secrets.Update(existing);
+            _ = _context.Secrets.Update(existing);
         }
         else
         {
-            await _context.Secrets.AddAsync(secret, cancellationToken);
+            _ = await _context.Secrets.AddAsync(secret, cancellationToken);
         }
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(string providerId, string keyName, CancellationToken cancellationToken = default)
@@ -305,27 +284,19 @@ public sealed class EncryptedSecretRepository : IEncryptedSecretRepository
         var existing = await GetAsync(providerId, keyName, cancellationToken);
         if (existing != null)
         {
-            _context.Secrets.Remove(existing);
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = _context.Secrets.Remove(existing);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }
 
-public sealed class SkillRepository : ISkillRepository
+public sealed class SkillRepository(AgentHubDbContext context) : ISkillRepository
 {
-    private readonly AgentHubDbContext _context;
+    private readonly AgentHubDbContext _context = context;
 
-    public SkillRepository(AgentHubDbContext context) => _context = context;
+    public async Task<IReadOnlyList<Skill>> GetAllAsync(CancellationToken cancellationToken = default) => await _context.Skills.ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Skill>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Skills.ToListAsync(cancellationToken);
-    }
-
-    public async Task<Skill?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Skills.FindAsync(new object[] { id }, cancellationToken);
-    }
+    public async Task<Skill?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => await _context.Skills.FindAsync([id], cancellationToken);
 
     public async Task UpsertAsync(Skill skill, CancellationToken cancellationToken = default)
     {
@@ -336,9 +307,9 @@ public sealed class SkillRepository : ISkillRepository
         }
         else
         {
-            await _context.Skills.AddAsync(skill, cancellationToken);
+            _ = await _context.Skills.AddAsync(skill, cancellationToken);
         }
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -346,27 +317,19 @@ public sealed class SkillRepository : ISkillRepository
         var existing = await GetByIdAsync(id, cancellationToken);
         if (existing != null)
         {
-            _context.Skills.Remove(existing);
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = _context.Skills.Remove(existing);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }
 
-public sealed class McpServerRepository : IMcpServerRepository
+public sealed class McpServerRepository(AgentHubDbContext context) : IMcpServerRepository
 {
-    private readonly AgentHubDbContext _context;
+    private readonly AgentHubDbContext _context = context;
 
-    public McpServerRepository(AgentHubDbContext context) => _context = context;
+    public async Task<IReadOnlyList<McpServer>> GetAllAsync(CancellationToken cancellationToken = default) => await _context.McpServers.ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<McpServer>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.McpServers.ToListAsync(cancellationToken);
-    }
-
-    public async Task<McpServer?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.McpServers.FindAsync(new object[] { id }, cancellationToken);
-    }
+    public async Task<McpServer?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => await _context.McpServers.FindAsync([id], cancellationToken);
 
     public async Task UpsertAsync(McpServer server, CancellationToken cancellationToken = default)
     {
@@ -377,9 +340,9 @@ public sealed class McpServerRepository : IMcpServerRepository
         }
         else
         {
-            await _context.McpServers.AddAsync(server, cancellationToken);
+            _ = await _context.McpServers.AddAsync(server, cancellationToken);
         }
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -387,17 +350,15 @@ public sealed class McpServerRepository : IMcpServerRepository
         var existing = await GetByIdAsync(id, cancellationToken);
         if (existing != null)
         {
-            _context.McpServers.Remove(existing);
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = _context.McpServers.Remove(existing);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }
 
-public sealed class PermissionRequestRepository : IPermissionRequestRepository
+public sealed class PermissionRequestRepository(AgentHubDbContext context) : IPermissionRequestRepository
 {
-    private readonly AgentHubDbContext _context;
-
-    public PermissionRequestRepository(AgentHubDbContext context) => _context = context;
+    private readonly AgentHubDbContext _context = context;
 
     public async Task<IReadOnlyList<PermissionRequest>> GetByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default)
     {
@@ -408,79 +369,42 @@ public sealed class PermissionRequestRepository : IPermissionRequestRepository
         return list.OrderByDescending(p => p.RequestedAtUtc).ToList();
     }
 
-    public async Task<PermissionRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.PermissionRequests.FindAsync(new object[] { id }, cancellationToken);
-    }
+    public async Task<PermissionRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => await _context.PermissionRequests.FindAsync([id], cancellationToken);
 
     public async Task AddAsync(PermissionRequest request, CancellationToken cancellationToken = default)
     {
-        await _context.PermissionRequests.AddAsync(request, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.PermissionRequests.AddAsync(request, cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(PermissionRequest request, CancellationToken cancellationToken = default)
     {
-        _context.PermissionRequests.Update(request);
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = _context.PermissionRequests.Update(request);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 }
 
-public sealed class ProviderDetectionRecordRepository : IProviderDetectionRecordRepository
+public sealed class ProviderDetectionRecordRepository(AgentHubDbContext context) : IProviderDetectionRecordRepository
 {
-    private readonly AgentHubDbContext _context;
+    private readonly AgentHubDbContext _context = context;
 
-    public ProviderDetectionRecordRepository(AgentHubDbContext context) => _context = context;
+    public async Task<IReadOnlyList<ProviderDetectionRecord>> GetAllAsync(CancellationToken cancellationToken = default) => await _context.ProviderDetectionRecords.ToListAsync(cancellationToken);
 
-    private async Task EnsureTableCreatedAsync(CancellationToken cancellationToken)
+    public async Task<ProviderDetectionRecord?> GetByProviderIdAsync(string providerId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            await _context.Database.ExecuteSqlRawAsync(@"
-                CREATE TABLE IF NOT EXISTS ""ProviderDetectionRecords"" (
-                    ""Id"" TEXT NOT NULL CONSTRAINT ""PK_ProviderDetectionRecords"" PRIMARY KEY,
-                    ""ProviderId"" TEXT NOT NULL,
-                    ""Status"" INTEGER NOT NULL,
-                    ""Message"" TEXT NULL,
-                    ""Version"" TEXT NULL,
-                    ""ExecutablePath"" TEXT NULL,
-                    ""IsInstalled"" INTEGER NOT NULL,
-                    ""IsAuthenticated"" INTEGER NOT NULL,
-                    ""QuotaResetsAt"" TEXT NULL,
-                    ""DetectedAtUtc"" TEXT NOT NULL
-                );
-                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ProviderDetectionRecords_ProviderId"" ON ""ProviderDetectionRecords"" (""ProviderId"");
-            ", cancellationToken);
-        }
-        catch
-        {
-            // Ignore if concurrently created or unsupported
-        }
-    }
-
-    public async Task<IReadOnlyList<AIAgentHub.Domain.Providers.ProviderDetectionRecord>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        await EnsureTableCreatedAsync(cancellationToken);
-        return await _context.ProviderDetectionRecords.ToListAsync(cancellationToken);
-    }
-
-    public async Task<AIAgentHub.Domain.Providers.ProviderDetectionRecord?> GetByProviderIdAsync(string providerId, CancellationToken cancellationToken = default)
-    {
-        await EnsureTableCreatedAsync(cancellationToken);
         return await _context.ProviderDetectionRecords
             .FirstOrDefaultAsync(r => r.ProviderId == providerId, cancellationToken);
     }
 
-    public async Task UpsertAsync(AIAgentHub.Domain.Providers.ProviderDetectionRecord record, CancellationToken cancellationToken = default)
+    public async Task UpsertAsync(ProviderDetectionRecord record, CancellationToken cancellationToken = default)
     {
-        await EnsureTableCreatedAsync(cancellationToken);
         var existing = await _context.ProviderDetectionRecords
             .FirstOrDefaultAsync(r => r.ProviderId == record.ProviderId, cancellationToken);
 
         if (existing != null)
         {
             existing.Status = record.Status;
-            existing.Message = record.Message;
+            existing.StatusDetails = record.StatusDetails;
             existing.Version = record.Version;
             existing.ExecutablePath = record.ExecutablePath;
             existing.IsInstalled = record.IsInstalled;
@@ -490,77 +414,40 @@ public sealed class ProviderDetectionRecordRepository : IProviderDetectionRecord
         }
         else
         {
-            _context.ProviderDetectionRecords.Add(record);
+            _ = _context.ProviderDetectionRecords.Add(record);
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(string providerId, CancellationToken cancellationToken = default)
     {
-        await EnsureTableCreatedAsync(cancellationToken);
         var existing = await _context.ProviderDetectionRecords
             .FirstOrDefaultAsync(r => r.ProviderId == providerId, cancellationToken);
         if (existing != null)
         {
-            _context.ProviderDetectionRecords.Remove(existing);
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = _context.ProviderDetectionRecords.Remove(existing);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }
 
-public sealed class ProviderModelSettingRepository : IProviderModelSettingRepository
+public sealed class ProviderModelSettingRepository(AgentHubDbContext context) : IProviderModelSettingRepository
 {
-    private readonly AgentHubDbContext _context;
+    private readonly AgentHubDbContext _context = context;
 
-    public ProviderModelSettingRepository(AgentHubDbContext context) => _context = context;
-
-    private async Task EnsureTableCreatedAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ProviderModelSetting>> GetByProviderIdAsync(string providerId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            await _context.Database.ExecuteSqlRawAsync(@"
-                CREATE TABLE IF NOT EXISTS ""ProviderModelSettings"" (
-                    ""Id"" TEXT NOT NULL CONSTRAINT ""PK_ProviderModelSettings"" PRIMARY KEY,
-                    ""ProviderId"" TEXT NOT NULL,
-                    ""ModelId"" TEXT NOT NULL,
-                    ""IsDisplayed"" INTEGER NOT NULL,
-                    ""UpdatedAtUtc"" TEXT NOT NULL
-                );
-                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ProviderModelSettings_ProviderId_ModelId"" ON ""ProviderModelSettings"" (""ProviderId"", ""ModelId"");
-            ", cancellationToken);
-        }
-        catch
-        {
-            // Ignore if concurrently created or unsupported
-        }
-    }
-
-    public async Task<IReadOnlyList<AIAgentHub.Domain.Providers.ProviderModelSetting>> GetByProviderIdAsync(string providerId, CancellationToken cancellationToken = default)
-    {
-        await EnsureTableCreatedAsync(cancellationToken);
         return await _context.ProviderModelSettings
             .Where(s => s.ProviderId == providerId)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task ReconcileAsync(string providerId, IReadOnlyList<AIAgentHub.Domain.Providers.ModelInfo> currentModels, CancellationToken cancellationToken = default)
+    public async Task ReconcileAsync(string providerId, IReadOnlyList<ModelInfo> currentModels, CancellationToken cancellationToken = default)
     {
-        await EnsureTableCreatedAsync(cancellationToken);
-        List<AIAgentHub.Domain.Providers.ProviderModelSetting> existingSettings;
-        try
-        {
-            existingSettings = await _context.ProviderModelSettings
-                .Where(s => s.ProviderId == providerId)
-                .ToListAsync(cancellationToken);
-        }
-        catch
-        {
-            await EnsureTableCreatedAsync(cancellationToken);
-            existingSettings = await _context.ProviderModelSettings
-                .Where(s => s.ProviderId == providerId)
-                .ToListAsync(cancellationToken);
-        }
+        var existingSettings = await _context.ProviderModelSettings
+            .Where(s => s.ProviderId == providerId)
+            .ToListAsync(cancellationToken);
 
         var existingMap = existingSettings.ToDictionary(s => s.ModelId, s => s, StringComparer.OrdinalIgnoreCase);
         var currentModelIds = new HashSet<string>(currentModels.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
@@ -581,7 +468,7 @@ public sealed class ProviderModelSettingRepository : IProviderModelSettingReposi
             else
             {
                 m.IsDisplayed = true;
-                _context.ProviderModelSettings.Add(new AIAgentHub.Domain.Providers.ProviderModelSetting
+                _ = _context.ProviderModelSettings.Add(new ProviderModelSetting
                 {
                     ProviderId = providerId,
                     ModelId = m.Id,
@@ -594,13 +481,12 @@ public sealed class ProviderModelSettingRepository : IProviderModelSettingReposi
 
         if (hasChanges)
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
     }
 
     public async Task UpdateSettingsAsync(string providerId, Dictionary<string, bool> modelStates, CancellationToken cancellationToken = default)
     {
-        await EnsureTableCreatedAsync(cancellationToken);
         var existingSettings = await _context.ProviderModelSettings
             .Where(s => s.ProviderId == providerId)
             .ToListAsync(cancellationToken);
@@ -616,7 +502,7 @@ public sealed class ProviderModelSettingRepository : IProviderModelSettingReposi
             }
             else
             {
-                _context.ProviderModelSettings.Add(new AIAgentHub.Domain.Providers.ProviderModelSetting
+                _ = _context.ProviderModelSettings.Add(new ProviderModelSetting
                 {
                     ProviderId = providerId,
                     ModelId = modelId,
@@ -626,6 +512,6 @@ public sealed class ProviderModelSettingRepository : IProviderModelSettingReposi
             }
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        _ = await _context.SaveChangesAsync(cancellationToken);
     }
 }

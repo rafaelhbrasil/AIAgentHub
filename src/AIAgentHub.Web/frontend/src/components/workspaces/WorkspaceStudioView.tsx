@@ -1,0 +1,595 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { WorkspaceDto, FileTreeNode } from '../../types/workspace';
+import { ConversationDto, ConversationDetailDto } from '../../types/conversation';
+import { ModelInfo, ProviderStatusDto } from '../../types/provider';
+import { FilePreviewDto } from '../../types/diff';
+import { apiFetch } from '../../services/apiClient';
+import { signalRService, StreamChunkPayload } from '../../services/signalrService';
+import { useToast } from '../../context/ToastContext';
+import { useModal } from '../../context/ModalContext';
+import { FileTree } from './FileTree';
+import { ConversationList } from './ConversationList';
+import { ChatMessageList } from './ChatMessageList';
+import { ChatInputBar } from './ChatInputBar';
+import { DiffViewerModal } from '../modals/DiffViewerModal';
+import { FilePreviewModal } from '../modals/FilePreviewModal';
+import { PermissionModal } from '../modals/PermissionModal';
+
+interface WorkspaceStudioViewProps {
+  workspace: WorkspaceDto;
+  onBack: () => void;
+  onRemoveWorkspace?: (workspace: WorkspaceDto) => void;
+}
+
+export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
+  workspace,
+  onBack,
+}) => {
+  const { showToast } = useToast();
+  const { showModal, hideModal } = useModal();
+
+  const [treeData, setTreeData] = useState<FileTreeNode | null>(null);
+  const [conversations, setConversations] = useState<ConversationDto[]>([]);
+  const [activeConversation, setActiveConversation] = useState<ConversationDetailDto | null>(null);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [streamingContent, setStreamingContent] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [mobileTab, setMobileTab] = useState<'chat' | 'sidebar'>('chat');
+  const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
+
+  const fetchWorkspaceData = useCallback(async () => {
+    try {
+      const [treeRes, convsRes] = await Promise.all([
+        apiFetch<FileTreeNode>(`/api/v1/filesystem/tree?workspaceId=${workspace.id}`),
+        apiFetch<ConversationDto[]>(`/api/v1/conversations?workspaceId=${workspace.id}`),
+      ]);
+
+      if (treeRes.ok && treeRes.data) setTreeData(treeRes.data);
+      const loadedConvs = convsRes.ok && convsRes.data ? convsRes.data : [];
+      setConversations(loadedConvs);
+
+      if (loadedConvs.length > 0) {
+        await selectConversationById(loadedConvs[0].id);
+      } else {
+        setActiveConversation(null);
+      }
+    } catch {
+      // ignore
+    }
+  }, [workspace.id]);
+
+  const selectConversationById = async (convId: string) => {
+    const res = await apiFetch<ConversationDetailDto>(`/api/v1/conversations/${convId}`);
+    if (res.ok && res.data) {
+      setActiveConversation(res.data);
+      signalRService.joinConversation(convId);
+      if (res.data.providerId) {
+        loadModelsForProvider(res.data.providerId);
+      }
+    }
+  };
+
+  const loadModelsForProvider = async (providerId: string) => {
+    const res = await apiFetch<ModelInfo[]>(`/api/v1/providers/${providerId}/models`);
+    if (res.ok && res.data) {
+      setModels(res.data.filter((m) => m.isDisplayed !== false));
+    }
+  };
+
+  useEffect(() => {
+    fetchWorkspaceData();
+  }, [fetchWorkspaceData]);
+
+  // SignalR Event Listeners
+  useEffect(() => {
+    const handleStreamChunk = (payload: StreamChunkPayload) => {
+      if (
+        !activeConversation ||
+        !payload.conversationId ||
+        payload.conversationId.toLowerCase() === activeConversation.id.toLowerCase()
+      ) {
+        setIsStreaming(true);
+        setStreamingContent((prev) => prev + payload.chunk);
+      }
+    };
+
+    const handleConversationEvent = (data: any) => {
+      if (data.eventName === 'conversation.completed' || data.eventName === 'conversation.aborted') {
+        setIsStreaming(false);
+        setStreamingContent('');
+        if (data.eventName === 'conversation.aborted') {
+          showToast('AI response cancelled.', 'info');
+        } else {
+          showToast('AI response completed.', 'success');
+        }
+        if (data.conversationId) {
+          selectConversationById(data.conversationId);
+        }
+      }
+    };
+
+    const handlePermissionRequested = (req: any) => {
+      showModal(
+        '⚠️ Permission Required for AI Action',
+        <PermissionModal request={req} onClose={hideModal} />
+      );
+    };
+
+    const handleDiffCreated = (diff: any) => {
+      const convId = diff.conversationId || diff.ConversationId;
+      const path = diff.relativePath || diff.RelativePath;
+      showToast(`File modified: ${path}`, 'info');
+      if (activeConversation && activeConversation.id === convId) {
+        selectConversationById(convId);
+      }
+    };
+
+    signalRService.onStreamChunk = handleStreamChunk;
+    signalRService.onConversationEvent = handleConversationEvent;
+    signalRService.onPermissionRequested = handlePermissionRequested;
+    signalRService.onDiffCreated = handleDiffCreated;
+
+    return () => {
+      signalRService.onStreamChunk = undefined;
+      signalRService.onConversationEvent = undefined;
+      signalRService.onPermissionRequested = undefined;
+      signalRService.onDiffCreated = undefined;
+    };
+  }, [activeConversation]);
+
+  const handleCreateConversation = async () => {
+    const title = window.prompt('Enter conversation topic:', 'New Feature Task');
+    if (!title) return;
+
+    const res = await apiFetch<ConversationDto>('/api/v1/conversations', {
+      method: 'POST',
+      body: {
+        workspaceId: workspace.id,
+        title: title.trim(),
+        providerId: workspace.settings?.defaultProviderId || 'antigravity',
+        modelId: workspace.settings?.defaultModelId,
+      },
+    });
+
+    if (res.ok && res.data) {
+      showToast('Conversation created.', 'success');
+      setConversations((prev) => [res.data!, ...prev]);
+      await selectConversationById(res.data.id);
+      setMobileTab('chat');
+    }
+  };
+
+  const handleDeleteConversation = (id: string, title: string) => {
+    showModal(
+      'Delete Conversation',
+      <div>
+        <p>
+          Are you sure you want to delete the conversation <strong>"{title || 'Conversation'}"</strong>?
+        </p>
+        <div
+          style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '6px',
+            padding: '12px',
+            marginTop: '14px',
+            fontSize: '0.88rem',
+            color: '#fca5a5',
+          }}
+        >
+          ⚠️ <strong>Warning:</strong> All messages, streaming logs, and execution history for this
+          conversation will be permanently deleted.
+        </div>
+      </div>,
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <button type="button" className="btn btn-secondary" onClick={hideModal}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-danger"
+          onClick={async () => {
+            const res = await apiFetch(`/api/v1/conversations/${id}`, { method: 'DELETE' });
+            hideModal();
+            if (res.ok || res.status === 204) {
+              showToast(`Conversation "${title || 'Conversation'}" deleted.`, 'success');
+              const remaining = conversations.filter((c) => c.id !== id);
+              setConversations(remaining);
+              if (activeConversation?.id === id) {
+                if (remaining.length > 0) {
+                  selectConversationById(remaining[0].id);
+                } else {
+                  setActiveConversation(null);
+                }
+              }
+            } else {
+              showToast('Failed to delete conversation.', 'error');
+            }
+          }}
+        >
+          Delete Conversation
+        </button>
+      </div>
+    );
+  };
+
+  const handlePreviewFile = async (relPath: string) => {
+    const res = await apiFetch<FilePreviewDto>(
+      `/api/v1/preview?workspaceId=${workspace.id}&path=${encodeURIComponent(relPath)}`
+    );
+    if (res.ok && res.data) {
+      showModal(
+        `Preview: ${relPath}`,
+        <FilePreviewModal
+          relativePath={relPath}
+          renderedHtml={res.data.renderedHtml}
+          onClose={hideModal}
+        />
+      );
+    } else {
+      showToast('Failed to preview file.', 'error');
+    }
+  };
+
+  const handleOpenDiffs = () => {
+    if (!activeConversation) return;
+    showModal(
+      'File Modifications & Diff Reviewer',
+      <DiffViewerModal
+        conversationId={activeConversation.id}
+        workspaceId={workspace.id}
+        onClose={hideModal}
+        onRefreshWorkspace={fetchWorkspaceData}
+      />
+    );
+  };
+
+  const handleModelChange = async (modelId: string) => {
+    if (!activeConversation) return;
+    const res = await apiFetch(`/api/v1/conversations/${activeConversation.id}/model`, {
+      method: 'PUT',
+      body: {
+        modelId,
+        providerId: activeConversation.providerId,
+        effort: activeConversation.effort,
+      },
+    });
+    if (res.ok) {
+      setActiveConversation((prev) => (prev ? { ...prev, modelId } : prev));
+      showToast(`Active model set to: ${modelId || 'Default Model'}`, 'success');
+    }
+  };
+
+  const handleEffortChange = async (effort: string) => {
+    if (!activeConversation) return;
+    const res = await apiFetch(`/api/v1/conversations/${activeConversation.id}/model`, {
+      method: 'PUT',
+      body: {
+        modelId: activeConversation.modelId,
+        providerId: activeConversation.providerId,
+        effort,
+      },
+    });
+    if (res.ok) {
+      setActiveConversation((prev) => (prev ? { ...prev, effort } : prev));
+      showToast(`Reasoning effort set to: ${effort || 'Default Effort'}`, 'success');
+    }
+  };
+
+  const handleAbort = async () => {
+    if (!activeConversation) return;
+    try {
+      await apiFetch(`/api/v1/conversations/${activeConversation.id}/abort`, { method: 'POST' });
+      showToast('AI response cancelled by user.', 'info');
+      
+      setIsStreaming(false);
+      const currentStream = (streamingContent || '').trim();
+      const cancellationText = currentStream
+        ? `${currentStream}\n\n*(AI response was cancelled by the user.)*`
+        : '*(AI response was cancelled by the user.)*';
+
+      setActiveConversation((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [
+            ...prev.messages,
+            {
+              id: 'abort-' + Date.now(),
+              conversationId: activeConversation.id,
+              role: 'Assistant',
+              content: cancellationText,
+              createdAtUtc: new Date().toISOString(),
+              metadata: { providerId: activeConversation.providerId },
+            },
+          ],
+        };
+      });
+      setStreamingContent('');
+    } catch {
+      showToast('Failed to abort execution.', 'error');
+    }
+  };
+
+  const handleSendPrompt = async (prompt: string) => {
+    if (!activeConversation) return;
+
+    // Check provider status before sending
+    const statusRes = await apiFetch<ProviderStatusDto>(`/api/v1/providers/${activeConversation.providerId}/status`);
+    if (statusRes.ok && statusRes.data) {
+      const status = statusRes.data;
+      if (status.status === 'QuotaExceeded' || status.status === 5) {
+        let msg = 'Provider quota exceeded.';
+        if (status.quotaResetsAt) {
+          msg += ` Resets at ${new Date(status.quotaResetsAt).toLocaleString()}.`;
+        }
+        showToast(msg, 'error');
+        return;
+      }
+      if (status.status === 'Unauthenticated' || status.status === 1) {
+        showToast('Provider requires authentication. Please authenticate first.', 'error');
+        return;
+      }
+    }
+
+    // Append user message immediately to local state
+    const userMsg = {
+      id: Math.random().toString(),
+      conversationId: activeConversation.id,
+      role: 'User' as const,
+      content: prompt,
+      createdAtUtc: new Date().toISOString(),
+    };
+
+    setActiveConversation((prev) =>
+      prev ? { ...prev, messages: [...prev.messages, userMsg] } : prev
+    );
+
+    setIsStreaming(true);
+    setStreamingContent('');
+
+    await apiFetch(`/api/v1/conversations/${activeConversation.id}/prompt`, {
+      method: 'POST',
+      body: { prompt },
+    });
+  };
+
+  return (
+    <div className="studio-root">
+      {/* Consolidated Compact Header */}
+      <div className="studio-compact-header glass">
+        <div className="studio-header-left">
+          <button type="button" className="btn btn-secondary compact-btn" id="backToWsList" onClick={onBack} title="Back to Workspaces">
+            &larr; <span className="hide-on-mobile">Workspaces</span>
+          </button>
+          
+          <div className="studio-title-block">
+            <span className="studio-ws-badge" title={workspace.path}>
+              📁 {workspace.name}
+            </span>
+            {activeConversation && (
+              <>
+                <span className="studio-crumb-sep">/</span>
+                <span className="studio-conv-title" title={activeConversation.title}>
+                  {activeConversation.title}
+                </span>
+                <span className="badge badge-provider">{activeConversation.providerId}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="studio-header-right">
+          {activeConversation && (
+            <select
+              id="convModelSelect"
+              className="form-select compact-select"
+              value={activeConversation.modelId || ''}
+              onChange={(e) => handleModelChange(e.target.value)}
+              title="Active Model"
+            >
+              <option value="">Default Model</option>
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.displayName || m.id}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {isStreaming && (
+            <button
+              type="button"
+              className="btn btn-danger compact-btn abort-pulse"
+              id="abortBtn"
+              onClick={handleAbort}
+              title="Cancel ongoing response"
+            >
+              ⏹ Abort
+            </button>
+          )}
+
+          {/* Quick Actions Menu Trigger */}
+          <div className="studio-actions-dropdown-wrap">
+            <button
+              type="button"
+              className="btn btn-secondary compact-btn"
+              id="optionsMenuBtn"
+              onClick={() => setShowActionsMenu((prev) => !prev)}
+              title="Workspace & Conversation Options"
+            >
+              ⚙️ <span className="hide-on-mobile">Options</span>
+            </button>
+
+            {showActionsMenu && (
+              <>
+                <div className="dropdown-backdrop" onClick={() => setShowActionsMenu(false)}></div>
+                <div className="studio-actions-dropdown glass">
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    id="newConvBtn"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleCreateConversation();
+                    }}
+                  >
+                    ➕ New Conversation
+                  </button>
+
+                  <button
+                    type="button"
+                    className="dropdown-item"
+                    id="viewDiffsBtn"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleOpenDiffs();
+                    }}
+                    disabled={!activeConversation}
+                  >
+                    📝 Review Diffs & Rollback
+                  </button>
+
+                  {activeConversation && (
+                    <div className="dropdown-item-group">
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Reasoning Effort:</label>
+                      <select
+                        id="convEffortSelect"
+                        className="form-select compact-select"
+                        value={activeConversation.effort || ''}
+                        onChange={(e) => {
+                          handleEffortChange(e.target.value);
+                          setShowActionsMenu(false);
+                        }}
+                      >
+                        <option value="">Default Effort</option>
+                        <option value="low">Low Effort</option>
+                        <option value="medium">Medium Effort</option>
+                        <option value="high">High Effort</option>
+                        <option value="max">Max Effort</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }}></div>
+
+                  {activeConversation && (
+                    <button
+                      type="button"
+                      className="dropdown-item text-danger"
+                      id="deleteCurrentConvBtn"
+                      onClick={() => {
+                        setShowActionsMenu(false);
+                        handleDeleteConversation(activeConversation.id, activeConversation.title);
+                      }}
+                    >
+                      🗑️ Delete Current Conversation
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Switcher Tab (Chats vs Files) */}
+      <div className="studio-mobile-nav">
+        <button
+          type="button"
+          className={`btn compact-btn ${mobileTab === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ flex: 1, justifyContent: 'center' }}
+          onClick={() => setMobileTab('chat')}
+        >
+          💬 Chat Studio
+        </button>
+        <button
+          type="button"
+          className={`btn compact-btn ${mobileTab === 'sidebar' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ flex: 1, justifyContent: 'center' }}
+          onClick={() => setMobileTab('sidebar')}
+        >
+          📁 Files & Chats ({conversations.length})
+        </button>
+      </div>
+
+      <div className="studio-layout">
+        {/* Left Panel: Explorer & Conversations */}
+        <div className={`sidebar-panel glass ${mobileTab === 'chat' ? 'mobile-hidden' : ''}`}>
+          <div className="sidebar-header">
+            <strong>Files & Folders</strong>
+          </div>
+          <FileTree node={treeData} onSelectFile={handlePreviewFile} />
+
+          <div
+            className="sidebar-header"
+            style={{
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <strong>Conversations</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+              {conversations.length}
+            </span>
+          </div>
+          <ConversationList
+            conversations={conversations}
+            activeConversationId={activeConversation?.id}
+            onSelectConversation={(id) => {
+              selectConversationById(id);
+              setMobileTab('chat');
+            }}
+            onDeleteConversation={handleDeleteConversation}
+          />
+        </div>
+
+        {/* Right Panel: Conversation Studio */}
+        <div className={`chat-container glass ${mobileTab === 'sidebar' ? 'mobile-hidden' : ''}`} id="chatPanel">
+          {!activeConversation ? (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: 'var(--text-muted)',
+                padding: '40px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '3rem', marginBottom: '12px', opacity: 0.5 }}>💬</div>
+              <h3 style={{ marginBottom: '8px', color: 'var(--text-heading)' }}>
+                No Active Conversation
+              </h3>
+              <p style={{ fontSize: '0.9rem', maxWidth: '400px', marginBottom: '16px' }}>
+                Create a new conversation or select one from the sidebar to begin pair programming.
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleCreateConversation}
+              >
+                + Start New Conversation
+              </button>
+            </div>
+          ) : (
+            <>
+              <ChatMessageList
+                messages={activeConversation.messages || []}
+                providerId={activeConversation.providerId}
+                streamingContent={streamingContent}
+                isStreaming={isStreaming}
+              />
+
+              <ChatInputBar onSend={handleSendPrompt} disabled={isStreaming} />
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -1,12 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+
+using AIAgentHub.Domain.Configuration;
+using AIAgentHub.Infrastructure.Persistence;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using AIAgentHub.Infrastructure.Persistence;
 
 namespace AIAgentHub.Web.Tests;
 
@@ -16,8 +17,8 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
-        builder.ConfigureServices(services =>
+        _ = builder.UseEnvironment("Testing");
+        _ = builder.ConfigureServices(services =>
         {
             var descriptors = services.Where(d =>
                 d.ServiceType == typeof(DbContextOptions<AgentHubDbContext>) ||
@@ -25,14 +26,28 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 d.ServiceType == typeof(AgentHubDbContext)).ToList();
 
             foreach (var d in descriptors)
-                services.Remove(d);
-
-            services.AddDbContext<AgentHubDbContext>(options =>
             {
-                options.UseSqlite($"Data Source={_testDbPath}");
-                options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+                _ = services.Remove(d);
+            }
+
+            _ = services.AddDbContext<AgentHubDbContext>(options =>
+            {
+                _ = options.UseSqlite($"Data Source={_testDbPath}");
+                _ = options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+            });
+
+            _ = services.Configure<CliExecutionOptions>(options =>
+            {
+                options.Headless = true;
             });
         });
+    }
+
+    public void InitializeDatabase()
+    {
+        using var scope = Services.CreateScope();
+        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+        initializer.InitializeAsync().GetAwaiter().GetResult();
     }
 
     protected override void Dispose(bool disposing)
@@ -52,6 +67,7 @@ public sealed class WebControllerTests : IClassFixture<CustomWebApplicationFacto
     public WebControllerTests(CustomWebApplicationFactory factory)
     {
         _factory = factory;
+        _factory.InitializeDatabase();
     }
 
     [Fact]

@@ -1,28 +1,27 @@
 using System.Security.Cryptography;
+
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Repositories;
 
 namespace AIAgentHub.Infrastructure.Snapshots;
 
-public sealed class LocalDiskSnapshotStore : ISnapshotService
+public sealed class LocalDiskSnapshotStore(
+    IFileSnapshotRepository snapshotRepository,
+    IFileChangeRepository fileChangeRepository) : ISnapshotService
 {
-    private readonly IFileSnapshotRepository _snapshotRepository;
-    private readonly IFileChangeRepository _fileChangeRepository;
-
-    public LocalDiskSnapshotStore(
-        IFileSnapshotRepository snapshotRepository,
-        IFileChangeRepository fileChangeRepository)
-    {
-        _snapshotRepository = snapshotRepository;
-        _fileChangeRepository = fileChangeRepository;
-    }
+    private readonly IFileSnapshotRepository _snapshotRepository = snapshotRepository;
+    private readonly IFileChangeRepository _fileChangeRepository = fileChangeRepository;
 
     private static string GetSnapshotDir(Guid conversationId)
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var dir = Path.Combine(localAppData, "AIAgentHub", "Snapshots", conversationId.ToString("N"));
-        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+        if (!Directory.Exists(dir))
+        {
+            _ = Directory.CreateDirectory(dir);
+        }
+
         return dir;
     }
 
@@ -35,7 +34,10 @@ public sealed class LocalDiskSnapshotStore : ISnapshotService
     {
         var snapshotDir = GetSnapshotDir(conversationId);
         var rootDir = new DirectoryInfo(Path.GetFullPath(workspacePath));
-        if (!rootDir.Exists) return conversationId.ToString();
+        if (!rootDir.Exists)
+        {
+            return conversationId.ToString();
+        }
 
         var ignored = new HashSet<string>(ignoredPatterns, StringComparer.OrdinalIgnoreCase)
         {
@@ -46,7 +48,9 @@ public sealed class LocalDiskSnapshotStore : ISnapshotService
         foreach (var file in files)
         {
             if (IsIgnored(file, rootDir.FullName, ignored))
+            {
                 continue;
+            }
 
             var relativePath = Path.GetRelativePath(rootDir.FullName, file.FullName).Replace('\\', '/');
             var fileHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
@@ -91,7 +95,7 @@ public sealed class LocalDiskSnapshotStore : ISnapshotService
         };
 
         var currentFiles = rootDir.Exists
-            ? rootDir.GetFiles("*", SearchOption.AllDirectories).Where(f => !IsIgnored(f, rootDir.FullName, ignored)).ToList()
+            ? [.. rootDir.GetFiles("*", SearchOption.AllDirectories).Where(f => !IsIgnored(f, rootDir.FullName, ignored))]
             : new List<FileInfo>();
 
         var detectedChanges = new List<FileChange>();
@@ -100,7 +104,7 @@ public sealed class LocalDiskSnapshotStore : ISnapshotService
         foreach (var file in currentFiles)
         {
             var relativePath = Path.GetRelativePath(rootDir.FullName, file.FullName).Replace('\\', '/');
-            seenRelativePaths.Add(relativePath);
+            _ = seenRelativePaths.Add(relativePath);
 
             var currentHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
 
@@ -147,7 +151,7 @@ public sealed class LocalDiskSnapshotStore : ISnapshotService
                 File.Delete(targetFullPath);
             }
         }
-        else if (change.ChangeType == FileChangeType.Modified || change.ChangeType == FileChangeType.Deleted)
+        else if (change.ChangeType is FileChangeType.Modified or FileChangeType.Deleted)
         {
             if (!string.IsNullOrEmpty(change.SnapshotPath))
             {
@@ -158,7 +162,9 @@ public sealed class LocalDiskSnapshotStore : ISnapshotService
                 {
                     var targetDir = Path.GetDirectoryName(targetFullPath);
                     if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
-                        Directory.CreateDirectory(targetDir);
+                    {
+                        _ = Directory.CreateDirectory(targetDir);
+                    }
 
                     File.Copy(backupFile, targetFullPath, true);
                 }
@@ -170,21 +176,22 @@ public sealed class LocalDiskSnapshotStore : ISnapshotService
 
     public async Task<string?> GetSnapshotContentAsync(FileChange change, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(change.SnapshotPath)) return null;
+        if (string.IsNullOrEmpty(change.SnapshotPath))
+        {
+            return null;
+        }
 
         var snapshotDir = GetSnapshotDir(change.ConversationId);
         var backupFile = Path.Combine(snapshotDir, change.SnapshotPath);
 
-        if (!File.Exists(backupFile)) return null;
-
-        return await File.ReadAllTextAsync(backupFile, cancellationToken);
+        return !File.Exists(backupFile) ? null : await File.ReadAllTextAsync(backupFile, cancellationToken);
     }
 
     private static bool IsIgnored(FileInfo file, string rootPath, HashSet<string> ignored)
     {
         var rel = Path.GetRelativePath(rootPath, file.FullName);
-        var segments = rel.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-        return segments.Any(s => ignored.Contains(s));
+        var segments = rel.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        return segments.Any(ignored.Contains);
     }
 
     private static async Task<string> ComputeFileHashAsync(string filePath, CancellationToken cancellationToken)

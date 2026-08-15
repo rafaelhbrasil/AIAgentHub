@@ -1,7 +1,7 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Providers;
@@ -39,11 +39,11 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
             promptLogger,
             displayName,
             context.ModelId,
-            startInfo.Arguments,
+            $"\"{exePath}\" {arguments}",
             context.Prompt?.Length ?? 0);
 
         using var processScope = StartProcess(startInfo, context.ConversationId);
-        
+
         if (startInfo.RedirectStandardInput)
         {
             try { processScope.StandardInput.Close(); } catch { }
@@ -51,54 +51,88 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
 
         var readOutputTask = Task.Run(async () =>
         {
-            var buffer = new char[512];
-            int read;
-            try
-            {
-                while ((read = await processScope.StandardOutput.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                {
-                    var chunk = new string(buffer, 0, read);
-                    await context.OnStreamToken(chunk);
-                }
-            }
-            catch { }
+            await processScope.StandardOutput.StreamChunksAsync(
+                async chunk => await context.OnStreamToken(chunk),
+                CancellationToken.None,
+                512);
         });
 
         var readErrorTask = Task.Run(async () =>
         {
-            var buffer = new char[512];
-            int read;
-            try
-            {
-                while ((read = await processScope.StandardError.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            await processScope.StandardError.StreamChunksAsync(
+                async rawChunk =>
                 {
-                    var rawChunk = new string(buffer, 0, read);
                     var cleanChunk = CleanAnsiCodes(rawChunk);
-
-                    if (ShouldFilterErrorChunk(cleanChunk))
+                    if (!ShouldFilterErrorChunk(cleanChunk))
                     {
-                        continue;
+                        await context.OnStreamToken($"\n[Error]: {cleanChunk}");
                     }
-
-                    await context.OnStreamToken($"\n[Error]: {cleanChunk}");
-                }
-            }
-            catch { }
+                },
+                CancellationToken.None,
+                512);
         });
 
         await processScope.WaitForExitAsync(context.CancellationToken);
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-            await Task.WhenAny(Task.WhenAll(readOutputTask, readErrorTask), Task.Delay(1000, cts.Token));
+            _ = await Task.WhenAny(Task.WhenAll(readOutputTask, readErrorTask), Task.Delay(1000, cts.Token));
         }
         catch { }
     }
 
-    protected static string CleanAnsiCodes(string input)
+    public override async Task<ProcessCommandResult> RunCommandAsync(
+        string executable,
+        string arguments,
+        string? workingDirectory = null,
+        CancellationToken cancellationToken = default,
+        string? operationTitle = null)
     {
-        return Regex.Replace(input, @"\x1B\[[^@-~]*[@-~]", "");
+        EnsureWindowsPlatform(nameof(HeadlessProcessExecutor));
+        var exePath = ResolveExecutablePath(executable);
+
+        var startInfo = CreateStartInfo(
+            fileName: exePath,
+            arguments: arguments,
+            workingDirectory: workingDirectory ?? "",
+            useShellExecute: false,
+            createNoWindow: true);
+
+        startInfo.RedirectStandardInput = true;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        startInfo.StandardOutputEncoding = Encoding.UTF8;
+        startInfo.StandardErrorEncoding = Encoding.UTF8;
+
+        using var process = new Process { StartInfo = startInfo };
+        try
+        {
+            _ = process.Start();
+            try { process.StandardInput.Close(); } catch { }
+
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            await process.WaitForExitAsync(cancellationToken);
+            var output = await outputTask;
+            var error = await errorTask;
+            return new ProcessCommandResult(process.ExitCode, output, error);
+        }
+        catch
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch { }
+            throw;
+        }
     }
+
+    protected static string CleanAnsiCodes(string input) => Regex.Replace(input, @"\x1B\[[^@-~]*[@-~]", "");
 
     protected static bool ShouldFilterErrorChunk(string cleanChunk)
     {

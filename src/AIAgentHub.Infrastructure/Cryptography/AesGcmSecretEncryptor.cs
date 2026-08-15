@@ -1,30 +1,41 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+
 using AIAgentHub.Application.Security;
 
 namespace AIAgentHub.Infrastructure.Cryptography;
 
 public interface IMasterKeyProvider
 {
-    byte[] GetMasterKey();
+    public byte[] GetMasterKey();
 }
 
 public sealed class MasterKeyProvider : IMasterKeyProvider
 {
-    private static readonly object Lock = new();
+    private static readonly Lock Lock = new();
     private byte[]? _masterKey;
 
     public byte[] GetMasterKey()
     {
-        if (_masterKey != null) return _masterKey;
+        if (_masterKey != null)
+        {
+            return _masterKey;
+        }
 
         lock (Lock)
         {
-            if (_masterKey != null) return _masterKey;
+            if (_masterKey != null)
+            {
+                return _masterKey;
+            }
 
             var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var keyDir = Path.Combine(localAppData, "AIAgentHub", "Keys");
-            if (!Directory.Exists(keyDir)) Directory.CreateDirectory(keyDir);
+            if (!Directory.Exists(keyDir))
+            {
+                _ = Directory.CreateDirectory(keyDir);
+            }
+
             var keyPath = Path.Combine(keyDir, "master.key");
 
             if (File.Exists(keyPath))
@@ -53,7 +64,7 @@ public sealed class MasterKeyProvider : IMasterKeyProvider
 
             // Generate new 32-byte AES-256 Master Key
             var newKey = RandomNumberGenerator.GetBytes(32);
-            byte[] toSave = newKey;
+            var toSave = newKey;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -74,14 +85,9 @@ public sealed class MasterKeyProvider : IMasterKeyProvider
     }
 }
 
-public sealed class AesGcmSecretEncryptor : ISecretEncryptor
+public sealed class AesGcmSecretEncryptor(IMasterKeyProvider masterKeyProvider) : ISecretEncryptor
 {
-    private readonly IMasterKeyProvider _masterKeyProvider;
-
-    public AesGcmSecretEncryptor(IMasterKeyProvider masterKeyProvider)
-    {
-        _masterKeyProvider = masterKeyProvider;
-    }
+    private readonly IMasterKeyProvider _masterKeyProvider = masterKeyProvider;
 
     public (string CiphertextBase64, string NonceBase64, string TagBase64) Encrypt(string plainSecret)
     {

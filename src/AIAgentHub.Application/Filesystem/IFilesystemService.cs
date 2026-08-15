@@ -10,14 +10,14 @@ public sealed record TreeNodeItem(string Name, string RelativePath, string FullP
 
 public interface IFilesystemService
 {
-    Task<IReadOnlyList<DriveItem>> GetDrivesAsync(CancellationToken cancellationToken = default);
-    Task<DirectoryBrowseResult> BrowseDirectoryAsync(string? path, CancellationToken cancellationToken = default);
-    Task<TreeNodeItem> GetWorkspaceTreeAsync(string workspacePath, IReadOnlyList<string>? ignoredPatterns = null, CancellationToken cancellationToken = default);
-    Task<byte[]> ReadFileBytesAsync(string fullPath, CancellationToken cancellationToken = default);
-    Task<string> ReadFileTextAsync(string fullPath, CancellationToken cancellationToken = default);
-    Task WriteFileTextAsync(string fullPath, string content, CancellationToken cancellationToken = default);
-    Task WriteFileBytesAsync(string fullPath, byte[] content, CancellationToken cancellationToken = default);
-    bool FileExists(string fullPath);
-    bool DirectoryExists(string fullPath);
-    string SuggestWorkspaceName(string path);
+    public Task<IReadOnlyList<DriveItem>> GetDrivesAsync(CancellationToken cancellationToken = default);
+    public Task<DirectoryBrowseResult> BrowseDirectoryAsync(string? path, CancellationToken cancellationToken = default);
+    public Task<TreeNodeItem> GetWorkspaceTreeAsync(string workspacePath, IReadOnlyList<string>? ignoredPatterns = null, CancellationToken cancellationToken = default);
+    public Task<byte[]> ReadFileBytesAsync(string fullPath, CancellationToken cancellationToken = default);
+    public Task<string> ReadFileTextAsync(string fullPath, CancellationToken cancellationToken = default);
+    public Task WriteFileTextAsync(string fullPath, string content, CancellationToken cancellationToken = default);
+    public Task WriteFileBytesAsync(string fullPath, byte[] content, CancellationToken cancellationToken = default);
+    public bool FileExists(string fullPath);
+    public bool DirectoryExists(string fullPath);
+    public string SuggestWorkspaceName(string path);
 }

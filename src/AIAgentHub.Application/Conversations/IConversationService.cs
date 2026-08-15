@@ -43,12 +43,12 @@ public sealed record CreateConversationRequest(
 
 public interface IConversationService
 {
-    Task<IReadOnlyList<ConversationDto>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken cancellationToken = default);
-    Task<ConversationDetailDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<ConversationDto> CreateAsync(CreateConversationRequest request, CancellationToken cancellationToken = default);
-    Task<ConversationDto> RenameAsync(Guid id, string newTitle, CancellationToken cancellationToken = default);
-    Task SetProviderAndModelAsync(Guid id, string providerId, string? modelId, string? effort = null, CancellationToken cancellationToken = default);
-    Task<MessageDto> AddMessageAsync(Guid conversationId, MessageRole role, string content, ExecutionMetadata? metadata = null, CancellationToken cancellationToken = default);
-    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ConversationDto>> SearchAsync(string query, CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<ConversationDto>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken cancellationToken = default);
+    public Task<ConversationDetailDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    public Task<ConversationDto> CreateAsync(CreateConversationRequest request, CancellationToken cancellationToken = default);
+    public Task<ConversationDto> RenameAsync(Guid id, string newTitle, CancellationToken cancellationToken = default);
+    public Task SetProviderAndModelAsync(Guid id, string providerId, string? modelId, string? effort = null, CancellationToken cancellationToken = default);
+    public Task<MessageDto> AddMessageAsync(Guid conversationId, MessageRole role, string content, ExecutionMetadata? metadata = null, CancellationToken cancellationToken = default);
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<ConversationDto>> SearchAsync(string query, CancellationToken cancellationToken = default);
 }

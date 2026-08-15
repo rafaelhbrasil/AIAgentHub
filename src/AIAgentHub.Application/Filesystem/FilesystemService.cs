@@ -90,7 +90,9 @@ public sealed class FilesystemService : IFilesystemService
             foreach (var subDir in dirInfo.GetDirectories().OrderBy(d => d.Name))
             {
                 if ((subDir.Attributes & FileAttributes.Hidden) != 0 && subDir.Name.StartsWith('.'))
+                {
                     continue;
+                }
 
                 entries.Add(new DirectoryEntryItem(
                     subDir.Name,
@@ -138,7 +140,9 @@ public sealed class FilesystemService : IFilesystemService
         if (ignoredPatterns != null)
         {
             foreach (var p in ignoredPatterns)
-                ignored.Add(p);
+            {
+                _ = ignored.Add(p);
+            }
         }
 
         var rootNode = BuildTreeNode(rootDir, rootDir.FullName, ignored, 0, 4);
@@ -148,7 +152,10 @@ public sealed class FilesystemService : IFilesystemService
     private static TreeNodeItem BuildTreeNode(DirectoryInfo dir, string workspaceRoot, HashSet<string> ignored, int currentDepth, int maxDepth)
     {
         var relativePath = Path.GetRelativePath(workspaceRoot, dir.FullName).Replace('\\', '/');
-        if (relativePath == ".") relativePath = "";
+        if (relativePath == ".")
+        {
+            relativePath = "";
+        }
 
         var children = new List<TreeNodeItem>();
 
@@ -159,7 +166,9 @@ public sealed class FilesystemService : IFilesystemService
                 foreach (var subDir in dir.GetDirectories().OrderBy(d => d.Name))
                 {
                     if (ignored.Contains(subDir.Name))
+                    {
                         continue;
+                    }
 
                     children.Add(BuildTreeNode(subDir, workspaceRoot, ignored, currentDepth + 1, maxDepth));
                 }
@@ -167,7 +176,9 @@ public sealed class FilesystemService : IFilesystemService
                 foreach (var file in dir.GetFiles().OrderBy(f => f.Name))
                 {
                     if (ignored.Contains(file.Name))
+                    {
                         continue;
+                    }
 
                     var fileRel = Path.GetRelativePath(workspaceRoot, file.FullName).Replace('\\', '/');
                     children.Add(new TreeNodeItem(file.Name, fileRel, file.FullName, false, file.Length));
@@ -182,21 +193,17 @@ public sealed class FilesystemService : IFilesystemService
         return new TreeNodeItem(dir.Name, relativePath, dir.FullName, true, null, children);
     }
 
-    public async Task<byte[]> ReadFileBytesAsync(string fullPath, CancellationToken cancellationToken = default)
-    {
-        return await File.ReadAllBytesAsync(fullPath, cancellationToken);
-    }
+    public async Task<byte[]> ReadFileBytesAsync(string fullPath, CancellationToken cancellationToken = default) => await File.ReadAllBytesAsync(fullPath, cancellationToken);
 
-    public async Task<string> ReadFileTextAsync(string fullPath, CancellationToken cancellationToken = default)
-    {
-        return await File.ReadAllTextAsync(fullPath, cancellationToken);
-    }
+    public async Task<string> ReadFileTextAsync(string fullPath, CancellationToken cancellationToken = default) => await File.ReadAllTextAsync(fullPath, cancellationToken);
 
     public async Task WriteFileTextAsync(string fullPath, string content, CancellationToken cancellationToken = default)
     {
         var dir = Path.GetDirectoryName(fullPath);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+        {
+            _ = Directory.CreateDirectory(dir);
+        }
 
         await File.WriteAllTextAsync(fullPath, content, cancellationToken);
     }
@@ -205,7 +212,9 @@ public sealed class FilesystemService : IFilesystemService
     {
         var dir = Path.GetDirectoryName(fullPath);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+        {
+            _ = Directory.CreateDirectory(dir);
+        }
 
         await File.WriteAllBytesAsync(fullPath, content, cancellationToken);
     }
@@ -216,7 +225,11 @@ public sealed class FilesystemService : IFilesystemService
 
     public string SuggestWorkspaceName(string path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return "Workspace";
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "Workspace";
+        }
+
         var trimmed = path.TrimEnd('\\', '/');
         var name = Path.GetFileName(trimmed);
         return string.IsNullOrWhiteSpace(name) ? "Workspace" : name;

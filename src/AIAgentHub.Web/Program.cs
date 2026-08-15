@@ -1,8 +1,13 @@
+using System.Text.Json.Serialization;
+
+using AIAgentHub.Application.Security;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Web;
+
 using Microsoft.Extensions.FileProviders;
+
 using Scalar.AspNetCore;
 
 // Detect actual wwwroot location across development, IDE, test, and release executions
@@ -16,7 +21,6 @@ var candidateWebRoots = new[]
 };
 
 var resolvedWebRoot = candidateWebRoots.FirstOrDefault(Directory.Exists);
-
 var builderOptions = new WebApplicationOptions
 {
     Args = args,
@@ -28,7 +32,7 @@ var builder = WebApplication.CreateBuilder(builderOptions);
 // Configure Kestrel to bind default ports 5432 (HTTPS) and 5433 (HTTP)
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    builder.WebHost.ConfigureKestrel((context, serverOptions) =>
+    _ = builder.WebHost.ConfigureKestrel((context, serverOptions) =>
     {
         try
         {
@@ -37,7 +41,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 
             serverOptions.ListenAnyIP(5432, listenOptions =>
             {
-                listenOptions.UseHttps(tlsCert);
+                _ = listenOptions.UseHttps(tlsCert);
             });
 
             serverOptions.ListenAnyIP(5433);
@@ -55,13 +59,13 @@ var isRecoveryMode = args.Any(a =>
     string.Equals(a, "-recovery", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(a, "/recovery", StringComparison.OrdinalIgnoreCase));
 
-builder.Services.AddSingleton(new AIAgentHub.Application.Security.RecoveryOptions { IsRecoveryModeEnabled = isRecoveryMode });
+builder.Services.AddSingleton(new RecoveryOptions { IsRecoveryModeEnabled = isRecoveryMode });
 
 // Configure services
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 builder.Services.AddOpenApi();
 builder.Services.AddAgentHubServices(builder.Configuration);
@@ -77,8 +81,8 @@ using (var scope = app.Services.CreateScope())
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    _ = app.MapOpenApi();
+    _ = app.MapScalarApiReference();
 }
 
 // Static files configuration
@@ -88,9 +92,9 @@ if (!string.IsNullOrEmpty(resolvedWebRoot) && Directory.Exists(resolvedWebRoot))
     var defaultFileOptions = new DefaultFilesOptions { FileProvider = fileProvider };
     defaultFileOptions.DefaultFileNames.Clear();
     defaultFileOptions.DefaultFileNames.Add("index.html");
-    app.UseDefaultFiles(defaultFileOptions);
+    _ = app.UseDefaultFiles(defaultFileOptions);
 
-    app.UseStaticFiles(new StaticFileOptions
+    _ = app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = fileProvider,
         RequestPath = ""
@@ -98,8 +102,8 @@ if (!string.IsNullOrEmpty(resolvedWebRoot) && Directory.Exists(resolvedWebRoot))
 }
 else
 {
-    app.UseDefaultFiles();
-    app.UseStaticFiles();
+    _ = app.UseDefaultFiles();
+    _ = app.UseStaticFiles();
 }
 
 app.UseRouting();
@@ -111,18 +115,13 @@ app.MapControllers();
 app.MapHub<AgentHubHub>("/hubs/agent");
 
 // SPA Fallback
-if (!string.IsNullOrEmpty(resolvedWebRoot) && File.Exists(Path.Combine(resolvedWebRoot, "index.html")))
-{
-    app.MapFallback(async context =>
+_ = !string.IsNullOrEmpty(resolvedWebRoot) && File.Exists(Path.Combine(resolvedWebRoot, "index.html"))
+    ? app.MapFallback(async context =>
     {
         context.Response.ContentType = "text/html; charset=utf-8";
         await context.Response.SendFileAsync(Path.Combine(resolvedWebRoot, "index.html"));
-    });
-}
-else
-{
-    app.MapFallbackToFile("index.html");
-}
+    })
+    : app.MapFallbackToFile("index.html");
 
 app.Run();
 

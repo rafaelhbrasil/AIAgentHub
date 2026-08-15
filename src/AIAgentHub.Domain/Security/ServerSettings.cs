@@ -15,7 +15,7 @@ public sealed class ServerSettings : AggregateRoot
     public NetworkMode NetworkMode { get; set; } = NetworkMode.Localhost;
     public int ListeningPortHttps { get; set; } = 5432;
     public int ListeningPortHttp { get; set; } = 5433;
-    public List<string> SelectedInterfaces { get; set; } = new();
+    public List<string> SelectedInterfaces { get; set; } = [];
     public string Theme { get; set; } = "dark";
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;

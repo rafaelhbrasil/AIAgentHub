@@ -7,8 +7,8 @@ namespace AIAgentHub.Infrastructure.Certificates;
 
 public interface ICertificateManager
 {
-    X509Certificate2 GetOrCreateSelfSignedCertificate();
-    string GetCertificatePath();
+    public X509Certificate2 GetOrCreateSelfSignedCertificate();
+    public string GetCertificatePath();
 }
 
 public sealed class CertificateManager : ICertificateManager
@@ -19,7 +19,11 @@ public sealed class CertificateManager : ICertificateManager
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var certDir = Path.Combine(localAppData, "AIAgentHub", "Certs");
-        if (!Directory.Exists(certDir)) Directory.CreateDirectory(certDir);
+        if (!Directory.Exists(certDir))
+        {
+            _ = Directory.CreateDirectory(certDir);
+        }
+
         return Path.Combine(certDir, "server.pfx");
     }
 
@@ -62,7 +66,7 @@ public sealed class CertificateManager : ICertificateManager
 
         request.CertificateExtensions.Add(
             new X509EnhancedKeyUsageExtension(
-                new OidCollection { new Oid("1.3.6.1.5.5.7.3.1") }, // Server Authentication
+                [new Oid("1.3.6.1.5.5.7.3.1")], // Server Authentication
                 false));
 
         var sanBuilder = new SubjectAlternativeNameBuilder();
@@ -76,7 +80,7 @@ public sealed class CertificateManager : ICertificateManager
             var hostEntry = Dns.GetHostEntry(Dns.GetHostName());
             foreach (var ip in hostEntry.AddressList)
             {
-                if (ip.AddressFamily == AddressFamily.InterNetwork || ip.AddressFamily == AddressFamily.InterNetworkV6)
+                if (ip.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
                 {
                     sanBuilder.AddIpAddress(ip);
                 }

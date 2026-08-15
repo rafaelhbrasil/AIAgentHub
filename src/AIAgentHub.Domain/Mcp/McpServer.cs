@@ -14,8 +14,8 @@ public sealed class McpServer : Entity
     public string Name { get; set; } = string.Empty;
     public string Command { get; set; } = string.Empty;
     public string? Arguments { get; set; }
-    public Dictionary<string, string> EnvironmentVariables { get; set; } = new();
+    public Dictionary<string, string> EnvironmentVariables { get; set; } = [];
     public bool IsEnabled { get; set; } = true;
-    public List<McpTool> Tools { get; set; } = new();
+    public List<McpTool> Tools { get; set; } = [];
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }

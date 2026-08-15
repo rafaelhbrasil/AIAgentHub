@@ -11,14 +11,14 @@ public sealed record RenderedContentResult(
 
 public interface IContentRenderer
 {
-    string Name { get; }
-    int Priority { get; }
-    bool CanRender(string fileExtension, string? mimeType);
-    Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default);
+    public string Name { get; }
+    public int Priority { get; }
+    public bool CanRender(string fileExtension, string? mimeType);
+    public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default);
 }
 
 public interface IContentRenderingManager
 {
-    IReadOnlyList<IContentRenderer> GetRegisteredRenderers();
-    Task<RenderedContentResult> RenderFileAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default);
+    public IReadOnlyList<IContentRenderer> GetRegisteredRenderers();
+    public Task<RenderedContentResult> RenderFileAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default);
 }

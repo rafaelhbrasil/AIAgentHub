@@ -1,0 +1,12 @@
+{
+  "name": "aiagenthub",
+  "private": true,
+  "workspaces": [
+    "src/AIAgentHub.Web/frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w aiagenthub-frontend",
+    "build": "npm run build -w aiagenthub-frontend",
+    "test": "npm test -w aiagenthub-frontend"
+  }
+}

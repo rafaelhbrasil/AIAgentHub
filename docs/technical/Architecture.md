@@ -119,17 +119,21 @@ Responsible for:
 - networking
 - encryption
 - Git
-- provider execution
+- provider and CLI process execution (`IProcessExecutor`, `HeadlessProcessExecutor`, `HeadedProcessExecutor`)
 
 Infrastructure depends on the Domain.
 
 Never the opposite.
 
+### Process Execution Architecture
+
+All CLI execution (live prompt streaming via `ExecuteAsync` and auxiliary CLI command executions such as `--version`, model listings, and auth status checks via `RunCommandAsync`) is handled exclusively through `IProcessExecutor`. The dependency injection container resolves the appropriate executor (`HeadlessProcessExecutor` or `HeadedProcessExecutor`) based on configuration (`AgentHub:CliExecution:Headless`), ensuring provider adapters remain decoupled from process execution modes.
+
 ---
 
 ## Provider Layer
 
-Each AI provider is implemented as an adapter.
+Each AI provider is implemented as an adapter inheriting from `CliProviderBase`. Providers delegate all process execution to the injected `IProcessExecutor`.
 
 Examples:
 
@@ -137,6 +141,7 @@ Examples:
 - GeminiProvider
 - ClaudeProvider
 - OpenCodeProvider
+- AntigravityProvider
 
 The remainder of the application communicates only through abstractions.
 

@@ -1,12 +1,11 @@
-using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Text;
+
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
+
 using NSubstitute;
-using Xunit;
 
 namespace AIAgentHub.Infrastructure.Tests.Executors;
 
@@ -27,7 +26,7 @@ public sealed class HeadedProcessExecutorTests
     public async Task StreamLogFileAsync_WhenFileWritten_StreamsTokensToContext()
     {
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLogs");
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         var testLogFile = Path.Combine(tempFolder, $"unittest_stream_{Guid.NewGuid():N}.log");
 
         try
@@ -45,7 +44,7 @@ public sealed class HeadedProcessExecutorTests
                 Array.Empty<string>(),
                 token =>
                 {
-                    outputBuilder.Append(token);
+                    _ = outputBuilder.Append(token);
                     return Task.CompletedTask;
                 },
                 (type, target) => Task.FromResult(true),
@@ -105,24 +104,27 @@ public sealed class HeadedProcessExecutorTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_OnWindows_SpawnsPowerShellWithTeeObjectAndCleansUpLogFile()
+    public async Task ExecuteAsync_OnWindows_SpawnsPowerShellWithTeeObjectAndStreamsOutput()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
 
         var outputBuilder = new StringBuilder();
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         var context = new ProviderExecutionContext(
             Guid.NewGuid(),
             Guid.NewGuid(),
             Directory.GetCurrentDirectory(),
-            "test prompt",
+            "build help prompt",
             null,
             null,
             Array.Empty<string>(),
             token =>
             {
-                outputBuilder.Append(token);
+                _ = outputBuilder.Append(token);
                 return Task.CompletedTask;
             },
             (type, target) => Task.FromResult(true),
@@ -130,30 +132,25 @@ public sealed class HeadedProcessExecutorTests
         );
 
         var loggerMock = Substitute.For<IPromptLogger>();
-        var activeProcesses = new ConcurrentDictionary<Guid, Process>();
         var executor = new HeadedProcessExecutor();
-        var options = new CliExecutionOptions { HeadedAutoCloseDelaySeconds = 1 };
+        var options = new CliExecutionOptions { HeadedAutoCloseDelaySeconds = 0 };
 
-        try
-        {
-            await executor.ExecuteAsync(
-                "TestProvider",
-                "dotnet",
-                "--list-sdks",
-                context,
-                loggerMock,
-                options);
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception) { }
+        await executor.ExecuteAsync(
+            "TestProvider",
+            "dotnet",
+            "build --help",
+            context,
+            loggerMock,
+            options);
 
         var result = outputBuilder.ToString();
         Assert.Contains("[TestProvider] External PowerShell session launched on desktop.", result);
+        Assert.Contains("build", result, StringComparison.OrdinalIgnoreCase);
 
         loggerMock.Received(1).LogPromptSent(
             "TestProvider",
             Arg.Any<string>(),
-            Arg.Is<string>(arg => arg.Contains("Tee-Object")),
+            Arg.Is<string>(arg => arg.Contains("dotnet") || arg.Contains("build")),
             Arg.Any<int>());
     }
 

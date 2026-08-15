@@ -1,25 +1,20 @@
-using System.Diagnostics;
 using System.Text;
+
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Providers;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
+
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace AIAgentHub.Infrastructure.Tests;
 
-public sealed class TestDotnetCliProvider : CliProviderBase
+public sealed class TestDotnetCliProvider(
+    IOptions<CliExecutionOptions> options,
+    IPromptLogger promptLogger,
+    IProcessExecutor processExecutor) : CliProviderBase(options, promptLogger, processExecutor)
 {
-    public TestDotnetCliProvider(
-        IOptions<CliExecutionOptions> options,
-        IPromptLogger promptLogger,
-        IProcessExecutor processExecutor)
-        : base(options, promptLogger, processExecutor)
-    {
-    }
-
     public override string Id => "test-dotnet";
     public override string DisplayName => "Test Dotnet CLI";
     public override string Description => "Test CLI Provider for Integration Testing";
@@ -30,15 +25,9 @@ public sealed class TestDotnetCliProvider : CliProviderBase
     public override string? DocumentationUrl => null;
     public override ProviderCapability Capabilities => ProviderCapability.Streaming;
 
-    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult<IReadOnlyList<ModelInfo>>(Array.Empty<ModelInfo>());
-    }
+    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ModelInfo>>(Array.Empty<ModelInfo>());
 
-    public override string BuildArguments(ProviderExecutionContext context)
-    {
-        return "--list-sdks";
-    }
+    public override string BuildArguments(ProviderExecutionContext context) => "--list-sdks";
 }
 
 public sealed class CliProviderHeadlessTests
@@ -62,7 +51,7 @@ public sealed class CliProviderHeadlessTests
             Array.Empty<string>(),
             token =>
             {
-                outputBuilder.Append(token);
+                _ = outputBuilder.Append(token);
                 return Task.CompletedTask;
             },
             (type, target) => Task.FromResult(true),
@@ -101,7 +90,7 @@ public sealed class CliProviderHeadlessTests
             Array.Empty<string>(),
             token =>
             {
-                outputBuilder.Append(token);
+                _ = outputBuilder.Append(token);
                 return Task.CompletedTask;
             },
             (type, target) => Task.FromResult(true),
@@ -124,5 +113,30 @@ public sealed class CliProviderHeadlessTests
         {
             Assert.Contains("[Test Dotnet CLI] External PowerShell session launched on desktop.", result);
         }
+    }
+
+    [Fact]
+    public async Task RunCommandAsync_HeadlessExecutor_ExecutesAndReturnsOutput()
+    {
+        var executor = new HeadlessProcessExecutor();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var result = await executor.RunCommandAsync("dotnet", "--version", null, cts.Token, "Test — Version");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotEmpty(result.Output.Trim());
+    }
+
+    [Fact]
+    public async Task RunCommandAsync_HeadedExecutor_ExecutesScriptAndReturnsOutput()
+    {
+        var options = Options.Create(new CliExecutionOptions { Headless = false, HeadedAutoCloseDelaySeconds = 0 });
+        var executor = new HeadedProcessExecutor(options);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var result = await executor.RunCommandAsync("dotnet", "--version", null, cts.Token, "Test — Version");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotEmpty(result.Output.Trim());
     }
 }

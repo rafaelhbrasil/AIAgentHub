@@ -14,17 +14,16 @@ public sealed class Message : Entity
 
     public static Message Create(Guid conversationId, MessageRole role, string content, ExecutionMetadata? metadata = null)
     {
-        if (conversationId == Guid.Empty)
-            throw new ArgumentException("Conversation ID must be valid.", nameof(conversationId));
-
-        return new Message
-        {
-            Id = Guid.NewGuid(),
-            ConversationId = conversationId,
-            Role = role,
-            Content = content ?? string.Empty,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            Metadata = metadata
-        };
+        return conversationId == Guid.Empty
+            ? throw new ArgumentException("Conversation ID must be valid.", nameof(conversationId))
+            : new Message
+            {
+                Id = Guid.NewGuid(),
+                ConversationId = conversationId,
+                Role = role,
+                Content = content ?? string.Empty,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                Metadata = metadata
+            };
     }
 }

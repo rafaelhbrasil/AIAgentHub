@@ -3,14 +3,15 @@ using System.Diagnostics;
 
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
-using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Infrastructure.Providers;
 
 namespace AIAgentHub.Infrastructure.Executors;
 
+public record ProcessCommandResult(int ExitCode, string Output, string Error);
+
 public interface IProcessExecutor
 {
-    Task ExecuteAsync(
+    public Task ExecuteAsync(
         string displayName,
         string executableName,
         string arguments,
@@ -18,7 +19,14 @@ public interface IProcessExecutor
         IPromptLogger promptLogger,
         CliExecutionOptions options);
 
-    bool AbortProcess(Guid conversationId);
+    public Task<ProcessCommandResult> RunCommandAsync(
+        string executable,
+        string arguments,
+        string? workingDirectory = null,
+        CancellationToken cancellationToken = default,
+        string? operationTitle = null);
+
+    public bool AbortProcess(Guid conversationId);
 }
 
 public abstract class ProcessExecutorBase : IProcessExecutor
@@ -33,11 +41,18 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         IPromptLogger promptLogger,
         CliExecutionOptions options);
 
+    public abstract Task<ProcessCommandResult> RunCommandAsync(
+        string executable,
+        string arguments,
+        string? workingDirectory = null,
+        CancellationToken cancellationToken = default,
+        string? operationTitle = null);
+
     protected ProcessRegistrationScope StartProcess(ProcessStartInfo startInfo, Guid conversationId)
     {
         var process = new Process { StartInfo = startInfo };
         _activeProcesses[conversationId] = process;
-        process.Start();
+        _ = process.Start();
         return new ProcessRegistrationScope(_activeProcesses, conversationId, process);
     }
 
@@ -73,10 +88,7 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         }
     }
 
-    protected virtual string ResolveExecutablePath(string executableName)
-    {
-        return CliProviderBase.FindExecutable(executableName) ?? executableName;
-    }
+    protected virtual string ResolveExecutablePath(string executableName) => CliProviderBase.FindExecutable(executableName) ?? executableName;
 
     protected static void LogPrompt(
         IPromptLogger promptLogger,
@@ -109,19 +121,12 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         };
     }
 
-    protected sealed class ProcessRegistrationScope : IDisposable
+    protected sealed class ProcessRegistrationScope(ConcurrentDictionary<Guid, Process> allProcesses, Guid conversationId, Process process) : IDisposable
     {
-        private readonly ConcurrentDictionary<Guid, Process> _allProcesses;
-        private readonly Guid _conversationId;
+        private readonly ConcurrentDictionary<Guid, Process> _allProcesses = allProcesses;
+        private readonly Guid _conversationId = conversationId;
 
-        public Process Process { get; }
-
-        public ProcessRegistrationScope(ConcurrentDictionary<Guid, Process> allProcesses, Guid conversationId, Process process)
-        {
-            _allProcesses = allProcesses;
-            _conversationId = conversationId;
-            Process = process;
-        }
+        public Process Process { get; } = process;
 
         public StreamWriter StandardInput => Process.StandardInput;
         public StreamReader StandardOutput => Process.StandardOutput;
@@ -134,7 +139,10 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         public void Kill(bool entireProcessTree = false)
             => Process.Kill(entireProcessTree);
 
-        public static implicit operator Process(ProcessRegistrationScope scope) => scope.Process;
+        public static implicit operator Process(ProcessRegistrationScope scope)
+        {
+            return scope.Process;
+        }
 
         public void Dispose()
         {

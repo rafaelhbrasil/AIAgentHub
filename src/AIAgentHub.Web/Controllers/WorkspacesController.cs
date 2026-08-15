@@ -1,18 +1,14 @@
 using AIAgentHub.Application.Workspaces;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/workspaces")]
-public sealed class WorkspacesController : ControllerBase
+public sealed class WorkspacesController(IWorkspaceService workspaceService) : ApiControllerBase
 {
-    private readonly IWorkspaceService _workspaceService;
-
-    public WorkspacesController(IWorkspaceService workspaceService)
-    {
-        _workspaceService = workspaceService;
-    }
+    private readonly IWorkspaceService _workspaceService = workspaceService;
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
@@ -25,9 +21,7 @@ public sealed class WorkspacesController : ControllerBase
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(id, cancellationToken);
-        if (ws == null)
-            return NotFound(new { code = "workspace_not_found", message = $"Workspace {id} was not found." });
-        return Ok(ws);
+        return ws == null ? NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.") : Ok(ws);
     }
 
     [HttpPost]
@@ -40,7 +34,7 @@ public sealed class WorkspacesController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { code = "workspace_creation_failed", message = ex.Message });
+            return BadRequestResponse("workspace_creation_failed", ex.Message);
         }
     }
 
@@ -54,7 +48,7 @@ public sealed class WorkspacesController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "workspace_not_found", message = $"Workspace {id} was not found." });
+            return NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.");
         }
     }
 

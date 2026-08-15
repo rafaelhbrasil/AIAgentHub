@@ -244,6 +244,82 @@ namespace AIAgentHub.Infrastructure.Migrations
                     b.ToTable("PermissionRequests");
                 });
 
+            modelBuilder.Entity("AIAgentHub.Domain.Providers.ProviderDetectionRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("DetectedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExecutablePath")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsAuthenticated")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsInstalled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ProviderId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("QuotaResetsAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StatusDetails")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderId")
+                        .IsUnique();
+
+                    b.ToTable("ProviderDetectionRecords");
+                });
+
+            modelBuilder.Entity("AIAgentHub.Domain.Providers.ProviderModelSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDisplayed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProviderId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderId", "ModelId")
+                        .IsUnique();
+
+                    b.ToTable("ProviderModelSettings");
+                });
+
             modelBuilder.Entity("AIAgentHub.Domain.Security.EncryptedSecret", b =>
                 {
                     b.Property<Guid>("Id")

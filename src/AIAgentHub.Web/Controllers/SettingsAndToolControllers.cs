@@ -1,23 +1,20 @@
 using System.Net.NetworkInformation;
+
 using AIAgentHub.Application.Execution;
-using AIAgentHub.Application.Security;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Security;
+
 using Microsoft.AspNetCore.Mvc;
+
 using IAppAuthService = AIAgentHub.Application.Security.IAuthenticationService;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/permissions")]
-public sealed class PermissionsController : ControllerBase
+public sealed class PermissionsController(IPermissionService permissionService) : ControllerBase
 {
-    private readonly IPermissionService _permissionService;
-
-    public PermissionsController(IPermissionService permissionService)
-    {
-        _permissionService = permissionService;
-    }
+    private readonly IPermissionService _permissionService = permissionService;
 
     [HttpGet]
     public async Task<IActionResult> GetByConversation([FromQuery] Guid conversationId, CancellationToken cancellationToken)
@@ -45,16 +42,17 @@ public sealed class PermissionsController : ControllerBase
 
 [ApiController]
 [Route("api/v1/settings")]
-public sealed class SettingsController : ControllerBase
+public sealed class SettingsController(IServerSettingsRepository settingsRepository, IAppAuthService authService) : ControllerBase
 {
-    private readonly IServerSettingsRepository _settingsRepository;
-    private readonly IAppAuthService _authService;
+    private readonly IServerSettingsRepository _settingsRepository = settingsRepository;
+    private readonly IAppAuthService _authService = authService;
 
-    public SettingsController(IServerSettingsRepository settingsRepository, IAppAuthService authService)
-    {
-        _settingsRepository = settingsRepository;
-        _authService = authService;
-    }
+    public sealed record UpdateServerSettingsRequest(
+        NetworkMode NetworkMode,
+        int? ListeningPortHttps = null,
+        int? ListeningPortHttp = null,
+        List<string>? SelectedInterfaces = null,
+        string? Theme = null);
 
     [HttpGet]
     public async Task<IActionResult> GetSettings(CancellationToken cancellationToken)
@@ -63,11 +61,40 @@ public sealed class SettingsController : ControllerBase
         return Ok(settings);
     }
 
-    [HttpPut]
-    public async Task<IActionResult> UpdateSettings([FromBody] ServerSettings newSettings, CancellationToken cancellationToken)
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateSettings(Guid id, [FromBody] UpdateServerSettingsRequest request, CancellationToken cancellationToken)
     {
-        await _settingsRepository.UpdateAsync(newSettings, cancellationToken);
-        return Ok(newSettings);
+        var existing = await _settingsRepository.GetAsync(cancellationToken);
+        if (existing.Id != id)
+        {
+            return NotFound(new { code = "settings_not_found", message = $"Server settings with ID '{id}' was not found." });
+        }
+
+        existing.NetworkMode = request.NetworkMode;
+        if (request.ListeningPortHttps.HasValue)
+        {
+            existing.ListeningPortHttps = request.ListeningPortHttps.Value;
+        }
+
+        if (request.ListeningPortHttp.HasValue)
+        {
+            existing.ListeningPortHttp = request.ListeningPortHttp.Value;
+        }
+
+        if (request.SelectedInterfaces != null)
+        {
+            existing.SelectedInterfaces = request.SelectedInterfaces;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Theme))
+        {
+            existing.Theme = request.Theme;
+        }
+
+        existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _settingsRepository.UpdateAsync(existing, cancellationToken);
+        return Ok(existing);
     }
 
     [HttpGet("network-interfaces")]
@@ -76,7 +103,10 @@ public sealed class SettingsController : ControllerBase
         var list = new List<object>();
         foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
         {
-            if (nic.OperationalStatus != OperationalStatus.Up) continue;
+            if (nic.OperationalStatus != OperationalStatus.Up)
+            {
+                continue;
+            }
 
             var props = nic.GetIPProperties();
             foreach (var addr in props.UnicastAddresses)
@@ -100,26 +130,21 @@ public sealed class SettingsController : ControllerBase
     public async Task<IActionResult> GetRecoveryCode(CancellationToken cancellationToken)
     {
         var admin = await _authService.GetAdminAsync(cancellationToken);
-        if (admin == null) return NotFound();
-
-        return Ok(new
-        {
-            username = admin.Username,
-            hasRecoveryCode = !string.IsNullOrEmpty(admin.RecoveryCodeHash)
-        });
+        return admin == null
+            ? NotFound()
+            : Ok(new
+            {
+                username = admin.Username,
+                hasRecoveryCode = !string.IsNullOrEmpty(admin.RecoveryCodeHash)
+            });
     }
 }
 
 [ApiController]
 [Route("api/v1/skills")]
-public sealed class SkillsController : ControllerBase
+public sealed class SkillsController(ISkillRepository skillRepository) : ControllerBase
 {
-    private readonly ISkillRepository _skillRepository;
-
-    public SkillsController(ISkillRepository skillRepository)
-    {
-        _skillRepository = skillRepository;
-    }
+    private readonly ISkillRepository _skillRepository = skillRepository;
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
@@ -131,14 +156,9 @@ public sealed class SkillsController : ControllerBase
 
 [ApiController]
 [Route("api/v1/mcps")]
-public sealed class McpsController : ControllerBase
+public sealed class McpsController(IMcpServerRepository mcpRepository) : ControllerBase
 {
-    private readonly IMcpServerRepository _mcpRepository;
-
-    public McpsController(IMcpServerRepository mcpRepository)
-    {
-        _mcpRepository = mcpRepository;
-    }
+    private readonly IMcpServerRepository _mcpRepository = mcpRepository;
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)

@@ -1,20 +1,15 @@
 using AIAgentHub.Application.Execution;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/conversations/{id:guid}")]
-public sealed class ExecuteController : ControllerBase
+public sealed class ExecuteController(IServiceScopeFactory scopeFactory, ILogger<ExecuteController> logger) : ControllerBase
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<ExecuteController> _logger;
-
-    public ExecuteController(IServiceScopeFactory scopeFactory, ILogger<ExecuteController> logger)
-    {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
+    private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
+    private readonly ILogger<ExecuteController> _logger = logger;
 
     public sealed record PromptRequest(string Prompt);
 
@@ -22,7 +17,9 @@ public sealed class ExecuteController : ControllerBase
     public IActionResult ExecutePrompt(Guid id, [FromBody] PromptRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Prompt))
+        {
             return BadRequest(new { code = "empty_prompt", message = "Prompt cannot be empty." });
+        }
 
         _ = Task.Run(async () =>
         {
