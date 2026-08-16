@@ -26,7 +26,7 @@ public sealed class GeminiCliProvider(
     public override async Task<ProviderInfo> DetectAsync(CancellationToken cancellationToken = default)
     {
         var info = await base.DetectAsync(cancellationToken);
-        info.Status = ProviderStatus.Error;
+        info.Status = ProviderStatus.Discontinued;
         info.Message = "Discontinued: This client is no longer supported for Gemini Code Assist for individuals. Please migrate to the Antigravity suite of products.";
         return info;
     }
@@ -34,7 +34,7 @@ public sealed class GeminiCliProvider(
     public override Task<ProviderDetectionResult> DetectDetailedAsync(CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new ProviderDetectionResult(
-            ProviderStatus.Error,
+            ProviderStatus.Discontinued,
             "Discontinued: This client is no longer supported for Gemini Code Assist for individuals. Please migrate to the Antigravity suite of products.",
             null
         ));

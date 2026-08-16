@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Providers;
@@ -42,8 +43,47 @@ public sealed class AntigravityProvider(
     }
 
     public override Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) =>
-        // Antigravity sessions are managed by Antigravity CLI dynamically
+        // Antigravity sessions are created by Antigravity CLI and captured dynamically upon first prompt execution
         Task.FromResult<string?>(null);
+
+    private readonly AsyncLocal<string?> _currentLogFile = new();
+
+    public override async Task ExecuteAsync(ProviderExecutionContext context)
+    {
+        string? agyLogFile = null;
+        var needsSessionCapture = string.IsNullOrEmpty(context.ProviderSessionId) && context.OnSessionCreated != null;
+        if (needsSessionCapture)
+        {
+            var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLogs");
+            _ = Directory.CreateDirectory(tempFolder);
+            agyLogFile = Path.Combine(tempFolder, $"agy_{context.ConversationId:N}_{Guid.NewGuid():N}.log");
+            _currentLogFile.Value = agyLogFile;
+        }
+
+        try
+        {
+            await base.ExecuteAsync(context);
+
+            if (needsSessionCapture && agyLogFile != null && File.Exists(agyLogFile))
+            {
+                var logContent = await File.ReadAllTextAsync(agyLogFile, context.CancellationToken);
+                var match = Regex.Match(logContent, @"(?:Created conversation|conversation=)([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    var createdSessionId = match.Groups[1].Value;
+                    await context.OnSessionCreated!(createdSessionId);
+                }
+            }
+        }
+        finally
+        {
+            _currentLogFile.Value = null;
+            if (agyLogFile != null)
+            {
+                try { if (File.Exists(agyLogFile)) { File.Delete(agyLogFile); } } catch { }
+            }
+        }
+    }
 
     public override string BuildArguments(ProviderExecutionContext context)
     {
@@ -66,8 +106,12 @@ public sealed class AntigravityProvider(
         var sessionArg = !string.IsNullOrWhiteSpace(context.ProviderSessionId) && !context.ProviderSessionId.StartsWith("agenthub-", StringComparison.OrdinalIgnoreCase)
             ? FormatFlag("--conversation", context.ProviderSessionId)
             : string.Empty;
+        var logFilePath = _currentLogFile.Value;
+        var logArg = !string.IsNullOrWhiteSpace(logFilePath)
+            ? FormatFlag("--log-file", logFilePath)
+            : string.Empty;
 
-        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}";
+        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}{logArg}";
     }
 
     public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);

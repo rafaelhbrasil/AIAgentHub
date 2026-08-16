@@ -23,22 +23,27 @@ export const ProviderModelsModal: React.FC<ProviderModelsModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
+  const filterDefaultModels = (list: ModelInfo[]) =>
+    list.filter((m) => m.id && m.id.toLowerCase() !== 'default');
+
   useEffect(() => {
     const fetchModelsIfNeeded = async () => {
       if (initialModels && initialModels.length > 0) {
+        const cleanInitial = filterDefaultModels(initialModels);
         const stateMap: Record<string, boolean> = {};
-        initialModels.forEach((m) => {
+        cleanInitial.forEach((m) => {
           stateMap[m.id] = m.isDisplayed !== false;
         });
         setModelStates(stateMap);
-        setModels(initialModels);
+        setModels(cleanInitial);
         return;
       }
 
       setIsLoading(true);
       try {
         const res = await apiFetch<ModelInfo[]>(`/api/v1/providers/${provider.id}/models`);
-        const loadedModels = res.ok && res.data ? res.data : provider.supportedModels || [];
+        const raw = res.ok && res.data ? res.data : provider.supportedModels || [];
+        const loadedModels = filterDefaultModels(raw);
         setModels(loadedModels);
         const stateMap: Record<string, boolean> = {};
         loadedModels.forEach((m) => {
@@ -75,10 +80,11 @@ export const ProviderModelsModal: React.FC<ProviderModelsModalProps> = ({
       if (res.ok) {
         // Reload updated models from DB (no refresh query param)
         const freshRes = await apiFetch<ModelInfo[]>(`/api/v1/providers/${provider.id}/models`);
-        const freshModels = freshRes.ok && freshRes.data ? freshRes.data : models.map((m) => ({
+        const rawFresh = freshRes.ok && freshRes.data ? freshRes.data : models.map((m) => ({
           ...m,
           isDisplayed: modelStates[m.id] ?? true,
         }));
+        const freshModels = filterDefaultModels(rawFresh);
         showToast('Model settings saved successfully.', 'success');
         onSaveSuccess(freshModels);
       } else {

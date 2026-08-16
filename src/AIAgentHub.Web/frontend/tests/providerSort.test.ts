@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getProviderSortPriority, sortProviders } from '../src/utils/providerSort';
-import { ProviderDto } from '../src/types/provider';
+import { getProviderSortPriority, sortProviders, isProviderOperational } from '../src/utils/providerSort';
+import { ProviderDto, ProviderStatus } from '../src/types/provider';
 
 describe('providerSort utils', () => {
   const readyProv: ProviderDto = {
@@ -8,7 +8,7 @@ describe('providerSort utils', () => {
     displayName: 'Antigravity CLI',
     description: 'Operational provider',
     isInstalled: true,
-    status: 'Ready',
+    status: ProviderStatus.Ready,
     capabilities: 1,
     supportedModels: [],
   };
@@ -18,7 +18,7 @@ describe('providerSort utils', () => {
     displayName: 'Claude Code',
     description: 'Requires auth',
     isInstalled: true,
-    status: 'Unauthenticated',
+    status: ProviderStatus.Unauthenticated,
     capabilities: 1,
     supportedModels: [],
   };
@@ -28,7 +28,7 @@ describe('providerSort utils', () => {
     displayName: 'OpenCode',
     description: 'Not installed',
     isInstalled: false,
-    status: 'NotInstalled',
+    status: ProviderStatus.NotInstalled,
     capabilities: 1,
     supportedModels: [],
   };
@@ -38,7 +38,7 @@ describe('providerSort utils', () => {
     displayName: 'Gemini CLI',
     description: 'Discontinued CLI',
     isInstalled: true,
-    status: 'Ready',
+    status: ProviderStatus.Discontinued,
     message: 'CLI has been discontinued',
     capabilities: 1,
     supportedModels: [],
@@ -56,5 +56,12 @@ describe('providerSort utils', () => {
     const sorted = sortProviders(list);
 
     expect(sorted.map((p) => p.id)).toEqual(['antigravity', 'claude', 'opencode', 'gemini']);
+  });
+
+  it('correctly identifies operational providers', () => {
+    expect(isProviderOperational(readyProv)).toBe(true);
+    expect(isProviderOperational(unauthProv)).toBe(false);
+    expect(isProviderOperational(notInstalledProv)).toBe(false);
+    expect(isProviderOperational(discontinuedProv)).toBe(false);
   });
 });

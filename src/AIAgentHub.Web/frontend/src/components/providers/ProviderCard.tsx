@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ProviderDto, ModelInfo, ProviderStatusDto } from '../../types/provider';
 import { formatModelsSummary } from '../../utils/formatting';
+import {
+  isDiscontinuedStatus,
+  isReadyStatus,
+  isNotInstalledStatus,
+  isUnauthenticatedStatus,
+  isQuotaExceededStatus,
+} from '../../utils/providerSort';
 import { apiFetch } from '../../services/apiClient';
 import { useToast } from '../../context/ToastContext';
 
@@ -27,14 +34,11 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
     setCurrentProvider(provider);
   }, [provider]);
 
-  const rawStatus = currentProvider.status;
-  const isDiscontinued =
-    currentProvider.id === 'gemini' ||
-    (currentProvider.message && currentProvider.message.toLowerCase().includes('discontinued'));
-  const isReady = (rawStatus === 'Ready' || rawStatus === 2) && !isDiscontinued;
-  const isNotInstalled = (rawStatus === 'NotInstalled' || rawStatus === 0) && !isDiscontinued;
-  const isUnauthenticated = (rawStatus === 'Unauthenticated' || rawStatus === 1) && !isDiscontinued;
-  const isQuotaExceeded = (rawStatus === 'QuotaExceeded' || rawStatus === 5) && !isDiscontinued;
+  const isDiscontinued = isDiscontinuedStatus(currentProvider.status);
+  const isReady = isReadyStatus(currentProvider.status);
+  const isNotInstalled = isNotInstalledStatus(currentProvider.status);
+  const isUnauthenticated = isUnauthenticatedStatus(currentProvider.status);
+  const isQuotaExceeded = isQuotaExceededStatus(currentProvider.status);
 
   let statusText = 'Unknown';
   let statusClass = 'badge';

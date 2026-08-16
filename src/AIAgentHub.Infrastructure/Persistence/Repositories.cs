@@ -450,7 +450,10 @@ public sealed class ProviderModelSettingRepository(AgentHubDbContext context) : 
             .ToListAsync(cancellationToken);
 
         var existingMap = existingSettings.ToDictionary(s => s.ModelId, s => s, StringComparer.OrdinalIgnoreCase);
-        var currentModelIds = new HashSet<string>(currentModels.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
+        var validModels = currentModels
+            .Where(m => !string.IsNullOrWhiteSpace(m.Id) && !m.Id.Trim().Equals("default", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var currentModelIds = new HashSet<string>(validModels.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
 
         var obsolete = existingSettings.Where(s => !currentModelIds.Contains(s.ModelId)).ToList();
         if (obsolete.Count > 0)
@@ -459,7 +462,7 @@ public sealed class ProviderModelSettingRepository(AgentHubDbContext context) : 
         }
 
         var hasChanges = obsolete.Count > 0;
-        foreach (var m in currentModels)
+        foreach (var m in validModels)
         {
             if (existingMap.TryGetValue(m.Id, out var setting))
             {
@@ -511,6 +514,11 @@ public sealed class ProviderModelSettingRepository(AgentHubDbContext context) : 
 
         foreach (var (modelId, isDisplayed) in modelStates)
         {
+            if (string.IsNullOrWhiteSpace(modelId) || modelId.Trim().Equals("default", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (existingMap.TryGetValue(modelId, out var setting))
             {
                 setting.IsDisplayed = isDisplayed;

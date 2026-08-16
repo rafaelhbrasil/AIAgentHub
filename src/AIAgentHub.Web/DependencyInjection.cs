@@ -120,7 +120,10 @@ public static class DependencyInjection
         _ = services.AddScoped<IExecutionOrchestrator, ExecutionOrchestrator>();
 
         // 9. Real-time (SignalR)
-        _ = services.AddSignalR();
+        _ = services.AddSignalR().AddJsonProtocol(options =>
+        {
+            options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        });
         _ = services.AddScoped<IAgentRealtimeBroadcaster, SignalRAgentRealtimeBroadcaster>();
 
         // 10. Authentication & Cookie Sessions

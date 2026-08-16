@@ -33,11 +33,11 @@ export const ChangesOverviewBar: React.FC<ChangesOverviewBarProps> = ({
     return parts.slice(0, -1).join('/');
   };
 
-  const getChangeBadge = (type: DiffChangeType | number) => {
-    if (type === DiffChangeType.Created || type === 1) {
+  const getChangeBadge = (type: DiffChangeType | string) => {
+    if (type === DiffChangeType.Created) {
       return <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.8rem' }}>+ Created</span>;
     }
-    if (type === DiffChangeType.Deleted || type === 2) {
+    if (type === DiffChangeType.Deleted) {
       return <span style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.8rem' }}>- Deleted</span>;
     }
     return <span style={{ color: '#f59e0b', fontWeight: 600, fontSize: '0.8rem' }}>⚬ Modified</span>;

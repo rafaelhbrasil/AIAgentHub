@@ -1,11 +1,14 @@
-export type ProviderStatusType =
-  | 'NotInstalled'
-  | 'Unauthenticated'
-  | 'Ready'
-  | 'Error'
-  | 'Running'
-  | 'QuotaExceeded'
-  | number;
+export enum ProviderStatus {
+  NotInstalled = 'NotInstalled',
+  Unauthenticated = 'Unauthenticated',
+  Ready = 'Ready',
+  Error = 'Error',
+  Running = 'Running',
+  QuotaExceeded = 'QuotaExceeded',
+  Discontinued = 'Discontinued',
+}
+
+export type ProviderStatusType = ProviderStatus | string;
 
 export interface ModelInfo {
   id: string;

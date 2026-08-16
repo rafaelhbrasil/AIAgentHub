@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { WorkspaceDto, FileTreeNode } from '../../types/workspace';
-import { ConversationDto, ConversationDetailDto } from '../../types/conversation';
-import { ModelInfo, ProviderStatusDto } from '../../types/provider';
+import { ConversationDto, ConversationDetailDto, MessageRole } from '../../types/conversation';
+import { ModelInfo, ProviderStatusDto, ProviderStatus } from '../../types/provider';
 import { FilePreviewDto, FileChangeDto } from '../../types/diff';
 import { apiFetch } from '../../services/apiClient';
 import { signalRService, StreamChunkPayload } from '../../services/signalrService';
@@ -191,7 +191,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
               workspaceId: workspace.id,
               title: title.trim(),
               providerId: providerId || workspace.settings?.defaultProviderId || 'antigravity',
-              modelId: modelId || workspace.settings?.defaultModelId,
+              modelId: modelId || undefined,
             },
           });
 
@@ -275,7 +275,9 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
           relativePath={relPath}
           preview={res.data}
           onClose={hideModal}
-        />
+        />,
+        undefined,
+        'xl'
       );
     } else {
       showToast('Failed to preview file.', 'error');
@@ -295,7 +297,9 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
           fetchWorkspaceData();
           fetchFileChanges(activeConversation.id);
         }}
-      />
+      />,
+      undefined,
+      'xl'
     );
   };
 
@@ -330,17 +334,18 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
 
   const handleModelChange = async (modelId: string) => {
     if (!activeConversation) return;
+    const cleanModelId = modelId ? modelId.trim() : null;
     const res = await apiFetch(`/api/v1/conversations/${activeConversation.id}/model`, {
       method: 'PUT',
       body: {
-        modelId,
+        modelId: cleanModelId,
         providerId: activeConversation.providerId,
         effort: activeConversation.effort,
       },
     });
     if (res.ok) {
-      setActiveConversation((prev) => (prev ? { ...prev, modelId } : prev));
-      showToast(`Active model set to: ${modelId || 'Default Model'}`, 'success');
+      setActiveConversation((prev) => (prev ? { ...prev, modelId: cleanModelId || undefined } : prev));
+      showToast(`Active model set to: ${cleanModelId || 'Default Model'}`, 'success');
     }
   };
 
@@ -402,7 +407,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     const statusRes = await apiFetch<ProviderStatusDto>(`/api/v1/providers/${activeConversation.providerId}/status`);
     if (statusRes.ok && statusRes.data) {
       const status = statusRes.data;
-      if (status.status === 'QuotaExceeded' || status.status === 5) {
+      if (status.status === ProviderStatus.QuotaExceeded) {
         let msg = 'Provider quota exceeded.';
         if (status.quotaResetsAt) {
           msg += ` Resets at ${new Date(status.quotaResetsAt).toLocaleString()}.`;
@@ -410,7 +415,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         showToast(msg, 'error');
         return;
       }
-      if (status.status === 'Unauthenticated' || status.status === 1) {
+      if (status.status === ProviderStatus.Unauthenticated) {
         showToast('Provider requires authentication. Please authenticate first.', 'error');
         return;
       }
@@ -420,7 +425,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     const userMsg = {
       id: Math.random().toString(),
       conversationId: activeConversation.id,
-      role: 'User' as const,
+      role: MessageRole.User,
       content: prompt,
       createdAtUtc: new Date().toISOString(),
     };
@@ -473,24 +478,14 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
               title="Active Model"
             >
               <option value="">Default Model</option>
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName || m.id}
-                </option>
-              ))}
+              {models
+                .filter((m) => m.id && m.id.toLowerCase() !== 'default')
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.displayName || m.id}
+                  </option>
+                ))}
             </select>
-          )}
-
-          {isStreaming && (
-            <button
-              type="button"
-              className="btn btn-danger compact-btn abort-pulse"
-              id="abortBtn"
-              onClick={handleAbort}
-              title="Cancel ongoing response"
-            >
-              ⏹ Abort
-            </button>
           )}
 
           {/* Quick Actions Menu Trigger */}
@@ -709,7 +704,12 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
                   onRejectAll={handleRejectAllChanges}
                 />
 
-                <ChatInputBar onSend={handleSendPrompt} disabled={isStreaming} />
+                <ChatInputBar
+                  onSend={handleSendPrompt}
+                  disabled={isStreaming}
+                  isStreaming={isStreaming}
+                  onAbort={handleAbort}
+                />
               </div>
             </>
           )}

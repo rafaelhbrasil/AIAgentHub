@@ -41,11 +41,10 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions>? options = null
                     : "\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green; [System.Environment]::Exit($LASTEXITCODE)\r\n")
                 : "\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green\r\n";
 
-            var safeArguments = arguments
-                .Replace("`", "``")
-                .Replace("$", "`$");
+            var fullCommand = $"\"{exePath}\" {arguments}";
+            var escapedCmdForPs = fullCommand.Replace("'", "''");
 
-            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; & \"{exePath}\" {safeArguments} 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
+            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $cmd = '{escapedCmdForPs}'; & cmd.exe /d /c $cmd 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
             File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
 
             var title = operationTitle ?? $"{executable} — {arguments}";
@@ -113,11 +112,10 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions>? options = null
                     : "\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green; [System.Environment]::Exit(0)\r\n")
                 : "\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green\r\n";
 
-            var safeArguments = arguments
-                .Replace("`", "``")
-                .Replace("$", "`$");
+            var fullCommand = $"\"{exePath}\" {arguments}";
+            var escapedCmdForPs = fullCommand.Replace("'", "''");
 
-            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; & \"{exePath}\" {safeArguments} 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
+            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $cmd = '{escapedCmdForPs}'; & cmd.exe /d /c $cmd 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
             File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
 
             var psArguments = $"-NoExit -ExecutionPolicy Bypass -Command \"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $Host.UI.RawUI.WindowTitle = 'AI Agent Hub — {displayName}'; Write-Host '=== [AI Agent Hub] Active Session: {displayName} ===' -ForegroundColor Cyan; & '{escapedRunnerScriptPath}'\"";

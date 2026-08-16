@@ -101,11 +101,11 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       <div
         className="preview-content-container"
         style={{
-          maxHeight: '62vh',
-          minHeight: '200px',
+          minHeight: '450px',
+          maxHeight: '72vh',
           overflow: 'auto',
           background: '#090d16',
-          padding: activeTab === 'raw' ? '0' : '16px',
+          padding: activeTab === 'raw' ? '0' : '20px',
           borderRadius: '8px',
           border: '1px solid var(--border-color)',
           marginBottom: '16px',

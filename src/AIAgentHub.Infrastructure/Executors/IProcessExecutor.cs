@@ -99,7 +99,7 @@ public abstract class ProcessExecutorBase : IProcessExecutor
     {
         promptLogger.LogPromptSent(
             displayName,
-            modelId ?? "default",
+            CliProviderBase.IsDefaultModel(modelId) ? "default" : modelId!,
             commandLine ?? string.Empty,
             promptLength);
     }

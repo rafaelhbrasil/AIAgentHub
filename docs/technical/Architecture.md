@@ -135,6 +135,8 @@ All CLI execution (live prompt streaming via `ExecuteAsync` and auxiliary CLI co
 
 Each AI provider is implemented as an adapter inheriting from `CliProviderBase`. Providers delegate all process execution to the injected `IProcessExecutor`.
 
+When building CLI arguments, if a conversation is set to "Default Model" (or if `ModelId` is empty, `"default"`, `"auto"`, etc.), provider adapters omit the `--model` CLI argument completely to let the underlying CLI resolve to its own configured or upstream default model.
+
 Examples:
 
 - CodexProvider

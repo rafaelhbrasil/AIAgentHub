@@ -119,9 +119,9 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
     }
   };
 
-  const formatChangeType = (type: DiffChangeType | number) => {
-    if (type === DiffChangeType.Created || type === 1) return 'Created';
-    if (type === DiffChangeType.Deleted || type === 2) return 'Deleted';
+  const formatChangeType = (type: DiffChangeType | string) => {
+    if (type === DiffChangeType.Created) return 'Created';
+    if (type === DiffChangeType.Deleted) return 'Deleted';
     return 'Modified';
   };
 

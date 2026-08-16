@@ -6,9 +6,11 @@ export const Modal: React.FC = () => {
 
   if (!modal) return null;
 
+  const sizeClass = modal.size ? `modal-${modal.size}` : 'modal-md';
+
   return (
     <div id="modalContainer" className="modal-overlay">
-      <div className="modal-box glass" id="modalBox">
+      <div className={`modal-box glass ${sizeClass}`} id="modalBox">
         <div className="modal-header">
           <h3 id="modalTitle">{modal.title}</h3>
           <button className="modal-close" id="modalCloseBtn" onClick={hideModal}>

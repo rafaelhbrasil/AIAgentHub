@@ -129,7 +129,7 @@ Examples include:
 
 - visual diffs
 - project explorer
-- file preview
+- file preview (expansive widescreen dialog layout providing generous reading space and line numbering)
 - unified conversations
 - centralized permissions
 - remote access
@@ -234,7 +234,7 @@ Each Workspace contains:
 
 - source code
 - conversations
-- provider configuration
+- provider configuration (during creation, only operational providers are displayed; if none are available, a warning guides the user directly to the AI Providers page)
 - permissions
 - execution history
 
@@ -247,7 +247,9 @@ Future versions may allow Workspaces originating from Remote Stations.
 A persistent interaction between users and AI providers.
 
 Conversations belong to a Workspace and support full lifecycle management:
-- Creation and provider/model selection
+- Creation and provider/model selection (only operational providers currently installed and ready for use are displayed in the provider selector)
+- Interactive prompt submission and execution streaming
+- Execution abortion: A prominent round abort button located directly next to the send prompt button in the chat input dock is displayed while an AI response is actively streaming, allowing the user to cancel long-running executions
 - Renaming conversation topics
 - Deletion with confirmation (purges message and execution history)
 - Workspace and conversation switching with clean state isolation

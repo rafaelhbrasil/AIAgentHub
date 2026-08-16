@@ -53,10 +53,16 @@ public sealed class ClaudeCodeProvider(
         }
     }
 
+    public override Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(conversationId.ToString());
+
     public override string BuildArguments(ProviderExecutionContext context)
     {
         var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
-        return $"--prompt \"{escapedPrompt}\"{FormatFlag("--model", context.ModelId, skipDefaultModel: true)}";
+        var sessionArg = !string.IsNullOrWhiteSpace(context.ProviderSessionId)
+            ? FormatFlag("--session-id", context.ProviderSessionId)
+            : string.Empty;
+        return $"--prompt \"{escapedPrompt}\"{FormatFlag("--model", context.ModelId, skipDefaultModel: true)}{sessionArg}";
     }
 
     public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);

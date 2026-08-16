@@ -1,9 +1,15 @@
-export type NetworkModeType = 'Localhost' | 'Lan' | 'SelectedInterfaces' | 0 | 1 | 2;
+export enum NetworkMode {
+  Localhost = 'Localhost',
+  Lan = 'Lan',
+  SelectedInterfaces = 'SelectedInterfaces',
+}
 
-export function normalizeNetworkMode(mode: unknown): 'Localhost' | 'Lan' | 'SelectedInterfaces' {
-  if (mode === 1 || mode === '1' || mode === 'Lan' || mode === 'lan') return 'Lan';
-  if (mode === 2 || mode === '2' || mode === 'SelectedInterfaces' || mode === 'selectedInterfaces') return 'SelectedInterfaces';
-  return 'Localhost';
+export type NetworkModeType = NetworkMode | string;
+
+export function normalizeNetworkMode(mode: unknown): NetworkMode {
+  if (mode === NetworkMode.Lan) return NetworkMode.Lan;
+  if (mode === NetworkMode.SelectedInterfaces) return NetworkMode.SelectedInterfaces;
+  return NetworkMode.Localhost;
 }
 
 export interface NetworkInterfaceDto {

@@ -268,11 +268,30 @@ public sealed class PromptLoggerTests
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
-        logger.LogProviderStatus("Gemini CLI", AIAgentHub.Domain.Providers.ProviderStatus.Error, "Discontinued");
+        logger.LogProviderStatus("Test CLI", AIAgentHub.Domain.Providers.ProviderStatus.Error, "General error");
 
         // Assert
         _loggerMock.Received(1).Log(
             LogLevel.Error,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogProviderStatus_WhenDiscontinued_LogsWarning()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogProviderStatus("Gemini CLI", AIAgentHub.Domain.Providers.ProviderStatus.Discontinued, "Discontinued");
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Warning,
             Arg.Any<EventId>(),
             Arg.Any<object>(),
             Arg.Any<Exception?>(),

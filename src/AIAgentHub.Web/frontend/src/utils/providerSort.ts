@@ -1,11 +1,21 @@
-import { ProviderDto } from '../types/provider';
+import { ProviderDto, ProviderStatus } from '../types/provider';
+
+export const isDiscontinuedStatus = (status: unknown): boolean => status === ProviderStatus.Discontinued;
+export const isReadyStatus = (status: unknown): boolean => status === ProviderStatus.Ready;
+export const isUnauthenticatedStatus = (status: unknown): boolean => status === ProviderStatus.Unauthenticated;
+export const isNotInstalledStatus = (status: unknown): boolean => status === ProviderStatus.NotInstalled;
+export const isQuotaExceededStatus = (status: unknown): boolean => status === ProviderStatus.QuotaExceeded;
+
+export function isProviderOperational(p: ProviderDto): boolean {
+  return isReadyStatus(p.status) && !isDiscontinuedStatus(p.status);
+}
 
 export function getProviderSortPriority(p: ProviderDto): number {
-  if (p.id === 'gemini' || (p.message && p.message.toLowerCase().includes('discontinued'))) return 99;
-  if (p.status === 'Ready' || p.status === 2) return 1;
-  if (p.status === 'Unauthenticated' || p.status === 1) return 2;
-  if (p.status === 'NotInstalled' || p.status === 0) return 3;
-  if (p.status === 'QuotaExceeded' || p.status === 5) return 4;
+  if (isDiscontinuedStatus(p.status)) return 99;
+  if (isReadyStatus(p.status)) return 1;
+  if (isUnauthenticatedStatus(p.status)) return 2;
+  if (isNotInstalledStatus(p.status)) return 3;
+  if (isQuotaExceededStatus(p.status)) return 4;
   return 5;
 }
 

@@ -1,14 +1,17 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
+
 interface ModalConfig {
   title: string;
   content: ReactNode;
   footer?: ReactNode;
+  size?: ModalSize;
 }
 
 interface ModalContextType {
   modal: ModalConfig | null;
-  showModal: (title: string, content: ReactNode, footer?: ReactNode) => void;
+  showModal: (title: string, content: ReactNode, footer?: ReactNode, size?: ModalSize) => void;
   hideModal: () => void;
 }
 
@@ -17,8 +20,8 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [modal, setModal] = useState<ModalConfig | null>(null);
 
-  const showModal = useCallback((title: string, content: ReactNode, footer?: ReactNode) => {
-    setModal({ title, content, footer });
+  const showModal = useCallback((title: string, content: ReactNode, footer?: ReactNode, size?: ModalSize) => {
+    setModal({ title, content, footer, size });
   }, []);
 
   const hideModal = useCallback(() => {

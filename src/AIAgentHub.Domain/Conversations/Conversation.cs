@@ -32,7 +32,7 @@ public sealed class Conversation : AggregateRoot
                 WorkspaceId = workspaceId,
                 Title = string.IsNullOrWhiteSpace(title) ? "New Conversation" : title.Trim(),
                 ProviderId = string.IsNullOrWhiteSpace(providerId) ? "gemini" : providerId.Trim(),
-                ModelId = modelId,
+                ModelId = NormalizeModelId(modelId),
                 Effort = effort,
                 ProviderSessionId = providerSessionId,
                 CreatedAtUtc = DateTimeOffset.UtcNow,
@@ -59,13 +59,23 @@ public sealed class Conversation : AggregateRoot
         }
 
         ProviderId = providerId.Trim();
-        ModelId = modelId;
+        ModelId = NormalizeModelId(modelId);
         if (effort != null)
         {
             Effort = effort;
         }
 
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    private static string? NormalizeModelId(string? modelId)
+    {
+        if (string.IsNullOrWhiteSpace(modelId) || modelId.Trim().Equals("default", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return modelId.Trim();
     }
 
     public void SetEffort(string? effort)

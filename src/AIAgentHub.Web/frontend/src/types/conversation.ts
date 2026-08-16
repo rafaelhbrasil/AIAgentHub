@@ -1,12 +1,11 @@
-export type MessageRole = 'User' | 'Assistant' | 'System' | 'Tool' | 0 | 1 | 2 | 3;
-
-export function isUserRole(role: MessageRole | string | number | null | undefined): boolean {
-  if (role === 0 || role === '0') return true;
-  if (typeof role === 'string') {
-    return role.trim().toLowerCase() === 'user';
-  }
-  return false;
+export enum MessageRole {
+  User = 'User',
+  Assistant = 'Assistant',
+  System = 'System',
+  Tool = 'Tool',
 }
+
+export const isUserRole = (role?: MessageRole | string | null): boolean => role === MessageRole.User;
 
 export interface ExecutionMetadata {
   providerId?: string;
@@ -19,7 +18,7 @@ export interface ExecutionMetadata {
 export interface MessageDto {
   id: string;
   conversationId: string;
-  role: MessageRole | string | number;
+  role: MessageRole | string;
   content: string;
   createdAtUtc: string;
   metadata?: ExecutionMetadata | null;

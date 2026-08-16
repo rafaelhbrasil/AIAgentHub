@@ -320,20 +320,7 @@ public abstract class CliProviderBase(
         return CreateDefaultModelList();
     }
 
-    protected virtual IReadOnlyList<ModelInfo> CreateDefaultModelList()
-    {
-        return new List<ModelInfo>
-        {
-            new()
-            {
-                Id = "default",
-                DisplayName = "Default Model",
-                Description = $"Models could not be detected automatically for {DisplayName}. The default model configured in the provider CLI will be used.",
-                ContextWindow = 0,
-                IsDefault = true
-            }
-        };
-    }
+    protected virtual IReadOnlyList<ModelInfo> CreateDefaultModelList() => Array.Empty<ModelInfo>();
 
     public virtual Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
 
@@ -394,13 +381,22 @@ public abstract class CliProviderBase(
         return $"--prompt \"{escapedPrompt}\"{FormatFlag("--model", context.ModelId, skipDefaultModel: true)}{FormatFlag("--session", context.ProviderSessionId)}";
     }
 
+    public static bool IsDefaultModel(string? value) =>
+        string.IsNullOrWhiteSpace(value) || value.Trim().Equals("default", StringComparison.OrdinalIgnoreCase);
+
     protected static string FormatFlag(string flag, string? value, bool skipDefaultModel = false)
     {
-        return string.IsNullOrWhiteSpace(value)
-            ? string.Empty
-            : skipDefaultModel && value.Equals("Default Model", StringComparison.OrdinalIgnoreCase)
-            ? string.Empty
-            : $" {flag} \"{value.Replace("\"", "\\\"")}\"";
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        if (skipDefaultModel && IsDefaultModel(value))
+        {
+            return string.Empty;
+        }
+
+        return $" {flag} \"{value.Replace("\"", "\\\"")}\"";
     }
 
     protected virtual async Task<ProcessCommandResult> RunCommandAsync(

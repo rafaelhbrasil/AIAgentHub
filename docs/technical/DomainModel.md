@@ -149,6 +149,7 @@ Providers are replaceable and isolated behind a common abstraction.
 * Stream responses.
 * Expose capabilities.
 * Request permissions.
+* Report operational lifecycle status (`NotInstalled`, `Unauthenticated`, `Ready`, `Error`, `Running`, `QuotaExceeded`, `Discontinued`).
 * Manage provider-specific configuration.
 
 ---
@@ -170,7 +171,7 @@ Examples:
 * Expose provider-specific metadata.
 * Support model selection.
 * Track user visibility state (`IsDisplayed` toggle flag, default `true`).
-* Reconcile model availability during provider detection/refresh (purge deleted, add new as enabled, preserve existing toggles).
+* Reconcile model availability during provider detection/refresh (purge deleted, add new as enabled, preserve existing toggles; the implicit "Default Model" is always available, cannot be toggled off, and is not stored in the database).
 
 ---
 

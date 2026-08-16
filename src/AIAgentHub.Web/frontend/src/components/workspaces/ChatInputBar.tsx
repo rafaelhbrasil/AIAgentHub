@@ -3,9 +3,16 @@ import React, { useState, useRef, useEffect } from 'react';
 interface ChatInputBarProps {
   onSend: (prompt: string) => void;
   disabled?: boolean;
+  isStreaming?: boolean;
+  onAbort?: () => void;
 }
 
-export const ChatInputBar: React.FC<ChatInputBarProps> = ({ onSend, disabled }) => {
+export const ChatInputBar: React.FC<ChatInputBarProps> = ({
+  onSend,
+  disabled,
+  isStreaming,
+  onAbort,
+}) => {
   const [text, setText] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -64,6 +71,18 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({ onSend, disabled }) 
           disabled={disabled}
           rows={1}
         />
+        {isStreaming && onAbort && (
+          <button
+            type="button"
+            className="round-abort-btn btn-danger abort-pulse"
+            id="abortBtn"
+            onClick={onAbort}
+            title="Cancel ongoing response"
+            aria-label="Cancel ongoing response"
+          >
+            <span className="abort-btn-icon">⏹</span>
+          </button>
+        )}
         <button
           type="button"
           className="round-send-btn btn-primary"

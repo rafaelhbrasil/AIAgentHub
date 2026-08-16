@@ -969,6 +969,33 @@ body {
   margin-left: 2px;
 }
 
+.round-abort-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0 !important;
+  cursor: pointer;
+  border: none;
+  background: #ef4444 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.round-abort-btn:hover {
+  background: #dc2626 !important;
+  transform: scale(1.05);
+}
+
+.round-abort-btn .abort-btn-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 .desktop-hint-only {
   display: flex;
   justify-content: flex-end;
@@ -1169,6 +1196,31 @@ body {
   overflow-y: auto;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: max-width 0.2s ease, width 0.2s ease;
+}
+
+.modal-box.modal-sm {
+  max-width: 480px;
+}
+
+.modal-box.modal-md {
+  max-width: 740px;
+}
+
+.modal-box.modal-lg {
+  max-width: 960px;
+}
+
+.modal-box.modal-xl {
+  max-width: 1320px;
+  width: 94vw;
+  max-height: 93vh;
+}
+
+.modal-box.modal-full {
+  max-width: 98vw;
+  width: 98vw;
+  max-height: 96vh;
 }
 
 .modal-header {

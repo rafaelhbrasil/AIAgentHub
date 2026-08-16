@@ -47,9 +47,10 @@ The API follows these principles.
 - SignalR (real-time) for events and streaming.
 - Stateless requests.
 - HTTPS only.
-- JSON payloads.
+- JSON payloads with all enums strictly serialized as strings (e.g. `ProviderStatus`, `MessageRole`, `DiffChangeType`, `NetworkMode`).
 - Versioned endpoints.
 - Consistent naming.
+- Model identifiers accept `null` or `"default"` to indicate provider default delegation (the CLI omits `--model`); the built-in "default" model is never persisted to `ProviderModelSettings` table.
 
 ---
 

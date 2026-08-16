@@ -1,7 +1,7 @@
 export enum DiffChangeType {
-  Modified = 0,
-  Created = 1,
-  Deleted = 2
+  Modified = 'Modified',
+  Created = 'Created',
+  Deleted = 'Deleted',
 }
 
 export interface SideBySideLine {
@@ -17,7 +17,7 @@ export interface FileChangeDto {
   id: string;
   conversationId: string;
   relativePath: string;
-  changeType: DiffChangeType | number;
+  changeType: DiffChangeType | string;
   isBinary: boolean;
   oldContent?: string | null;
   newContent?: string | null;

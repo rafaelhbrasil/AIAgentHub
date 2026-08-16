@@ -75,7 +75,7 @@ The application should never collect credentials directly or implement unofficia
 Users should be able to:
 
 - list available models
-- select a default model
+- select a default model (when "Default Model" is chosen, the `--model` flag is omitted so the CLI delegates to its internally configured or upstream default model)
 - override the model per conversation via an active model dropdown in the conversation header
 - configure reasoning effort where supported by the provider (e.g. low, medium, high)
 

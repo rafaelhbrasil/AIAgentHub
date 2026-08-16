@@ -103,18 +103,19 @@ public sealed class ProviderManager(
         return SortProviders([.. results]);
     }
 
-    private static List<ProviderInfo> SortProviders(List<ProviderInfo> list) => [.. list.OrderBy(GetSortPriority).ThenBy(p => p.DisplayName)];
+    private static List<ProviderInfo> SortProviders(List<ProviderInfo> list) => [.. list.OrderBy(GetProviderSortPriority).ThenBy(p => p.DisplayName)];
 
-    private static int GetSortPriority(ProviderInfo p)
+    private static int GetProviderSortPriority(ProviderInfo p)
     {
-        if (p.Id == "gemini" || (p.Message != null && p.Message.Contains("Discontinued", StringComparison.OrdinalIgnoreCase)))
+        return p.Status switch
         {
-            return 99;
-        }
-
-        return p.Status == ProviderStatus.Ready
-            ? 1
-            : p.Status == ProviderStatus.Unauthenticated ? 2 : p.Status == ProviderStatus.NotInstalled ? 3 : 4;
+            ProviderStatus.Ready => 1,
+            ProviderStatus.Unauthenticated => 2,
+            ProviderStatus.NotInstalled => 3,
+            ProviderStatus.QuotaExceeded => 4,
+            ProviderStatus.Discontinued => 99,
+            _ => 5
+        };
     }
 
     public async Task<ProviderInfo?> GetProviderInfoAsync(string id, CancellationToken cancellationToken = default)

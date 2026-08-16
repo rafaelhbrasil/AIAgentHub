@@ -5,6 +5,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.0" Condition="false" />
@@ -19,6 +23,11 @@
   <ItemGroup>
     <ProjectReference Include="..\AIAgentHub.Application\AIAgentHub.Application.csproj" />
     <ProjectReference Include="..\AIAgentHub.Infrastructure\AIAgentHub.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" Publish="false" />
+    <Content Update="dotnet-tools.json" CopyToPublishDirectory="Never" Publish="false" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

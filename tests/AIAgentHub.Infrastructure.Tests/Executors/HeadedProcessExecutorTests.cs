@@ -154,6 +154,27 @@ public sealed class HeadedProcessExecutorTests
             Arg.Any<int>());
     }
 
+    [Theory]
+    [InlineData("remember the word \"banana\"")]
+    [InlineData("test $special `characters` and \\backslash\\")]
+    public async Task RunCommandAsync_WithQuotesAndSpecialCharacters_PreservesArgumentsCorrectly(string prompt)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var options = Microsoft.Extensions.Options.Options.Create(new CliExecutionOptions { Headless = false, HeadedAutoCloseDelaySeconds = 0 });
+        var executor = new HeadedProcessExecutor(options);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var escapedPrompt = prompt.Replace("\"", "\\\"");
+        var result = await executor.RunCommandAsync("cmd.exe", $"/c echo {escapedPrompt}", null, cts.Token, "Test — Echo");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(escapedPrompt, result.Output);
+    }
+
     [Fact]
     public void EnsureWindowsPlatform_WhenNonWindows_ThrowsNotImplementedException()
     {

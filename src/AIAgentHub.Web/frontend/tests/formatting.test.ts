@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { formatModelsSummary, formatFileSize, formatTime } from '../src/utils/formatting';
 import { ModelInfo } from '../src/types/provider';
-import { isUserRole } from '../src/types/conversation';
-import { normalizeNetworkMode } from '../src/types/settings';
+import { MessageRole, isUserRole } from '../src/types/conversation';
+import { NetworkMode, normalizeNetworkMode } from '../src/types/settings';
 
 describe('formatting utils', () => {
   it('formats models summary correctly with active count', () => {
@@ -34,31 +34,25 @@ describe('formatting utils', () => {
     expect(formatTime('')).toBe('');
   });
 
-  it('correctly identifies user role from both string and numeric enum values', () => {
-    expect(isUserRole(0)).toBe(true);
+  it('correctly identifies user role from string and enum values', () => {
+    expect(isUserRole(MessageRole.User)).toBe(true);
     expect(isUserRole('User')).toBe(true);
-    expect(isUserRole('user')).toBe(true);
-    expect(isUserRole('USER')).toBe(true);
+    expect(isUserRole(MessageRole.Assistant)).toBe(false);
     expect(isUserRole('Assistant')).toBe(false);
-    expect(isUserRole('assistant')).toBe(false);
-    expect(isUserRole(1)).toBe(false);
     expect(isUserRole(null)).toBe(false);
     expect(isUserRole(undefined)).toBe(false);
   });
 
-  it('normalizes network mode values from both string enum and numeric values', () => {
-    expect(normalizeNetworkMode('Lan')).toBe('Lan');
-    expect(normalizeNetworkMode('lan')).toBe('Lan');
-    expect(normalizeNetworkMode(1)).toBe('Lan');
-    expect(normalizeNetworkMode('1')).toBe('Lan');
+  it('normalizes network mode values from string enum values', () => {
+    expect(normalizeNetworkMode(NetworkMode.Lan)).toBe(NetworkMode.Lan);
+    expect(normalizeNetworkMode('Lan')).toBe(NetworkMode.Lan);
 
-    expect(normalizeNetworkMode('SelectedInterfaces')).toBe('SelectedInterfaces');
-    expect(normalizeNetworkMode('selectedInterfaces')).toBe('SelectedInterfaces');
-    expect(normalizeNetworkMode(2)).toBe('SelectedInterfaces');
+    expect(normalizeNetworkMode(NetworkMode.SelectedInterfaces)).toBe(NetworkMode.SelectedInterfaces);
+    expect(normalizeNetworkMode('SelectedInterfaces')).toBe(NetworkMode.SelectedInterfaces);
 
-    expect(normalizeNetworkMode('Localhost')).toBe('Localhost');
-    expect(normalizeNetworkMode(0)).toBe('Localhost');
-    expect(normalizeNetworkMode(null)).toBe('Localhost');
-    expect(normalizeNetworkMode(undefined)).toBe('Localhost');
+    expect(normalizeNetworkMode(NetworkMode.Localhost)).toBe(NetworkMode.Localhost);
+    expect(normalizeNetworkMode('Localhost')).toBe(NetworkMode.Localhost);
+    expect(normalizeNetworkMode(null)).toBe(NetworkMode.Localhost);
+    expect(normalizeNetworkMode(undefined)).toBe(NetworkMode.Localhost);
   });
 });

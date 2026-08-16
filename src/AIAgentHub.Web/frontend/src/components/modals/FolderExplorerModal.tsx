@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../../services/apiClient';
 import { DriveDto, DirectoryBrowserResult, ForbiddenPathsResponse } from '../../types/workspace';
+import { ProviderDto } from '../../types/provider';
 import { useToast } from '../../context/ToastContext';
 import { isPathForbiddenForBrowsing, isPathForbiddenForWorkspace } from '../../utils/pathValidation';
+import { isProviderOperational } from '../../utils/providerSort';
 import { Spinner } from '../common/Spinner';
 
 interface FolderExplorerModalProps {
@@ -14,13 +16,14 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
   const { showToast } = useToast();
   const [drives, setDrives] = useState<DriveDto[]>([]);
   const [forbiddenPaths, setForbiddenPaths] = useState<string[]>([]);
+  const [availableProviders, setAvailableProviders] = useState<ProviderDto[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [wsName, setWsName] = useState<string>('');
-  const [defaultProvider, setDefaultProvider] = useState<string>('antigravity');
+  const [defaultProvider, setDefaultProvider] = useState<string>('');
   const [browserData, setBrowserData] = useState<DirectoryBrowserResult | null>(null);
   const [isLoadingFolders, setIsLoadingFolders] = useState<boolean>(false);
+  const [isLoadingProviders, setIsLoadingProviders] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [selectedFolder, setSelectedFolder] = useState<string>('');
   const nativePickerRef = useRef<HTMLInputElement>(null);
 
   const updateSuggestedName = (fullPath: string) => {
@@ -38,22 +41,20 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
       return;
     }
 
-    setCurrentPath(path);
-    setSelectedFolder('');
-    updateSuggestedName(path);
     setIsLoadingFolders(true);
-
     try {
-      const url = path ? `/api/v1/filesystem/browse?path=${encodeURIComponent(path)}` : '/api/v1/filesystem/browse';
-      const res = await apiFetch<DirectoryBrowserResult>(url);
+      const res = await apiFetch<DirectoryBrowserResult>(
+        `/api/v1/filesystem/browse?path=${encodeURIComponent(path)}`
+      );
       if (res.ok && res.data) {
         setBrowserData(res.data);
         setCurrentPath(res.data.currentPath);
         updateSuggestedName(res.data.currentPath);
       } else {
-        setBrowserData(null);
-        showToast('Failed to access directory: ' + (res.error || 'Permission denied'), 'error');
+        showToast(res.error || 'Failed to browse directory.', 'error');
       }
+    } catch {
+      showToast('Network error while browsing directory.', 'error');
     } finally {
       setIsLoadingFolders(false);
     }
@@ -61,10 +62,12 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
 
   useEffect(() => {
     const init = async () => {
-      const [drivesRes, browseRes, forbiddenRes] = await Promise.all([
+      setIsLoadingProviders(true);
+      const [drivesRes, browseRes, forbiddenRes, provRes] = await Promise.all([
         apiFetch<DriveDto[]>('/api/v1/filesystem/drives'),
         apiFetch<DirectoryBrowserResult>('/api/v1/filesystem/browse'),
         apiFetch<ForbiddenPathsResponse>('/api/v1/filesystem/forbidden-paths'),
+        apiFetch<ProviderDto[]>('/api/v1/providers'),
       ]);
 
       let loadedForbidden: string[] = [];
@@ -72,6 +75,17 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
         loadedForbidden = forbiddenRes.data.forbiddenPaths;
         setForbiddenPaths(loadedForbidden);
       }
+
+      if (provRes.ok && provRes.data) {
+        const operational = provRes.data.filter(isProviderOperational);
+        setAvailableProviders(operational);
+        if (operational.length > 0) {
+          setDefaultProvider(operational[0].id);
+        } else {
+          setDefaultProvider('');
+        }
+      }
+      setIsLoadingProviders(false);
 
       if (drivesRes.ok && drivesRes.data) {
         setDrives(drivesRes.data);
@@ -258,7 +272,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
                 .map((d) => (
                   <div
                     key={d.fullPath}
-                    className={`folder-tile ${selectedFolder === d.fullPath ? 'selected' : ''}`}
+                    className={`folder-tile ${currentPath.toLowerCase() === d.fullPath.toLowerCase() ? 'selected' : ''}`}
                     onClick={() => loadDirectory(d.fullPath)}
                     title={`Click to open: ${d.name}`}
                   >
@@ -283,17 +297,50 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
 
       <div className="form-group">
         <label className="form-label">Default AI Assistant Provider</label>
-        <select
-          className="form-select"
-          value={defaultProvider}
-          onChange={(e) => setDefaultProvider(e.target.value)}
-        >
-          <option value="antigravity">Antigravity CLI — Google DeepMind</option>
-          <option value="gemini">Gemini CLI</option>
-          <option value="codex">OpenAI Codex CLI</option>
-          <option value="claude">Claude Code</option>
-          <option value="opencode">OpenCode</option>
-        </select>
+        {isLoadingProviders ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '6px 0' }}>
+            Loading available providers...
+          </div>
+        ) : availableProviders.length === 0 ? (
+          <div
+            style={{
+              padding: '10px 14px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '6px',
+              color: '#f87171',
+              fontSize: '0.85rem',
+              lineHeight: 1.5,
+            }}
+          >
+            ⚠️ No operational AI providers are currently available. Please install and authenticate a provider in the{' '}
+            <a
+              href="/providers"
+              onClick={(e) => {
+                e.preventDefault();
+                onCancel();
+                window.history.pushState({}, '', '/providers');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              style={{ color: '#60a5fa', textDecoration: 'underline', fontWeight: 600, cursor: 'pointer' }}
+            >
+              AI Providers
+            </a>{' '}
+            page to configure one.
+          </div>
+        ) : (
+          <select
+            className="form-select"
+            value={defaultProvider}
+            onChange={(e) => setDefaultProvider(e.target.value)}
+          >
+            {availableProviders.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.displayName}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
@@ -305,7 +352,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
           className="btn btn-primary"
           id="confirmCreateWsBtn"
           onClick={handleCreateWorkspace}
-          disabled={isSubmitting || !currentPath.trim()}
+          disabled={isSubmitting || !currentPath.trim() || availableProviders.length === 0 || !defaultProvider}
         >
           {isSubmitting ? 'Opening Workspace...' : 'Open Workspace'}
         </button>

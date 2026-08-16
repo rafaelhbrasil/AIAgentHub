@@ -21,5 +21,6 @@ public enum ProviderStatus
     Ready = 2,
     Error = 3,
     Running = 4,
-    QuotaExceeded = 5
+    QuotaExceeded = 5,
+    Discontinued = 6
 }
