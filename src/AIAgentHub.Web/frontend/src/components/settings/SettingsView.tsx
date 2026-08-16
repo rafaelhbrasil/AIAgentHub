@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../services/apiClient';
-import { ServerSettingsDto, NetworkInterfaceDto, UpdateServerSettingsRequest } from '../../types/settings';
+import { ServerSettingsDto, NetworkInterfaceDto, UpdateServerSettingsRequest, normalizeNetworkMode, NetworkModeType } from '../../types/settings';
 import { useToast } from '../../context/ToastContext';
 
 export const SettingsView: React.FC = () => {
@@ -32,8 +32,9 @@ export const SettingsView: React.FC = () => {
     if (!settings || !settings.id) return;
     setIsSaving(true);
     try {
+      const mode = normalizeNetworkMode(settings.networkMode);
       const updatePayload: UpdateServerSettingsRequest = {
-        networkMode: settings.networkMode,
+        networkMode: mode,
         listeningPortHttps: settings.listeningPortHttps,
         listeningPortHttp: settings.listeningPortHttp,
         selectedInterfaces: settings.selectedInterfaces,
@@ -59,6 +60,8 @@ export const SettingsView: React.FC = () => {
     return <div style={{ color: 'var(--text-muted)', padding: '20px' }}>Loading settings...</div>;
   }
 
+  const currentMode = normalizeNetworkMode(settings.networkMode);
+
   return (
     <div>
       <h2>Server & Security Settings</h2>
@@ -73,25 +76,62 @@ export const SettingsView: React.FC = () => {
           <select
             className="form-select"
             id="netModeSelect"
-            value={settings.networkMode}
-            onChange={(e) =>
-              setSettings((prev) => (prev ? { ...prev, networkMode: parseInt(e.target.value, 10) } : prev))
-            }
+            value={currentMode}
+            onChange={(e) => {
+              const mode = e.target.value as NetworkModeType;
+              setSettings((prev) => (prev ? { ...prev, networkMode: mode } : prev));
+            }}
           >
-            <option value={0}>Localhost Only (127.0.0.1)</option>
-            <option value={1}>LAN Access (All Interfaces)</option>
+            <option value="Localhost">Localhost Only (127.0.0.1)</option>
+            <option value="Lan">LAN Access (All Interfaces)</option>
+            <option value="SelectedInterfaces">Selected Interfaces Only</option>
           </select>
         </div>
 
         <div className="form-group">
           <label className="form-label">Available Server Network Interfaces</label>
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '6px' }}>
+            {currentMode === 'Localhost' && (
+              <div style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '0.85rem' }}>
+                🔒 Server is in Localhost mode. Remote connections from other machines or WSL are rejected with 403 Forbidden.
+              </div>
+            )}
+            {currentMode === 'Lan' && (
+              <div style={{ color: 'var(--accent-success)', marginBottom: '8px', fontSize: '0.85rem' }}>
+                🌐 All active network interfaces below are automatically enabled for LAN access.
+              </div>
+            )}
+            {currentMode === 'SelectedInterfaces' && (
+              <div style={{ color: 'var(--accent-primary)', marginBottom: '8px', fontSize: '0.85rem' }}>
+                Select which network interfaces to allow connections from:
+              </div>
+            )}
+
             {nics.length > 0 ? (
-              nics.map((n) => (
-                <div key={n.name + n.ipAddress} style={{ marginBottom: '4px' }}>
-                  📶 <strong>{n.name}</strong> ({n.ipAddress}) - {n.status}
-                </div>
-              ))
+              nics.map((n) => {
+                const isChecked = (settings.selectedInterfaces || []).includes(n.name) ||
+                                  (settings.selectedInterfaces || []).includes(n.ipAddress);
+                return (
+                  <div key={n.name + n.ipAddress} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    {currentMode === 'SelectedInterfaces' && (
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const current = settings.selectedInterfaces || [];
+                          const updated = e.target.checked
+                            ? [...current.filter((x) => x !== n.name && x !== n.ipAddress), n.ipAddress]
+                            : current.filter((x) => x !== n.name && x !== n.ipAddress);
+                          setSettings((prev) => (prev ? { ...prev, selectedInterfaces: updated } : prev));
+                        }}
+                      />
+                    )}
+                    <div>
+                      📶 <strong>{n.name}</strong> (<code>{n.ipAddress}</code>) — <span style={{ color: n.status === 'Up' ? 'var(--accent-success)' : 'var(--text-muted)' }}>{n.status}</span>
+                    </div>
+                  </div>
+                );
+              })
             ) : (
               <div>127.0.0.1 (Localhost)</div>
             )}

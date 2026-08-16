@@ -25,6 +25,11 @@ export interface FileChangeDto {
 }
 
 export interface FilePreviewDto {
-  relativePath: string;
+  filePath?: string;
+  rendererName?: string;
+  contentType?: string;
   renderedHtml: string;
+  rawText?: string | null;
+  isBinary?: boolean;
+  sizeBytes?: number;
 }

@@ -73,8 +73,8 @@ export const ProviderModelsModal: React.FC<ProviderModelsModalProps> = ({
       });
 
       if (res.ok) {
-        // Reload fresh models from DB
-        const freshRes = await apiFetch<ModelInfo[]>(`/api/v1/providers/${provider.id}/models?refresh=true`);
+        // Reload updated models from DB (no refresh query param)
+        const freshRes = await apiFetch<ModelInfo[]>(`/api/v1/providers/${provider.id}/models`);
         const freshModels = freshRes.ok && freshRes.data ? freshRes.data : models.map((m) => ({
           ...m,
           isDisplayed: modelStates[m.id] ?? true,

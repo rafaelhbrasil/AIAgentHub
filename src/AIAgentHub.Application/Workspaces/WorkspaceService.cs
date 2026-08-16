@@ -4,10 +4,14 @@ using AIAgentHub.Domain.Workspaces;
 
 namespace AIAgentHub.Application.Workspaces;
 
-public sealed class WorkspaceService(IWorkspaceRepository workspaceRepository, IFilesystemService filesystemService) : IWorkspaceService
+public sealed class WorkspaceService(
+    IWorkspaceRepository workspaceRepository,
+    IFilesystemService filesystemService,
+    ISystemPathValidator systemPathValidator) : IWorkspaceService
 {
     private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
     private readonly IFilesystemService _filesystemService = filesystemService;
+    private readonly ISystemPathValidator _systemPathValidator = systemPathValidator;
 
     public async Task<IReadOnlyList<WorkspaceDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -23,7 +27,13 @@ public sealed class WorkspaceService(IWorkspaceRepository workspaceRepository, I
 
     public async Task<WorkspaceDto> CreateAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken = default)
     {
-        var fullPath = Path.GetFullPath(request.Path.Trim());
+        var rawPath = request.Path?.Trim() ?? string.Empty;
+        if (_systemPathValidator.IsPathForbidden(rawPath, out var reason))
+        {
+            throw new ArgumentException(reason ?? $"Directory '{rawPath}' is not allowed as a workspace.");
+        }
+
+        var fullPath = Path.GetFullPath(rawPath);
         if (!Directory.Exists(fullPath))
         {
             _ = Directory.CreateDirectory(fullPath);

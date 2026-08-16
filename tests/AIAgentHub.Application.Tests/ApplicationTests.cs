@@ -48,7 +48,8 @@ public sealed class ApplicationTests
     {
         var repo = Substitute.For<IWorkspaceRepository>();
         var fs = Substitute.For<IFilesystemService>();
-        var service = new WorkspaceService(repo, fs);
+        var validator = Substitute.For<ISystemPathValidator>();
+        var service = new WorkspaceService(repo, fs, validator);
 
         var ws1 = Workspace.Create("WS1", Path.GetTempPath());
         _ = repo.GetAllAsync(Arg.Any<CancellationToken>()).Returns(new List<Workspace> { ws1 });
@@ -90,6 +91,28 @@ public sealed class ApplicationTests
 
         await service.TouchAsync(ws1.Id);
         await service.TouchAsync(Guid.NewGuid());
+    }
+
+    [Fact]
+    public async Task WorkspaceService_CreateAsync_ForbiddenPath_ShouldThrowArgumentException()
+    {
+        var repo = Substitute.For<IWorkspaceRepository>();
+        var fs = Substitute.For<IFilesystemService>();
+        var validator = Substitute.For<ISystemPathValidator>();
+
+        string? reasonOut = "Directory is a protected system folder.";
+        validator.IsPathForbidden(Arg.Any<string>(), out Arg.Any<string?>())
+            .Returns(x =>
+            {
+                x[1] = reasonOut;
+                return true;
+            });
+
+        var service = new WorkspaceService(repo, fs, validator);
+        var request = new CreateWorkspaceRequest("WindowsWS", @"C:\Windows", WorkspaceOrigin.Server);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(request));
+        Assert.Contains("protected system folder", ex.Message);
     }
 
     [Fact]
@@ -174,7 +197,8 @@ public sealed class ApplicationTests
         var mdRenderer = new MarkdownContentRenderer();
         var mdResult = await mdRenderer.RenderAsync("file.md", System.Text.Encoding.UTF8.GetBytes("# Header\n```csharp\ncode\n```"));
         Assert.Equal("text/markdown", mdResult.ContentType);
-        Assert.Contains("Header", mdResult.RenderedHtml);
+        Assert.Contains("Header", mdResult.RawText);
+        Assert.False(mdResult.IsBinary);
 
         var jsonRenderer = new JsonContentRenderer();
         var jsonResult = await jsonRenderer.RenderAsync("file.json", System.Text.Encoding.UTF8.GetBytes(/*lang=json,strict*/ "{\"a\":1}"));

@@ -1,3 +1,11 @@
+export type NetworkModeType = 'Localhost' | 'Lan' | 'SelectedInterfaces' | 0 | 1 | 2;
+
+export function normalizeNetworkMode(mode: unknown): 'Localhost' | 'Lan' | 'SelectedInterfaces' {
+  if (mode === 1 || mode === '1' || mode === 'Lan' || mode === 'lan') return 'Lan';
+  if (mode === 2 || mode === '2' || mode === 'SelectedInterfaces' || mode === 'selectedInterfaces') return 'SelectedInterfaces';
+  return 'Localhost';
+}
+
 export interface NetworkInterfaceDto {
   name: string;
   ipAddress: string;
@@ -6,7 +14,7 @@ export interface NetworkInterfaceDto {
 
 export interface ServerSettingsDto {
   id: string;
-  networkMode: number; // 0=Localhost, 1=LAN, 2=SelectedInterfaces
+  networkMode: NetworkModeType;
   listeningPortHttps: number;
   listeningPortHttp: number;
   selectedInterfaces?: string[];
@@ -17,7 +25,7 @@ export interface ServerSettingsDto {
 }
 
 export interface UpdateServerSettingsRequest {
-  networkMode: number;
+  networkMode: NetworkModeType;
   listeningPortHttps?: number;
   listeningPortHttp?: number;
   selectedInterfaces?: string[];

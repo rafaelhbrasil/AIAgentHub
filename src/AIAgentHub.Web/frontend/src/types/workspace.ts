@@ -41,3 +41,8 @@ export interface DirectoryBrowserResult {
   parentPath?: string | null;
   entries: DirectoryBrowserEntry[];
 }
+
+export interface ForbiddenPathsResponse {
+  forbiddenPaths: string[];
+}
+

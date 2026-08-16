@@ -1,4 +1,5 @@
 using AIAgentHub.Domain.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentHub.Infrastructure.Persistence;
 
@@ -9,7 +10,7 @@ public sealed class DatabaseInitializer(AgentHubDbContext context, IServerSettin
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
+        await _context.Database.MigrateAsync(cancellationToken);
 
         try
         {

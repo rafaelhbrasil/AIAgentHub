@@ -7,10 +7,20 @@ namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
 [Route("api/v1/filesystem")]
-public sealed class FilesystemController(IFilesystemService filesystemService, IWorkspaceService workspaceService) : ControllerBase
+public sealed class FilesystemController(
+    IFilesystemService filesystemService,
+    IWorkspaceService workspaceService,
+    ISystemPathValidator systemPathValidator) : ControllerBase
 {
     private readonly IFilesystemService _filesystemService = filesystemService;
     private readonly IWorkspaceService _workspaceService = workspaceService;
+    private readonly ISystemPathValidator _systemPathValidator = systemPathValidator;
+
+    [HttpGet("forbidden-paths")]
+    public IActionResult GetForbiddenPaths()
+    {
+        return Ok(new { forbiddenPaths = _systemPathValidator.ForbiddenFolders });
+    }
 
     [HttpGet("drives")]
     public async Task<IActionResult> GetDrives(CancellationToken cancellationToken)
@@ -22,6 +32,11 @@ public sealed class FilesystemController(IFilesystemService filesystemService, I
     [HttpGet("browse")]
     public async Task<IActionResult> Browse([FromQuery] string? path, CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrWhiteSpace(path) && _systemPathValidator.IsForbiddenForBrowsing(path, out var reason))
+        {
+            return BadRequest(new { code = "forbidden_system_directory", message = reason });
+        }
+
         var result = await _filesystemService.BrowseDirectoryAsync(path, cancellationToken);
         return Ok(result);
     }

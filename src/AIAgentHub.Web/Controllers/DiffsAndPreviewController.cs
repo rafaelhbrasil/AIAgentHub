@@ -13,10 +13,16 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
     private readonly IFileChangeService _fileChangeService = fileChangeService;
     private readonly IWorkspaceService _workspaceService = workspaceService;
 
+    public sealed record AcceptDiffRequest(string? Content = null);
+
     [HttpGet]
-    public async Task<IActionResult> GetByConversation([FromQuery] Guid conversationId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetByConversation([FromQuery] Guid conversationId, [FromQuery] bool pendingOnly = true, CancellationToken cancellationToken = default)
     {
         var changes = await _fileChangeService.GetChangesAsync(conversationId, cancellationToken);
+        if (pendingOnly)
+        {
+            changes = changes.Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending).ToList();
+        }
         return Ok(changes);
     }
 
@@ -41,10 +47,29 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
     }
 
     [HttpPost("{id:guid}/accept")]
-    public async Task<IActionResult> Accept(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Accept(Guid id, [FromQuery] Guid? workspaceId, [FromBody] AcceptDiffRequest? request, CancellationToken cancellationToken)
     {
         try
         {
+            if (!string.IsNullOrEmpty(request?.Content) && workspaceId.HasValue)
+            {
+                var change = await _fileChangeService.GetByIdAsync(id, cancellationToken);
+                if (change != null)
+                {
+                    var ws = await _workspaceService.GetByIdAsync(workspaceId.Value, cancellationToken);
+                    if (ws != null)
+                    {
+                        var fullPath = Path.Combine(ws.Path, change.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+                        var dir = Path.GetDirectoryName(fullPath);
+                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                        {
+                            Directory.CreateDirectory(dir);
+                        }
+                        await System.IO.File.WriteAllTextAsync(fullPath, request.Content, cancellationToken);
+                    }
+                }
+            }
+
             await _fileChangeService.AcceptAsync(id, cancellationToken);
             return Ok(new { success = true });
         }
@@ -72,6 +97,40 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         {
             return NotFound(new { code = "diff_not_found", message = $"File change {id} was not found." });
         }
+    }
+
+    [HttpPost("accept-all")]
+    public async Task<IActionResult> AcceptAll([FromQuery] Guid conversationId, CancellationToken cancellationToken)
+    {
+        var changes = await _fileChangeService.GetChangesAsync(conversationId, cancellationToken);
+        foreach (var change in changes)
+        {
+            if (change.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
+            {
+                await _fileChangeService.AcceptAsync(change.Id, cancellationToken);
+            }
+        }
+        return Ok(new { success = true });
+    }
+
+    [HttpPost("reject-all")]
+    public async Task<IActionResult> RejectAll([FromQuery] Guid conversationId, [FromQuery] Guid workspaceId, CancellationToken cancellationToken)
+    {
+        var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
+        if (ws == null)
+        {
+            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+        }
+
+        var changes = await _fileChangeService.GetChangesAsync(conversationId, cancellationToken);
+        foreach (var change in changes)
+        {
+            if (change.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
+            {
+                await _fileChangeService.RejectAsync(change.Id, ws.Path, cancellationToken);
+            }
+        }
+        return Ok(new { success = true });
     }
 }
 

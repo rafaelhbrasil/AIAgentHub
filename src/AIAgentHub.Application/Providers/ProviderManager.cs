@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 using AIAgentHub.Domain.Providers;
 using AIAgentHub.Domain.Repositories;
 
@@ -13,7 +11,6 @@ public sealed class ProviderManager(
     private readonly IEnumerable<IProvider> _providers = providers;
     private readonly Func<IProviderModelSettingRepository> _repositoryFactory = repositoryFactory;
     private readonly Func<IProviderDetectionRecordRepository> _detectionRecordFactory = detectionRecordFactory;
-    private readonly ConcurrentDictionary<string, IReadOnlyList<ModelInfo>> _modelCache = new();
 
     public IReadOnlyList<IProvider> GetAllProviders() => _providers.ToList();
 
@@ -55,23 +52,27 @@ public sealed class ProviderManager(
                     AuthCommand = provider.AuthCommand,
                     DocumentationUrl = provider.DocumentationUrl
                 };
+
+                // Read cached models from DB without invoking provider CLI
+                var models = await GetModelsAsync(provider.Id, forceRefresh: false, cancellationToken);
+                info.SupportedModels = [.. models];
             }
             else
             {
-                // No DB cache, run detection
+                // No DB cache yet (initial boot), run initial detection and seed DB
                 info = await provider.DetectAsync(cancellationToken);
                 if (string.IsNullOrEmpty(info.Message))
                 {
                     info.Message = info.Status == ProviderStatus.Ready ? "Provider is operational and ready to use." : "Provider is not installed.";
                 }
 
-                // Persist to DB
+                // Persist detection result to DB
                 await PersistDetectionResultAsync(provider.Id, info, cancellationToken);
-            }
 
-            // Get models (cached in memory or from provider)
-            var models = await GetModelsAsync(provider.Id, false, cancellationToken);
-            info.SupportedModels = [.. models];
+                // Seed models to DB
+                var models = await GetModelsAsync(provider.Id, forceRefresh: true, cancellationToken);
+                info.SupportedModels = [.. models];
+            }
 
             results.Add(info);
         }
@@ -81,7 +82,7 @@ public sealed class ProviderManager(
 
     public async Task<IReadOnlyList<ProviderInfo>> RefreshAllAsync(CancellationToken cancellationToken = default)
     {
-        // Run detection for all providers in parallel
+        // Run detection for all providers in parallel only when explicitly requested
         var tasks = _providers.Select(async provider =>
         {
             var info = await provider.DetectAsync(cancellationToken);
@@ -91,7 +92,7 @@ public sealed class ProviderManager(
             }
             await PersistDetectionResultAsync(provider.Id, info, cancellationToken);
 
-            // Also refresh models
+            // Refresh models from provider CLI and reconcile DB
             var models = await GetModelsAsync(provider.Id, forceRefresh: true, cancellationToken);
             info.SupportedModels = [.. models];
 
@@ -124,8 +125,37 @@ public sealed class ProviderManager(
             return null;
         }
 
+        if (_detectionRecordFactory != null)
+        {
+            var recordRepo = _detectionRecordFactory();
+            var dbRecord = await recordRepo.GetByProviderIdAsync(id, cancellationToken);
+            if (dbRecord != null)
+            {
+                var cachedModels = await GetModelsAsync(id, forceRefresh: false, cancellationToken);
+                return new ProviderInfo
+                {
+                    Id = provider.Id,
+                    DisplayName = provider.DisplayName,
+                    Description = provider.Description,
+                    IsInstalled = dbRecord.IsInstalled,
+                    IsAuthenticated = dbRecord.IsAuthenticated,
+                    Status = dbRecord.Status,
+                    Message = dbRecord.StatusDetails,
+                    Version = dbRecord.Version,
+                    ExecutablePath = dbRecord.ExecutablePath,
+                    Capabilities = provider.Capabilities,
+                    SupportedModels = [.. cachedModels],
+                    InstallInstructions = provider.InstallInstructions,
+                    InstallCommand = provider.InstallCommand,
+                    AuthCommand = provider.AuthCommand,
+                    DocumentationUrl = provider.DocumentationUrl
+                };
+            }
+        }
+
         var info = await provider.DetectAsync(cancellationToken);
-        var models = await GetModelsAsync(id, false, cancellationToken);
+        await PersistDetectionResultAsync(id, info, cancellationToken);
+        var models = await GetModelsAsync(id, forceRefresh: true, cancellationToken);
         info.SupportedModels = [.. models];
         return info;
     }
@@ -133,11 +163,27 @@ public sealed class ProviderManager(
     public async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
         var provider = GetProvider(providerId);
-        if (!forceRefresh && _modelCache.TryGetValue(providerId, out var cachedModels))
+
+        // If not forcing refresh, load cached models strictly from DB
+        if (!forceRefresh && _repositoryFactory != null)
         {
-            return cachedModels;
+            var repo = _repositoryFactory();
+            var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
+            if (dbModels.Count > 0)
+            {
+                return dbModels.Select(m => new ModelInfo
+                {
+                    Id = m.ModelId,
+                    DisplayName = !string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName : m.ModelId,
+                    Description = m.Description,
+                    ContextWindow = m.ContextWindow,
+                    IsDefault = m.IsDefault,
+                    IsDisplayed = m.IsDisplayed
+                }).ToList();
+            }
         }
 
+        // Fetch fresh from provider CLI when explicitly refreshing or no DB records exist
         var rawModels = await provider.GetModelsAsync(cancellationToken);
 
         if (_repositoryFactory != null)
@@ -146,7 +192,6 @@ public sealed class ProviderManager(
             await repo.ReconcileAsync(providerId, rawModels, cancellationToken);
         }
 
-        _modelCache[providerId] = rawModels;
         return rawModels;
     }
 
@@ -159,18 +204,11 @@ public sealed class ProviderManager(
             var repo = _repositoryFactory();
             await repo.UpdateSettingsAsync(providerId, modelStates, cancellationToken);
         }
-
-        _ = _modelCache.TryRemove(providerId, out _);
     }
 
     public async Task<ProviderDetectionResult> DetectProviderDetailedAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
         var provider = GetProvider(providerId);
-
-        if (forceRefresh)
-        {
-            _ = _modelCache.TryRemove(providerId, out _);
-        }
 
         // Check DB cache if not forcing refresh
         if (!forceRefresh && _detectionRecordFactory != null)
@@ -186,6 +224,7 @@ public sealed class ProviderManager(
             }
         }
 
+        // Query provider CLI directly when refresh is requested
         var result = await provider.DetectDetailedAsync(cancellationToken);
 
         if (result.Status == ProviderStatus.Ready)
@@ -222,6 +261,7 @@ public sealed class ProviderManager(
         {
             ProviderId = providerId,
             Status = info.Status,
+            StatusDetails = info.Message,
             Version = info.Version,
             ExecutablePath = info.ExecutablePath,
             IsInstalled = info.IsInstalled,
@@ -244,6 +284,7 @@ public sealed class ProviderManager(
 
         var record = existing ?? new ProviderDetectionRecord { ProviderId = providerId };
         record.Status = result.Status;
+        record.StatusDetails = result.Message;
         record.QuotaResetsAt = result.QuotaResetsAt;
         record.DetectedAtUtc = DateTimeOffset.UtcNow;
 

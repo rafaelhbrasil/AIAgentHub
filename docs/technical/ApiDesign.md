@@ -198,12 +198,28 @@ Examples:
 
 ```
 GET /api/v1/workspaces
-
+ 
 POST /api/v1/workspaces
 
 GET /api/v1/workspaces/{id}
 
 DELETE /api/v1/workspaces/{id}
+```
+
+---
+
+## Filesystem
+
+Examples:
+
+```
+GET /api/v1/filesystem/drives
+
+GET /api/v1/filesystem/browse?path={path}
+
+GET /api/v1/filesystem/tree?workspaceId={workspaceId}
+
+GET /api/v1/filesystem/forbidden-paths
 ```
 
 ---
@@ -272,6 +288,10 @@ GET /api/v1/diffs/{id}
 POST /api/v1/diffs/{id}/accept
 
 POST /api/v1/diffs/{id}/reject
+
+POST /api/v1/diffs/accept-all
+
+POST /api/v1/diffs/reject-all
 ```
 
 ---

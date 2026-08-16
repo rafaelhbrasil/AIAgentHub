@@ -68,6 +68,7 @@ public static class DependencyInjection
         _ = services.AddSingleton<ICertificateManager, CertificateManager>();
 
         // 4. Filesystem & Snapshots
+        _ = services.AddSingleton<ISystemPathValidator, SystemPathValidator>();
         _ = services.AddSingleton<IFilesystemService, FilesystemService>();
         _ = services.AddScoped<ISnapshotService, LocalDiskSnapshotStore>();
 

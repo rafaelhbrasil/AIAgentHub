@@ -464,6 +464,18 @@ public sealed class ProviderModelSettingRepository(AgentHubDbContext context) : 
             if (existingMap.TryGetValue(m.Id, out var setting))
             {
                 m.IsDisplayed = setting.IsDisplayed;
+                if (setting.DisplayName != m.DisplayName ||
+                    setting.Description != m.Description ||
+                    setting.ContextWindow != m.ContextWindow ||
+                    setting.IsDefault != m.IsDefault)
+                {
+                    setting.DisplayName = m.DisplayName;
+                    setting.Description = m.Description;
+                    setting.ContextWindow = m.ContextWindow;
+                    setting.IsDefault = m.IsDefault;
+                    setting.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                    hasChanges = true;
+                }
             }
             else
             {
@@ -472,6 +484,10 @@ public sealed class ProviderModelSettingRepository(AgentHubDbContext context) : 
                 {
                     ProviderId = providerId,
                     ModelId = m.Id,
+                    DisplayName = m.DisplayName,
+                    Description = m.Description,
+                    ContextWindow = m.ContextWindow,
+                    IsDefault = m.IsDefault,
                     IsDisplayed = true,
                     UpdatedAtUtc = DateTimeOffset.UtcNow
                 });

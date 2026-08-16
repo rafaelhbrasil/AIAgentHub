@@ -63,7 +63,7 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
             _ = b.HasKey(c => c.Id);
             _ = b.Property(c => c.Title).IsRequired().HasMaxLength(256);
             _ = b.Property(c => c.ProviderId).IsRequired().HasMaxLength(64);
-            _ = b.Property(c => c.ModelId).IsRequired().HasMaxLength(128);
+            _ = b.Property(c => c.ModelId).HasMaxLength(128);
             _ = b.Property(c => c.Effort).HasMaxLength(64);
             _ = b.Property(c => c.ProviderSessionId).HasMaxLength(256);
             _ = b.HasIndex(c => c.WorkspaceId);
@@ -178,6 +178,8 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
             _ = b.HasKey(s => s.Id);
             _ = b.Property(s => s.ProviderId).IsRequired().HasMaxLength(64);
             _ = b.Property(s => s.ModelId).IsRequired().HasMaxLength(128);
+            _ = b.Property(s => s.DisplayName).HasMaxLength(256);
+            _ = b.Property(s => s.Description).HasMaxLength(1024);
             _ = b.HasIndex(s => new { s.ProviderId, s.ModelId }).IsUnique();
         });
 

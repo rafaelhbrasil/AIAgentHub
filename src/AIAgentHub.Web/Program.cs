@@ -108,6 +108,8 @@ else
 
 app.UseRouting();
 
+app.UseMiddleware<AIAgentHub.Web.Middleware.NetworkModeMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

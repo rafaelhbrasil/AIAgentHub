@@ -145,4 +145,137 @@ public sealed class PromptLoggerTests
             Arg.Any<Exception?>(),
             Arg.Any<Func<object, Exception?, string>>());
     }
+
+    [Fact]
+    public void LogCommandResult_WhenSuccess_LogsDebug()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogCommandResult("Antigravity CLI", "List Models", "agy models", 0, "model-1\nmodel-2", null);
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Debug,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogCommandResult_WhenFailed_LogsError()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogCommandResult("OpenCode", "Session List", "opencode session list", 1, null, "fatal: unexpected failure");
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Error,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogCommandResult_WhenAuthFailed_LogsWarning()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogCommandResult("Claude Code", "Auth Status", "claude auth status", 1, "not logged in", "Authentication required");
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogCommandResult_WhenQuotaExceeded_LogsWarning()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogCommandResult("Claude Code", "Execution", "claude --prompt test", 1, null, "Rate limit / quota exceeded (429)");
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogProviderStatus_WhenReady_LogsInformation()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogProviderStatus("Antigravity CLI", AIAgentHub.Domain.Providers.ProviderStatus.Ready, "Operational");
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Information,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogProviderStatus_WhenUnauthenticated_LogsWarning()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogProviderStatus("Claude Code", AIAgentHub.Domain.Providers.ProviderStatus.Unauthenticated, "Please login");
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogProviderStatus_WhenError_LogsError()
+    {
+        // Arrange
+        _ = _configMock["AgentHub:PromptLogging:Enabled"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogProviderStatus("Gemini CLI", AIAgentHub.Domain.Providers.ProviderStatus.Error, "Discontinued");
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Error,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
 }

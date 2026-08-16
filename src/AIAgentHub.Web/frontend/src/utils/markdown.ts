@@ -1,3 +1,11 @@
+import { marked } from 'marked';
+
+// Configure marked for full GitHub Flavored Markdown (GFM)
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
+
 export const ANSI_COLORS: Record<number, string> = {
   30: '#1e293b', // Black
   31: '#ef4444', // Red
@@ -76,20 +84,27 @@ export function ansiToHtml(input: string): string {
   return result + '</span>'.repeat(openSpans);
 }
 
+/**
+ * Parses markdown to complete GitHub Flavored Markdown (GFM) HTML.
+ */
+export function renderMarkdown(content: string): string {
+  if (!content) return '';
+  try {
+    return marked.parse(content, { async: false }) as string;
+  } catch {
+    return escapeHtml(content);
+  }
+}
+
+/**
+ * Formats AI chat message content with ANSI terminal styling and Markdown.
+ */
 export function formatMessageContent(content: string): string {
   if (!content) return '';
 
-  // 1. Escape standard HTML entities
-  let text = escapeHtml(content);
+  // 1. Process ANSI terminal color & style sequences
+  const textWithAnsi = ansiToHtml(content);
 
-  // 2. Convert ANSI terminal colors & styles to colored <span> elements
-  text = ansiToHtml(text);
-
-  // 3. Format markdown code blocks, bold, inline code, links and linebreaks
-  return text
-    .replace(/```([\s\S]*?)```/g, '<pre class="code-block"><code>$1</code></pre>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">$1</a>')
-    .replace(/\n/g, '<br/>');
+  // 2. Format standard Markdown with marked
+  return renderMarkdown(textWithAnsi);
 }

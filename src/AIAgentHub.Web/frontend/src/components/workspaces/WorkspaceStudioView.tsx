@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { WorkspaceDto, FileTreeNode } from '../../types/workspace';
 import { ConversationDto, ConversationDetailDto } from '../../types/conversation';
 import { ModelInfo, ProviderStatusDto } from '../../types/provider';
-import { FilePreviewDto } from '../../types/diff';
+import { FilePreviewDto, FileChangeDto } from '../../types/diff';
 import { apiFetch } from '../../services/apiClient';
 import { signalRService, StreamChunkPayload } from '../../services/signalrService';
 import { useToast } from '../../context/ToastContext';
@@ -11,9 +11,12 @@ import { FileTree } from './FileTree';
 import { ConversationList } from './ConversationList';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputBar } from './ChatInputBar';
+import { ChangesOverviewBar } from './ChangesOverviewBar';
 import { DiffViewerModal } from '../modals/DiffViewerModal';
 import { FilePreviewModal } from '../modals/FilePreviewModal';
 import { PermissionModal } from '../modals/PermissionModal';
+import { CreateConversationModal } from '../modals/CreateConversationModal';
+import { Spinner } from '../common/Spinner';
 
 interface WorkspaceStudioViewProps {
   workspace: WorkspaceDto;
@@ -31,11 +34,39 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
   const [treeData, setTreeData] = useState<FileTreeNode | null>(null);
   const [conversations, setConversations] = useState<ConversationDto[]>([]);
   const [activeConversation, setActiveConversation] = useState<ConversationDetailDto | null>(null);
+  const [fileChanges, setFileChanges] = useState<FileChangeDto[]>([]);
+  const [isChangesOverviewOpen, setIsChangesOverviewOpen] = useState<boolean>(false);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [streamingContent, setStreamingContent] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [isRefreshingTree, setIsRefreshingTree] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'sidebar'>('chat');
   const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
+
+  const fetchFileTree = useCallback(async () => {
+    setIsRefreshingTree(true);
+    try {
+      const treeRes = await apiFetch<FileTreeNode>(`/api/v1/filesystem/tree?workspaceId=${workspace.id}`);
+      if (treeRes.ok && treeRes.data) {
+        setTreeData(treeRes.data);
+      }
+    } finally {
+      setIsRefreshingTree(false);
+    }
+  }, [workspace.id]);
+
+  const fetchFileChanges = useCallback(async (convId: string) => {
+    try {
+      const res = await apiFetch<FileChangeDto[]>(`/api/v1/diffs?conversationId=${convId}&pendingOnly=true`);
+      if (res.ok && res.data) {
+        setFileChanges(res.data);
+      } else {
+        setFileChanges([]);
+      }
+    } catch {
+      setFileChanges([]);
+    }
+  }, []);
 
   const fetchWorkspaceData = useCallback(async () => {
     try {
@@ -52,6 +83,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         await selectConversationById(loadedConvs[0].id);
       } else {
         setActiveConversation(null);
+        setFileChanges([]);
       }
     } catch {
       // ignore
@@ -66,6 +98,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
       if (res.data.providerId) {
         loadModelsForProvider(res.data.providerId);
       }
+      fetchFileChanges(convId);
     }
   };
 
@@ -104,7 +137,11 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         }
         if (data.conversationId) {
           selectConversationById(data.conversationId);
+          fetchFileChanges(data.conversationId);
+        } else if (activeConversation) {
+          fetchFileChanges(activeConversation.id);
         }
+        fetchFileTree();
       }
     };
 
@@ -122,6 +159,10 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
       if (activeConversation && activeConversation.id === convId) {
         selectConversationById(convId);
       }
+      fetchFileTree();
+      if (convId) {
+        fetchFileChanges(convId);
+      }
     };
 
     signalRService.onStreamChunk = handleStreamChunk;
@@ -135,28 +176,38 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
       signalRService.onPermissionRequested = undefined;
       signalRService.onDiffCreated = undefined;
     };
-  }, [activeConversation]);
+  }, [activeConversation, fetchFileTree, fetchFileChanges]);
 
-  const handleCreateConversation = async () => {
-    const title = window.prompt('Enter conversation topic:', 'New Feature Task');
-    if (!title) return;
+  const handleCreateConversation = () => {
+    showModal(
+      'Start New Conversation',
+      <CreateConversationModal
+        defaultProviderId={workspace.settings?.defaultProviderId || 'antigravity'}
+        defaultModelId={workspace.settings?.defaultModelId}
+        onSubmit={async (title, providerId, modelId) => {
+          const res = await apiFetch<ConversationDto>('/api/v1/conversations', {
+            method: 'POST',
+            body: {
+              workspaceId: workspace.id,
+              title: title.trim(),
+              providerId: providerId || workspace.settings?.defaultProviderId || 'antigravity',
+              modelId: modelId || workspace.settings?.defaultModelId,
+            },
+          });
 
-    const res = await apiFetch<ConversationDto>('/api/v1/conversations', {
-      method: 'POST',
-      body: {
-        workspaceId: workspace.id,
-        title: title.trim(),
-        providerId: workspace.settings?.defaultProviderId || 'antigravity',
-        modelId: workspace.settings?.defaultModelId,
-      },
-    });
-
-    if (res.ok && res.data) {
-      showToast('Conversation created.', 'success');
-      setConversations((prev) => [res.data!, ...prev]);
-      await selectConversationById(res.data.id);
-      setMobileTab('chat');
-    }
+          if (res.ok && res.data) {
+            hideModal();
+            showToast('Conversation created.', 'success');
+            setConversations((prev) => [res.data!, ...prev]);
+            await selectConversationById(res.data.id);
+            setMobileTab('chat');
+          } else {
+            showToast(res.error || (res.data as any)?.message || 'Failed to create conversation.', 'error');
+          }
+        }}
+        onCancel={hideModal}
+      />
+    );
   };
 
   const handleDeleteConversation = (id: string, title: string) => {
@@ -222,7 +273,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         `Preview: ${relPath}`,
         <FilePreviewModal
           relativePath={relPath}
-          renderedHtml={res.data.renderedHtml}
+          preview={res.data}
           onClose={hideModal}
         />
       );
@@ -231,17 +282,50 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     }
   };
 
-  const handleOpenDiffs = () => {
+  const handleOpenDiffs = (initialFileChangeId?: string) => {
     if (!activeConversation) return;
     showModal(
-      'File Modifications & Diff Reviewer',
+      'Changed Files & Diff Reviewer',
       <DiffViewerModal
         conversationId={activeConversation.id}
         workspaceId={workspace.id}
+        initialFileChangeId={initialFileChangeId}
         onClose={hideModal}
-        onRefreshWorkspace={fetchWorkspaceData}
+        onRefreshWorkspace={() => {
+          fetchWorkspaceData();
+          fetchFileChanges(activeConversation.id);
+        }}
       />
     );
+  };
+
+  const handleAcceptAllChanges = async () => {
+    if (!activeConversation) return;
+    const res = await apiFetch(`/api/v1/diffs/accept-all?conversationId=${activeConversation.id}`, {
+      method: 'POST',
+    });
+    if (res.ok) {
+      showToast('All changes accepted.', 'success');
+      fetchFileChanges(activeConversation.id);
+      setIsChangesOverviewOpen(false);
+    } else {
+      showToast('Failed to accept changes.', 'error');
+    }
+  };
+
+  const handleRejectAllChanges = async () => {
+    if (!activeConversation) return;
+    const res = await apiFetch(`/api/v1/diffs/reject-all?conversationId=${activeConversation.id}&workspaceId=${workspace.id}`, {
+      method: 'POST',
+    });
+    if (res.ok) {
+      showToast('All changes rejected and rolled back.', 'success');
+      fetchFileChanges(activeConversation.id);
+      fetchFileTree();
+      setIsChangesOverviewOpen(false);
+    } else {
+      showToast('Failed to rollback changes.', 'error');
+    }
   };
 
   const handleModelChange = async (modelId: string) => {
@@ -447,7 +531,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
                     }}
                     disabled={!activeConversation}
                   >
-                    📝 Review Diffs & Rollback
+                    📝 Changed Files
                   </button>
 
                   {activeConversation && (
@@ -516,8 +600,25 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
       <div className="studio-layout">
         {/* Left Panel: Explorer & Conversations */}
         <div className={`sidebar-panel glass ${mobileTab === 'chat' ? 'mobile-hidden' : ''}`}>
-          <div className="sidebar-header">
+          <div
+            className="sidebar-header"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
             <strong>Files & Folders</strong>
+            <button
+              type="button"
+              className="btn-refresh-icon"
+              onClick={fetchFileTree}
+              disabled={isRefreshingTree}
+              title="Refresh Files & Folders structure"
+              id="refreshFilesBtn"
+            >
+              <Spinner size={16} isSpinning={isRefreshingTree} />
+            </button>
           </div>
           <FileTree node={treeData} onSelectFile={handlePreviewFile} />
 
@@ -530,10 +631,22 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
               alignItems: 'center',
             }}
           >
-            <strong>Conversations</strong>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-              {conversations.length}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <strong>Conversations</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                ({conversations.length})
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary compact-btn"
+              style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+              onClick={handleCreateConversation}
+              title="Start a new conversation"
+              id="sidebarNewConvBtn"
+            >
+              ➕ New
+            </button>
           </div>
           <ConversationList
             conversations={conversations}
@@ -585,7 +698,19 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
                 isStreaming={isStreaming}
               />
 
-              <ChatInputBar onSend={handleSendPrompt} disabled={isStreaming} />
+              <div className="chat-bottom-dock">
+                <ChangesOverviewBar
+                  fileChanges={fileChanges}
+                  isOpen={isChangesOverviewOpen}
+                  onToggleOpen={() => setIsChangesOverviewOpen((prev) => !prev)}
+                  onSelectFile={(fileChangeId) => handleOpenDiffs(fileChangeId)}
+                  onOpenFullDiff={() => handleOpenDiffs()}
+                  onAcceptAll={handleAcceptAllChanges}
+                  onRejectAll={handleRejectAllChanges}
+                />
+
+                <ChatInputBar onSend={handleSendPrompt} disabled={isStreaming} />
+              </div>
             </>
           )}
         </div>

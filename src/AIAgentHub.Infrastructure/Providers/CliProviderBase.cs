@@ -99,55 +99,64 @@ public abstract class CliProviderBase(
 
         if (string.IsNullOrEmpty(exePath))
         {
-            return new ProviderDetectionResult(
+            var notInstalledResult = new ProviderDetectionResult(
                 ProviderStatus.NotInstalled,
                 $"{DisplayName} is not installed. {InstallInstructions}",
                 null
             );
+            _promptLogger.LogProviderStatus(DisplayName, notInstalledResult.Status, notInstalledResult.Message);
+            return notInstalledResult;
         }
 
         try
         {
             var testResult = await RunTestCommandAsync(exePath, cancellationToken);
 
+            ProviderDetectionResult detectionResult;
             if (testResult.IsSuccess)
             {
-                return new ProviderDetectionResult(
+                detectionResult = new ProviderDetectionResult(
                     ProviderStatus.Ready,
                     "Provider is operational and ready to use.",
                     null
                 );
             }
-
-            if (IsQuotaError(testResult.Error))
+            else if (IsQuotaError(testResult.Error))
             {
                 var resetTime = ParseQuotaResetTime(testResult.Error ?? "");
-                return new ProviderDetectionResult(
+                detectionResult = new ProviderDetectionResult(
                     ProviderStatus.QuotaExceeded,
                     testResult.Error,
                     resetTime
                 );
             }
-
-            return IsAuthError(testResult.Error)
-                ? new ProviderDetectionResult(
-                    ProviderStatus.Unauthenticated,
-                    testResult.Error,
+            else
+            {
+                detectionResult = IsAuthError(testResult.Error)
+                    ? new ProviderDetectionResult(
+                        ProviderStatus.Unauthenticated,
+                        testResult.Error,
+                        null
+                    )
+                    : new ProviderDetectionResult(
+                    ProviderStatus.Error,
+                    testResult.Error ?? "Unknown error occurred.",
                     null
-                )
-                : new ProviderDetectionResult(
-                ProviderStatus.Error,
-                testResult.Error ?? "Unknown error occurred.",
-                null
-            );
+                );
+            }
+
+            _promptLogger.LogProviderStatus(DisplayName, detectionResult.Status, detectionResult.Message);
+            return detectionResult;
         }
         catch (Exception ex)
         {
-            return new ProviderDetectionResult(
+            var errorResult = new ProviderDetectionResult(
                 ProviderStatus.Error,
                 $"Failed to detect provider status: {ex.Message}",
                 null
             );
+            _promptLogger.LogProviderStatus(DisplayName, errorResult.Status, errorResult.Message);
+            return errorResult;
         }
     }
 
@@ -394,19 +403,29 @@ public abstract class CliProviderBase(
             : $" {flag} \"{value.Replace("\"", "\\\"")}\"";
     }
 
-    protected virtual Task<ProcessCommandResult> RunCommandAsync(
+    protected virtual async Task<ProcessCommandResult> RunCommandAsync(
         string executable,
         string arguments,
         string? workingDirectory,
         CancellationToken cancellationToken,
         string? operationTitle = null)
     {
-        return _processExecutor.RunCommandAsync(
+        var result = await _processExecutor.RunCommandAsync(
             executable,
             arguments,
             workingDirectory,
             cancellationToken,
             operationTitle);
+
+        _promptLogger.LogCommandResult(
+            DisplayName,
+            operationTitle ?? $"{DisplayName} command",
+            $"\"{executable}\" {arguments}",
+            result.ExitCode,
+            result.Output,
+            result.Error);
+
+        return result;
     }
 
     protected virtual async Task<string> RunVersionCheckAsync(string exePath, CancellationToken cancellationToken)

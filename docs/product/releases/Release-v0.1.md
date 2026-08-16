@@ -33,7 +33,7 @@ The architecture must allow adding additional providers without modifying the ap
 
 ---
 
-## Provider Detection
+## Provider Detection & Caching
 
 The application shall:
 
@@ -42,6 +42,8 @@ The application shall:
 - determine provider version
 - determine provider capabilities
 - detect supported models
+- persist detection status and model lists in the database cache (SQLite)
+- serve provider metadata and model lists strictly from the database without in-memory or client-side caching; external provider CLI checks and model listings are only executed when unseeded or when the user explicitly requests a Refresh or Refresh All
 
 ---
 
@@ -334,26 +336,24 @@ The Server owns:
 Supported modes:
 
 ### Localhost
-
-Only accessible from the local machine.
+Only accessible from the local machine. The server strictly enforces loopback origin (127.0.0.1 / ::1) via request pipeline middleware, returning HTTP 403 Forbidden to any non-loopback clients.
 
 ---
 
 ### LAN
-
-Accessible through every network interface.
+Accessible through every network interface. All local network interfaces and connected LAN clients are accepted.
 
 ---
 
 ### Selected Interfaces
-
-Accessible only through explicitly selected interfaces.
+Accessible only through loopback and explicitly selected network interfaces. Requests originating outside loopback and the whitelisted interfaces are rejected with HTTP 403 Forbidden.
 
 The UI should display:
 
 - interface name
 - IP address
 - current status
+- selection checkboxes when in Selected Interfaces mode
 
 ---
 

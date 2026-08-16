@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../../services/apiClient';
-import { DriveDto, DirectoryBrowserResult } from '../../types/workspace';
+import { DriveDto, DirectoryBrowserResult, ForbiddenPathsResponse } from '../../types/workspace';
 import { useToast } from '../../context/ToastContext';
+import { isPathForbiddenForBrowsing, isPathForbiddenForWorkspace } from '../../utils/pathValidation';
+import { Spinner } from '../common/Spinner';
 
 interface FolderExplorerModalProps {
   onSuccess: (workspaceId: string) => void;
@@ -11,6 +13,7 @@ interface FolderExplorerModalProps {
 export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSuccess, onCancel }) => {
   const { showToast } = useToast();
   const [drives, setDrives] = useState<DriveDto[]>([]);
+  const [forbiddenPaths, setForbiddenPaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [wsName, setWsName] = useState<string>('');
   const [defaultProvider, setDefaultProvider] = useState<string>('antigravity');
@@ -29,7 +32,12 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
     }
   };
 
-  const loadDirectory = async (path: string) => {
+  const loadDirectory = async (path: string, activeForbiddenList: string[] = forbiddenPaths) => {
+    if (path && isPathForbiddenForBrowsing(path, activeForbiddenList)) {
+      showToast(`The directory '${path}' is a protected system folder and cannot be opened.`, 'error');
+      return;
+    }
+
     setCurrentPath(path);
     setSelectedFolder('');
     updateSuggestedName(path);
@@ -53,10 +61,17 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
 
   useEffect(() => {
     const init = async () => {
-      const [drivesRes, browseRes] = await Promise.all([
+      const [drivesRes, browseRes, forbiddenRes] = await Promise.all([
         apiFetch<DriveDto[]>('/api/v1/filesystem/drives'),
         apiFetch<DirectoryBrowserResult>('/api/v1/filesystem/browse'),
+        apiFetch<ForbiddenPathsResponse>('/api/v1/filesystem/forbidden-paths'),
       ]);
+
+      let loadedForbidden: string[] = [];
+      if (forbiddenRes.ok && forbiddenRes.data) {
+        loadedForbidden = forbiddenRes.data.forbiddenPaths;
+        setForbiddenPaths(loadedForbidden);
+      }
 
       if (drivesRes.ok && drivesRes.data) {
         setDrives(drivesRes.data);
@@ -67,7 +82,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
         setCurrentPath(browseRes.data.currentPath);
         updateSuggestedName(browseRes.data.currentPath);
       } else if (drivesRes.ok && drivesRes.data && drivesRes.data.length > 0) {
-        loadDirectory(drivesRes.data[0].path);
+        loadDirectory(drivesRes.data[0].path, loadedForbidden);
       }
     };
     init();
@@ -78,6 +93,11 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
     const name = wsName.trim();
     if (!path) {
       showToast('Path is required.', 'error');
+      return;
+    }
+
+    if (isPathForbiddenForWorkspace(path, forbiddenPaths)) {
+      showToast(`The directory '${path}' cannot be used as a workspace (root drives and protected system folders are restricted).`, 'error');
       return;
     }
 
@@ -216,12 +236,12 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
             </div>
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ padding: '3px 8px', fontSize: '0.8rem' }}
+              className="btn-refresh-icon"
               onClick={() => loadDirectory(currentPath)}
+              disabled={isLoadingFolders}
               title="Refresh folder"
             >
-              🔄
+              <Spinner size={15} isSpinning={isLoadingFolders} />
             </button>
           </div>
 

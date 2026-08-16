@@ -322,6 +322,11 @@ The Server may expose itself through:
 * LAN
 * Selected network interfaces
 
+Network mode restrictions are enforced on the Server by `NetworkModeMiddleware`:
+- In **Localhost** mode, connections with remote IP addresses other than loopback (127.0.0.1, ::1) are immediately rejected with HTTP 403 Forbidden.
+- In **LAN** mode, connections from all local network interfaces are permitted.
+- In **Selected Interfaces** mode, only connections from loopback or IP addresses within the subnets of explicitly selected network interfaces are permitted.
+
 The application must clearly display every exposed address.
 
 The application must never silently expose additional interfaces.
@@ -463,6 +468,22 @@ Examples include:
 * Localhost by default
 * Authentication required
 * Permissions denied until explicitly granted
+* Workspace path restrictions against critical system folders
+
+---
+
+# Filesystem & Workspace Path Security
+
+To protect host operating systems from unbounded filesystem traversals, accidental modification, and unauthorized system access, AI Agent Hub enforces strict path constraints on workspace creation and filesystem browsing:
+
+## Forbidden Directories & Patterns
+- **Root Drives**: Bare root directories (`C:\`, `/`) cannot be targeted as workspace roots.
+- **Windows Critical Folders**: `Windows`, `Program Files`, `Program Files (x86)`, `ProgramData`, `Recovery`, `$Recycle.Bin`, `System Volume Information`, `Boot`, `Windows.old` across all system drives.
+- **Unix & macOS Critical Folders**: `/bin`, `/sbin`, `/boot`, `/dev`, `/etc`, `/lib`, `/lib32`, `/lib64`, `/proc`, `/root`, `/run`, `/sys`, `/usr`, `/var`, `/opt`, `/snap`, `/System`, `/Library`, `/private`.
+
+## Dual-Layer Enforcement
+- **Frontend Validation**: Instant in-memory check against patterns fetched from `GET /api/v1/filesystem/forbidden-paths`, blocking navigation/selection and triggering user toast warnings.
+- **Backend Validation**: `ISystemPathValidator` verifies all workspace creation and browsing operations, returning `400 Bad Request` upon violation.
 
 ---
 

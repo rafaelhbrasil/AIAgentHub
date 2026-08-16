@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { formatModelsSummary, formatFileSize, formatTime } from '../src/utils/formatting';
 import { ModelInfo } from '../src/types/provider';
 import { isUserRole } from '../src/types/conversation';
+import { normalizeNetworkMode } from '../src/types/settings';
 
 describe('formatting utils', () => {
   it('formats models summary correctly with active count', () => {
@@ -43,5 +44,21 @@ describe('formatting utils', () => {
     expect(isUserRole(1)).toBe(false);
     expect(isUserRole(null)).toBe(false);
     expect(isUserRole(undefined)).toBe(false);
+  });
+
+  it('normalizes network mode values from both string enum and numeric values', () => {
+    expect(normalizeNetworkMode('Lan')).toBe('Lan');
+    expect(normalizeNetworkMode('lan')).toBe('Lan');
+    expect(normalizeNetworkMode(1)).toBe('Lan');
+    expect(normalizeNetworkMode('1')).toBe('Lan');
+
+    expect(normalizeNetworkMode('SelectedInterfaces')).toBe('SelectedInterfaces');
+    expect(normalizeNetworkMode('selectedInterfaces')).toBe('SelectedInterfaces');
+    expect(normalizeNetworkMode(2)).toBe('SelectedInterfaces');
+
+    expect(normalizeNetworkMode('Localhost')).toBe('Localhost');
+    expect(normalizeNetworkMode(0)).toBe('Localhost');
+    expect(normalizeNetworkMode(null)).toBe('Localhost');
+    expect(normalizeNetworkMode(undefined)).toBe('Localhost');
   });
 });
