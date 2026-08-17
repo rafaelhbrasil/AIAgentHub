@@ -14,7 +14,7 @@ public sealed class PromptLogger : IPromptLogger
     public PromptLogger(ILogger<PromptLogger> logger, IConfiguration configuration)
     {
         _logger = logger;
-        var configValue = configuration["AgentHub:PromptLogging:Enabled"];
+        var configValue = configuration["AgentHub:PromptLogging"];
         IsEnabled = string.IsNullOrEmpty(configValue) ||
                    configValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                    configValue.Equals("1", StringComparison.OrdinalIgnoreCase);

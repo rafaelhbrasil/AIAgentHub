@@ -24,8 +24,11 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = 'auto';
-    // Grow vertically up to 30% of the viewport height (or min 40px)
-    const maxHeight = typeof window !== 'undefined' ? window.innerHeight * 0.3 : 200;
+    // Use visualViewport on mobile (accounts for soft keyboard), fallback to window.innerHeight
+    const vh = typeof window !== 'undefined'
+      ? (window.visualViewport?.height ?? window.innerHeight)
+      : 200;
+    const maxHeight = vh * 0.3;
     const newHeight = Math.min(textarea.scrollHeight, maxHeight);
     textarea.style.height = `${Math.max(40, newHeight)}px`;
   };
@@ -33,6 +36,15 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   useEffect(() => {
     adjustTextareaHeight();
   }, [text]);
+
+  // Re-adjust textarea height when mobile keyboard opens/closes
+  useEffect(() => {
+    const vp = window.visualViewport;
+    if (!vp) return;
+    const handleResize = () => adjustTextareaHeight();
+    vp.addEventListener('resize', handleResize);
+    return () => vp.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // On mobile devices, Enter inserts a line break and does NOT send

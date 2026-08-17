@@ -106,5 +106,26 @@ export function formatMessageContent(content: string): string {
   const textWithAnsi = ansiToHtml(content);
 
   // 2. Format standard Markdown with marked
-  return renderMarkdown(textWithAnsi);
+  const rendered = renderMarkdown(textWithAnsi);
+
+  // 3. Wrap long code blocks in collapsible details elements
+  return wrapCollapsibleCodeBlocks(rendered);
+}
+
+/**
+ * Wraps code blocks exceeding COLLAPSE_THRESHOLD lines in collapsible <details> elements.
+ */
+export function wrapCollapsibleCodeBlocks(html: string): string {
+  const COLLAPSE_THRESHOLD = 10;
+
+  return html.replace(
+    /<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
+    (match, codeContent: string) => {
+      const lineCount = codeContent.split('\n').length;
+      if (lineCount <= COLLAPSE_THRESHOLD) {
+        return match;
+      }
+      return `<details class="code-collapse"><summary>Show ${lineCount} lines of code</summary>${match}</details>`;
+    }
+  );
 }

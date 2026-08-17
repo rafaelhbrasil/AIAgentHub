@@ -26,14 +26,22 @@ export class SignalRService {
   public onPermissionRequested?: (req: any) => void;
   public onDiffCreated?: (diff: any) => void;
   public onNotification?: (notification: NotificationPayload) => void;
+  public onReconnected?: () => void;
 
   public start(): void {
     if (this.connection) return;
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl('/hubs/agent')
-      .withAutomaticReconnect()
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .build();
+
+    this.connection.onreconnected(() => {
+      if (this.currentConversationId) {
+        this.connection?.invoke('JoinConversation', this.currentConversationId).catch(() => {});
+      }
+      this.onReconnected?.();
+    });
 
     this.connection.on('streamChunk', (data: any) => {
       const conversationId = (data.conversationId || data.ConversationId || '').toString();

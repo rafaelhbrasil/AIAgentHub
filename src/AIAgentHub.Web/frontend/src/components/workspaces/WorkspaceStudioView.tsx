@@ -113,6 +113,18 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     fetchWorkspaceData();
   }, [fetchWorkspaceData]);
 
+  // Re-join conversation and fetch latest state when page becomes visible again (e.g. Chrome restore on mobile)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && activeConversation) {
+        signalRService.joinConversation(activeConversation.id);
+        selectConversationById(activeConversation.id);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [activeConversation]);
+
   // SignalR Event Listeners
   useEffect(() => {
     const handleStreamChunk = (payload: StreamChunkPayload) => {
@@ -169,12 +181,18 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     signalRService.onConversationEvent = handleConversationEvent;
     signalRService.onPermissionRequested = handlePermissionRequested;
     signalRService.onDiffCreated = handleDiffCreated;
+    signalRService.onReconnected = () => {
+      if (activeConversation) {
+        selectConversationById(activeConversation.id);
+      }
+    };
 
     return () => {
       signalRService.onStreamChunk = undefined;
       signalRService.onConversationEvent = undefined;
       signalRService.onPermissionRequested = undefined;
       signalRService.onDiffCreated = undefined;
+      signalRService.onReconnected = undefined;
     };
   }, [activeConversation, fetchFileTree, fetchFileChanges]);
 

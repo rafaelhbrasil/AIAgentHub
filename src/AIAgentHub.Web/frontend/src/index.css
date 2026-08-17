@@ -873,6 +873,10 @@ body {
   overflow: hidden;
 }
 
+.chat-bottom-dock {
+  flex-shrink: 0;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -1174,6 +1178,36 @@ body {
   font-family: var(--font-mono);
   font-size: 0.85em;
   color: #38bdf8;
+}
+
+/* Collapsible Code Blocks */
+.code-collapse {
+  margin: 10px 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.code-collapse summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.code-collapse summary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+}
+
+.code-collapse pre {
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 
 /* Modal Overlay */
@@ -1619,8 +1653,12 @@ select option, .form-select option {
 
   .studio-layout {
     grid-template-columns: 1fr;
-    height: calc(100vh - 165px);
+    height: calc(100dvh - 165px);
     min-height: 400px;
+  }
+
+  .chat-container {
+    overflow: visible;
   }
 
   .sidebar-panel.mobile-hidden {

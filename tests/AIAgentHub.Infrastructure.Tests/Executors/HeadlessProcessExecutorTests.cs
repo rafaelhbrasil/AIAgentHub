@@ -107,4 +107,48 @@ public sealed class HeadlessProcessExecutorTests
         var result = TestableHeadlessProcessExecutor.TestShouldFilterErrorChunk(chunk);
         Assert.Equal(expectedFilter, result);
     }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenOutputToStdError_StreamsDirectlyWithoutErrorPrefix()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var executor = new HeadlessProcessExecutor();
+        var loggerMock = Substitute.For<IPromptLogger>();
+        var outputBuilder = new StringBuilder();
+
+        var context = new ProviderExecutionContext(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Directory.GetCurrentDirectory(),
+            "stderr test",
+            null,
+            null,
+            Array.Empty<string>(),
+            token =>
+            {
+                _ = outputBuilder.Append(token);
+                return Task.CompletedTask;
+            },
+            (type, target) => Task.FromResult(true),
+            CancellationToken.None
+        );
+
+        var options = new CliExecutionOptions { Headless = true };
+
+        await executor.ExecuteAsync(
+            "CmdTest",
+            "cmd.exe",
+            "/c echo DiagnosticStderr 1>&2",
+            context,
+            loggerMock,
+            options);
+
+        var result = outputBuilder.ToString();
+        Assert.Contains("DiagnosticStderr", result);
+        Assert.DoesNotContain("[Error]:", result);
+    }
 }

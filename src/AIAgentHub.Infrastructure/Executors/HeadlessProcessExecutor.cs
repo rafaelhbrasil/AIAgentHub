@@ -65,7 +65,7 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
                     var cleanChunk = CleanAnsiCodes(rawChunk);
                     if (!ShouldFilterErrorChunk(cleanChunk))
                     {
-                        await context.OnStreamToken($"\n[Error]: {cleanChunk}");
+                        await context.OnStreamToken(cleanChunk);
                     }
                 },
                 CancellationToken.None,
