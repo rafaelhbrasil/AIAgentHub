@@ -206,6 +206,51 @@ Major releases may introduce carefully planned architectural evolution.
 
 ---
 
+# Future Ideas
+
+The following ideas are candidates for future releases. They are not yet assigned to a specific phase.
+
+## Desktop Integration
+
+- Run the app executable in a system tray icon
+- Tray menu options: open web interface, view logs, exit app
+- If technically possible, add a tray option to restart the backend service
+- Log to a file per day at `./logs/yyyy-mm-dd.log` (same folder where the app runs)
+- "View logs" option opens the log folder
+
+## Service Management
+
+- Allow the user to restart the backend service from the web interface
+- Requires authenticated session
+
+## Chat UX
+
+- Add a small copy button (icon only) to every message in the chat window
+- One-click copy without needing to select text
+
+## File Explorer
+
+- Allow the user to add new items to the folder structure (like VS Code explorer)
+- Operations: new folder, new file, rename file, delete file/folder, collapse all folders
+
+## Conversation Switching
+
+- Allow swapping between two or more conversations without blocking the prompt text box
+- In-progress processing continues in the background
+- User can switch back and forth and still abort an ongoing task
+
+## Diff Viewer
+
+- Add a word-wrap toggle button when diffing a file
+
+## Mentions
+
+- Support `@<file>` or `@<folder>` mentions (similar to Aider and OpenCode)
+- While typing, filter any file/folder within the workspace scope
+- Once the user picks an item, replace `@<search>` with `$/path/to/file.ext`
+
+---
+
 # Deferred Ideas
 
 The following ideas remain intentionally outside the current roadmap.
