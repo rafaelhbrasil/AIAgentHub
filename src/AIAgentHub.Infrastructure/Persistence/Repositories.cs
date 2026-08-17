@@ -219,6 +219,12 @@ public sealed class FileChangeRepository(AgentHubDbContext context) : IFileChang
         _ = _context.FileChanges.Update(change);
         _ = await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteAsync(FileChange change, CancellationToken cancellationToken = default)
+    {
+        _ = _context.FileChanges.Remove(change);
+        _ = await _context.SaveChangesAsync(cancellationToken);
+    }
 }
 
 public sealed class FileSnapshotRepository(AgentHubDbContext context) : IFileSnapshotRepository

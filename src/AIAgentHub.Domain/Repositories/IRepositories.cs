@@ -47,6 +47,7 @@ public interface IFileChangeRepository
     public Task<FileChange?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     public Task AddAsync(FileChange change, CancellationToken cancellationToken = default);
     public Task UpdateAsync(FileChange change, CancellationToken cancellationToken = default);
+    public Task DeleteAsync(FileChange change, CancellationToken cancellationToken = default);
 }
 
 public interface IFileSnapshotRepository

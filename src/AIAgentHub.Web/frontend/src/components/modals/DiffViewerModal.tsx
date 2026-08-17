@@ -24,6 +24,7 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
   const [activeDiff, setActiveDiff] = useState<FileChangeDto | null>(null);
   const [editedContent, setEditedContent] = useState<string>('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'sideBySide' | 'unified'>('sideBySide');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -140,11 +141,47 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
             className={`btn btn-secondary compact-btn ${activeChangeId === c.id ? 'btn-primary' : ''}`}
             onClick={() => setActiveChangeId(c.id)}
             style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+            title={c.relativePath}
           >
             {c.relativePath} ({formatChangeType(c.changeType)})
           </button>
         ))}
       </div>
+
+      {/* Diff controls & summary header */}
+      {activeDiff && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+            <strong style={{ color: 'var(--text-heading)' }}>{activeDiff.relativePath}</strong>
+            {activeDiff.additionsCount !== undefined && activeDiff.additionsCount > 0 && (
+              <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '0.78rem' }}>+{activeDiff.additionsCount}</span>
+            )}
+            {activeDiff.deletionsCount !== undefined && activeDiff.deletionsCount > 0 && (
+              <span style={{ color: '#f87171', fontWeight: 600, fontSize: '0.78rem' }}>-{activeDiff.deletionsCount}</span>
+            )}
+          </div>
+          {!activeDiff.isBinary && (
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                className={`btn compact-btn ${viewMode === 'sideBySide' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '2px 8px', fontSize: '0.74rem' }}
+                onClick={() => setViewMode('sideBySide')}
+              >
+                📖 Side-by-Side
+              </button>
+              <button
+                type="button"
+                className={`btn compact-btn ${viewMode === 'unified' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '2px 8px', fontSize: '0.74rem' }}
+                onClick={() => setViewMode('unified')}
+              >
+                📜 Unified Diff
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main diff container */}
       <div
@@ -174,6 +211,31 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
               <img src={activeDiff.newContent || ''} alt="Modified binary preview" style={{ maxWidth: '100%' }} />
             </div>
           </div>
+        ) : viewMode === 'unified' ? (
+          <div className="diff-unified">
+            {(activeDiff.unifiedLines || []).map((l, i) => {
+              const isAdd = l.kind === 1 || (l.kind as any) === 'Added' || (l.kind as any) === 'Addition';
+              const isDel = l.kind === 2 || (l.kind as any) === 'Deleted' || (l.kind as any) === 'Deletion';
+              return (
+                <div
+                  key={i}
+                  className={`diff-line ${isAdd ? 'added' : isDel ? 'deleted' : 'unchanged'}`}
+                  style={{ display: 'flex', gap: '8px', minWidth: 'max-content' }}
+                >
+                  <span style={{ width: '36px', textAlign: 'right', color: 'var(--text-muted)', userSelect: 'none', opacity: 0.6 }}>
+                    {l.oldLineNumber || ''}
+                  </span>
+                  <span style={{ width: '36px', textAlign: 'right', color: 'var(--text-muted)', userSelect: 'none', opacity: 0.6 }}>
+                    {l.newLineNumber || ''}
+                  </span>
+                  <span style={{ width: '16px', textAlign: 'center', userSelect: 'none', fontWeight: 600 }}>
+                    {isAdd ? '+' : isDel ? '-' : ' '}
+                  </span>
+                  <span style={{ flex: 1, whiteSpace: 'pre' }}>{l.content}</span>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="diff-side-by-side">
             {/* Left Pane: Original */}
@@ -181,12 +243,15 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
               <div style={{ color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600, fontSize: '0.82rem' }}>
                 ORIGINAL (BASELINE)
               </div>
-              {(activeDiff.sideBySideLines || []).map((l, i) => (
-                <div key={i} className={`diff-line ${l.leftKind === 2 ? 'deleted' : 'unchanged'}`}>
-                  {l.leftLineNumber ? `${l.leftLineNumber.toString().padStart(4, ' ')} ` : '     '}
-                  {l.leftText || ''}
-                </div>
-              ))}
+              {(activeDiff.sideBySideLines || []).map((l, i) => {
+                const isDel = l.leftKind === 2 || (l.leftKind as any) === 'Deleted' || (l.leftKind as any) === 'Deletion';
+                return (
+                  <div key={i} className={`diff-line ${isDel ? 'deleted' : 'unchanged'}`}>
+                    {l.leftLineNumber ? `${l.leftLineNumber.toString().padStart(4, ' ')} ` : '     '}
+                    {l.leftText || ''}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Right Pane: Modified / Editable */}
@@ -232,12 +297,15 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
                   spellCheck={false}
                 />
               ) : (
-                (activeDiff.sideBySideLines || []).map((l, i) => (
-                  <div key={i} className={`diff-line ${l.rightKind === 1 ? 'added' : 'unchanged'}`}>
-                    {l.rightLineNumber ? `${l.rightLineNumber.toString().padStart(4, ' ')} ` : '     '}
-                    {l.rightText || ''}
-                  </div>
-                ))
+                (activeDiff.sideBySideLines || []).map((l, i) => {
+                  const isAdd = l.rightKind === 1 || (l.rightKind as any) === 'Added' || (l.rightKind as any) === 'Addition';
+                  return (
+                    <div key={i} className={`diff-line ${isAdd ? 'added' : 'unchanged'}`}>
+                      {l.rightLineNumber ? `${l.rightLineNumber.toString().padStart(4, ' ')} ` : '     '}
+                      {l.rightText || ''}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

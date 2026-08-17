@@ -13,6 +13,13 @@ export interface SideBySideLine {
   rightKind: number;
 }
 
+export interface UnifiedLine {
+  oldLineNumber?: number | null;
+  newLineNumber?: number | null;
+  content: string;
+  kind: number; // 0=Unchanged, 1=Added, 2=Deleted, 3=Modified
+}
+
 export interface FileChangeDto {
   id: string;
   conversationId: string;
@@ -21,7 +28,10 @@ export interface FileChangeDto {
   isBinary: boolean;
   oldContent?: string | null;
   newContent?: string | null;
-  sideBySideLines: SideBySideLine[];
+  additionsCount?: number;
+  deletionsCount?: number;
+  sideBySideLines?: SideBySideLine[];
+  unifiedLines?: UnifiedLine[];
 }
 
 export interface FilePreviewDto {

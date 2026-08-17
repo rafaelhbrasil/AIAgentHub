@@ -44,6 +44,14 @@ public sealed class LocalDiskSnapshotStore(
             ".git", "node_modules", "bin", "obj", ".vs", ".idea", ".vscode"
         };
 
+        // Query existing pending changes so we preserve the original pre-prompt baseline snapshot
+        var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+        var pendingPaths = new HashSet<string>(
+            existingChanges
+                .Where(c => c.Status == ReviewStatus.Pending)
+                .Select(c => c.RelativePath.Replace('\\', '/').TrimStart('/')),
+            StringComparer.OrdinalIgnoreCase);
+
         var files = rootDir.GetFiles("*", SearchOption.AllDirectories);
         foreach (var file in files)
         {
@@ -53,6 +61,13 @@ public sealed class LocalDiskSnapshotStore(
             }
 
             var relativePath = Path.GetRelativePath(rootDir.FullName, file.FullName).Replace('\\', '/');
+
+            // If this file already has an active pending change, preserve the original baseline snapshot!
+            if (pendingPaths.Contains(relativePath))
+            {
+                continue;
+            }
+
             var fileHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
 
             var storageKey = Guid.NewGuid().ToString("N");
@@ -84,9 +99,29 @@ public sealed class LocalDiskSnapshotStore(
         CancellationToken cancellationToken = default)
     {
         var baselineSnapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+        // Use the initial baseline snapshot captured at the start of the change cycle
         var baselineMap = baselineSnapshots
-            .GroupBy(s => s.RelativePath, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.CapturedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(s => s.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderBy(s => s.CapturedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+
+        var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+
+        // Clean up any historical duplicate pending changes for the same relative path
+        var duplicatePending = existingChanges
+            .Where(c => c.Status == ReviewStatus.Pending)
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
+            .ToList();
+
+        foreach (var dup in duplicatePending)
+        {
+            await _fileChangeRepository.DeleteAsync(dup, cancellationToken);
+        }
+
+        var pendingChangesMap = existingChanges
+            .Where(c => c.Status == ReviewStatus.Pending)
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
 
         var rootDir = new DirectoryInfo(Path.GetFullPath(workspacePath));
         var ignored = new HashSet<string>(ignoredPatterns, StringComparer.OrdinalIgnoreCase)
@@ -108,8 +143,31 @@ public sealed class LocalDiskSnapshotStore(
 
             var currentHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
 
-            if (baselineMap.TryGetValue(relativePath, out var baseline))
+            if (pendingChangesMap.TryGetValue(relativePath, out var existingPending))
             {
+                // File was already pending from previous prompt
+                if (baselineMap.TryGetValue(relativePath, out var baseline))
+                {
+                    if (string.Equals(baseline.FileHash, currentHash, StringComparison.Ordinal))
+                    {
+                        // File has been reverted back to baseline exactly! Remove pending change.
+                        await _fileChangeRepository.DeleteAsync(existingPending, cancellationToken);
+                    }
+                    else
+                    {
+                        // Still modified from original baseline - retain single change record
+                        detectedChanges.Add(existingPending);
+                    }
+                }
+                else if (existingPending.ChangeType == FileChangeType.Created)
+                {
+                    // Created file still exists
+                    detectedChanges.Add(existingPending);
+                }
+            }
+            else if (baselineMap.TryGetValue(relativePath, out var baseline))
+            {
+                // First time this file was modified
                 if (!string.Equals(baseline.FileHash, currentHash, StringComparison.Ordinal))
                 {
                     var change = FileChange.Create(conversationId, relativePath, FileChangeType.Modified, baseline.StorageKey);
@@ -131,9 +189,24 @@ public sealed class LocalDiskSnapshotStore(
         {
             if (!seenRelativePaths.Contains(relPath))
             {
-                var change = FileChange.Create(conversationId, relPath, FileChangeType.Deleted, baseline.StorageKey);
-                await _fileChangeRepository.AddAsync(change, cancellationToken);
-                detectedChanges.Add(change);
+                if (pendingChangesMap.TryGetValue(relPath, out var existingPending))
+                {
+                    if (existingPending.ChangeType == FileChangeType.Created)
+                    {
+                        // Created in this cycle then deleted -> clean up
+                        await _fileChangeRepository.DeleteAsync(existingPending, cancellationToken);
+                    }
+                    else
+                    {
+                        detectedChanges.Add(existingPending);
+                    }
+                }
+                else
+                {
+                    var change = FileChange.Create(conversationId, relPath, FileChangeType.Deleted, baseline.StorageKey);
+                    await _fileChangeRepository.AddAsync(change, cancellationToken);
+                    detectedChanges.Add(change);
+                }
             }
         }
 

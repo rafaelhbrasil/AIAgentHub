@@ -23,7 +23,13 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         {
             changes = changes.Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending).ToList();
         }
-        return Ok(changes);
+
+        var distinctChanges = changes
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(c => c.CreatedAtUtc).First())
+            .ToList();
+
+        return Ok(distinctChanges);
     }
 
     [HttpGet("{id:guid}")]
