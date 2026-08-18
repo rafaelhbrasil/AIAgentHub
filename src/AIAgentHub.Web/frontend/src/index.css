@@ -1755,20 +1755,61 @@ select option, .form-select option {
     font-size: 0.78rem;
   }
 
+  .studio-root {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 74px);
+    overflow: hidden;
+    gap: 6px;
+  }
+
   .studio-mobile-nav {
     display: flex;
     gap: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 2px;
+    flex-shrink: 0;
   }
 
   .studio-layout {
     grid-template-columns: 1fr;
-    height: calc(100dvh - 165px);
-    min-height: 400px;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .chat-container {
-    overflow: visible;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  .chat-messages {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    padding: 10px 8px !important;
+  }
+
+  .chat-bottom-dock {
+    flex-shrink: 0 !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 10 !important;
+    background: var(--bg-secondary) !important;
+  }
+
+  .sidebar-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
 
   .sidebar-panel.mobile-hidden {

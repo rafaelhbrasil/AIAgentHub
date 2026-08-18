@@ -430,6 +430,8 @@ Major sections include:
 - Skills
 - Settings
 
+On mobile viewports, the conversation prompt input bar and send button remain fixed/docked at the bottom of the viewport while message history scrolls independently.
+
 ---
 
 # Search
