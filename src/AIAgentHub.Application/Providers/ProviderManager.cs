@@ -164,33 +164,24 @@ public sealed class ProviderManager(
     public async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
         var provider = GetProvider(providerId);
-
-        // If not forcing refresh, load cached models strictly from DB
-        if (!forceRefresh && _repositoryFactory != null)
-        {
-            var repo = _repositoryFactory();
-            var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
-            if (dbModels.Count > 0)
-            {
-                return dbModels.Select(m => new ModelInfo
-                {
-                    Id = m.ModelId,
-                    DisplayName = !string.IsNullOrWhiteSpace(m.DisplayName) ? m.DisplayName : m.ModelId,
-                    Description = m.Description,
-                    ContextWindow = m.ContextWindow,
-                    IsDefault = m.IsDefault,
-                    IsDisplayed = m.IsDisplayed
-                }).ToList();
-            }
-        }
-
-        // Fetch fresh from provider CLI when explicitly refreshing or no DB records exist
         var rawModels = await provider.GetModelsAsync(cancellationToken);
 
         if (_repositoryFactory != null)
         {
             var repo = _repositoryFactory();
             await repo.ReconcileAsync(providerId, rawModels, cancellationToken);
+            var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
+            if (dbModels.Count > 0)
+            {
+                var dbMap = dbModels.ToDictionary(m => m.ModelId, m => m, StringComparer.OrdinalIgnoreCase);
+                foreach (var rm in rawModels)
+                {
+                    if (dbMap.TryGetValue(rm.Id, out var setting))
+                    {
+                        rm.IsDisplayed = setting.IsDisplayed;
+                    }
+                }
+            }
         }
 
         return rawModels;
