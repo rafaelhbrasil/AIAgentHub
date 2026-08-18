@@ -172,7 +172,7 @@ Examples:
 * Support model selection.
 * Track user visibility state (`IsDisplayed` toggle flag, default `true`).
 * Reconcile model availability during provider detection/refresh (purge deleted, add new as enabled, preserve existing toggles; the implicit "Default Model" is always available, cannot be toggled off, and is not stored in the database).
-* Support dynamic model discovery for providers offering listing commands (`models`, etc.) or curated static model sets for CLIs without native model listing commands (such as Claude Code models `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-opus`, and fallback Codex models `o3-mini`, `o1`, `gpt-4o`, `gpt-4o-mini`).
+* Support dynamic model discovery for providers offering listing commands (`models`, etc.) or default model sets for CLIs without native model listing commands (such as Claude Code exposing the default model, and fallback Codex models `o3-mini`, `o1`, `gpt-4o`, `gpt-4o-mini`).
 
 ---
 

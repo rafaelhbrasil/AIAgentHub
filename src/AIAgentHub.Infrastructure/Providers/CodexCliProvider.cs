@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Providers;
@@ -25,59 +26,71 @@ public sealed class CodexCliProvider(
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.ModelSelection;
 
     public override Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) =>
-        Task.FromResult<string?>(conversationId.ToString());
+        Task.FromResult<string?>(null);
+
+    public override async Task ExecuteAsync(ProviderExecutionContext context)
+    {
+        var needsSessionCapture = string.IsNullOrEmpty(context.ProviderSessionId) && context.OnSessionCreated != null;
+        string? capturedSessionId = null;
+        var headerBuffer = new System.Text.StringBuilder();
+
+        var wrappedContext = needsSessionCapture
+            ? new ProviderExecutionContext(
+                context.ConversationId,
+                context.WorkspaceId,
+                context.WorkspacePath,
+                context.Prompt,
+                context.ModelId,
+                context.ProviderSessionId,
+                context.IgnoredFiles,
+                async token =>
+                {
+                    if (capturedSessionId == null)
+                    {
+                        _ = headerBuffer.Append(token);
+                        var match = Regex.Match(headerBuffer.ToString(), @"session id:\s*([a-f0-9-]+)", RegexOptions.IgnoreCase);
+                        if (match.Success)
+                        {
+                            capturedSessionId = match.Groups[1].Value.Trim();
+                            await context.OnSessionCreated!(capturedSessionId);
+                        }
+                    }
+                    await context.OnStreamToken(token);
+                },
+                context.RequestPermission,
+                context.CancellationToken,
+                context.OnSessionCreated,
+                context.Effort)
+            : context;
+
+        await base.ExecuteAsync(wrappedContext);
+    }
 
     public override string BuildArguments(ProviderExecutionContext context)
     {
         var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
-        var sessionArg = !string.IsNullOrWhiteSpace(context.ProviderSessionId)
-            ? FormatFlag("--session", context.ProviderSessionId)
+        var modelArg = FormatFlag("--model", context.ModelId, skipDefaultModel: true);
+        var effortArg = !string.IsNullOrWhiteSpace(context.Effort)
+            ? $" -c model_reasoning_effort={context.Effort.ToLowerInvariant()}"
             : string.Empty;
-        return $"--prompt \"{escapedPrompt}\"{FormatFlag("--model", context.ModelId, skipDefaultModel: true)}{sessionArg}";
+
+        return !string.IsNullOrWhiteSpace(context.ProviderSessionId)
+            ? $"exec resume --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check{modelArg}{effortArg} {context.ProviderSessionId} \"{escapedPrompt}\""
+            : $"exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check{modelArg}{effortArg} \"{escapedPrompt}\"";
     }
 
-    public override async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
-    {
-        var dynamicModels = await TryFetchDynamicModelsAsync("models", cancellationToken);
-        return dynamicModels.Count > 0 ? dynamicModels : CreateDefaultModelList();
-    }
+    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(CreateDefaultModelList());
 
     protected override IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
     [
         new()
         {
-            Id = "o3-mini",
-            DisplayName = "o3-mini",
-            Description = "OpenAI high-speed reasoning model for coding and STEM.",
+            Id = "default",
+            DisplayName = "Default",
+            Description = "OpenAI Codex default model.",
             ContextWindow = 200000,
             IsDefault = true,
-            IsDisplayed = true
-        },
-        new()
-        {
-            Id = "o1",
-            DisplayName = "o1",
-            Description = "OpenAI advanced reasoning model for complex engineering tasks.",
-            ContextWindow = 200000,
-            IsDefault = false,
-            IsDisplayed = true
-        },
-        new()
-        {
-            Id = "gpt-4o",
-            DisplayName = "GPT-4o",
-            Description = "OpenAI flagship multimodal fast intelligent model.",
-            ContextWindow = 128000,
-            IsDefault = false,
-            IsDisplayed = true
-        },
-        new()
-        {
-            Id = "gpt-4o-mini",
-            DisplayName = "GPT-4o mini",
-            Description = "Lightweight and efficient model for fast iterations.",
-            ContextWindow = 128000,
-            IsDefault = false,
             IsDisplayed = true
         }
     ];

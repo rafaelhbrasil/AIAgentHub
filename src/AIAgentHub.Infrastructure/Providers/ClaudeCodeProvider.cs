@@ -54,14 +54,25 @@ public sealed class ClaudeCodeProvider(
     }
 
     public override Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) =>
-        Task.FromResult<string?>(conversationId.ToString());
+        Task.FromResult<string?>(null);
+
+    public override async Task ExecuteAsync(ProviderExecutionContext context)
+    {
+        var isNewSession = string.IsNullOrEmpty(context.ProviderSessionId);
+        await base.ExecuteAsync(context);
+
+        if (isNewSession && context.OnSessionCreated != null)
+        {
+            await context.OnSessionCreated(context.ConversationId.ToString());
+        }
+    }
 
     public override string BuildArguments(ProviderExecutionContext context)
     {
         var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
         var sessionArg = !string.IsNullOrWhiteSpace(context.ProviderSessionId)
-            ? FormatFlag("--session-id", context.ProviderSessionId)
-            : string.Empty;
+            ? FormatFlag("--resume", context.ProviderSessionId)
+            : FormatFlag("--session-id", context.ConversationId.ToString());
         var modelArg = FormatFlag("--model", context.ModelId, skipDefaultModel: true);
         var effortArg = !string.IsNullOrWhiteSpace(context.Effort)
             ? FormatFlag("--effort", context.Effort.ToLowerInvariant())
@@ -76,38 +87,11 @@ public sealed class ClaudeCodeProvider(
     [
         new()
         {
-            Id = "claude-3-7-sonnet",
-            DisplayName = "Claude 3.7 Sonnet",
-            Description = "Most intelligent Anthropic model with hybrid reasoning.",
+            Id = "default",
+            DisplayName = "Default",
+            Description = "Claude Code default model.",
             ContextWindow = 200000,
             IsDefault = true,
-            IsDisplayed = true
-        },
-        new()
-        {
-            Id = "claude-3-5-sonnet",
-            DisplayName = "Claude 3.5 Sonnet",
-            Description = "High intelligence and fast coding capabilities.",
-            ContextWindow = 200000,
-            IsDefault = false,
-            IsDisplayed = true
-        },
-        new()
-        {
-            Id = "claude-3-5-haiku",
-            DisplayName = "Claude 3.5 Haiku",
-            Description = "Fastest, lightweight Anthropic model.",
-            ContextWindow = 200000,
-            IsDefault = false,
-            IsDisplayed = true
-        },
-        new()
-        {
-            Id = "claude-3-opus",
-            DisplayName = "Claude 3 Opus",
-            Description = "Powerful model for complex analysis.",
-            ContextWindow = 200000,
-            IsDefault = false,
             IsDisplayed = true
         }
     ];

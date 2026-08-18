@@ -29,28 +29,52 @@ var builderOptions = new WebApplicationOptions
 
 var builder = WebApplication.CreateBuilder(builderOptions);
 
-// Configure Kestrel to bind default ports 5432 (HTTPS) and 5433 (HTTP)
+// Parse custom --port flag if provided
+var portArgIndex = Array.FindIndex(args, a =>
+    string.Equals(a, "--port", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "-port", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "/port", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "-p", StringComparison.OrdinalIgnoreCase));
+
+if (portArgIndex >= 0 && portArgIndex < args.Length - 1 && int.TryParse(args[portArgIndex + 1], out var customPort))
+{
+    _ = builder.WebHost.UseUrls($"https://0.0.0.0:{customPort};http://0.0.0.0:{customPort + 1}");
+}
+
+// Configure Kestrel TLS certificate & default ports 5432 (HTTPS) and 5433 (HTTP)
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    _ = builder.WebHost.ConfigureKestrel((context, serverOptions) =>
+    try
     {
-        try
-        {
-            var certManager = new CertificateManager();
-            var tlsCert = certManager.GetOrCreateSelfSignedCertificate();
+        var certManager = new CertificateManager();
+        var tlsCert = certManager.GetOrCreateSelfSignedCertificate();
 
-            serverOptions.ListenAnyIP(5432, listenOptions =>
+        _ = builder.WebHost.ConfigureKestrel(serverOptions =>
+        {
+            serverOptions.ConfigureHttpsDefaults(httpsOptions =>
             {
-                _ = listenOptions.UseHttps(tlsCert);
+                httpsOptions.ServerCertificate = tlsCert;
             });
+        });
+    }
+    catch
+    {
+        // Fallback for restricted test hosts
+    }
 
-            serverOptions.ListenAnyIP(5433);
-        }
-        catch
-        {
-            // Fallback for restricted test hosts
-        }
-    });
+    var hasExplicitUrls = !string.IsNullOrWhiteSpace(builder.Configuration["urls"]) ||
+                          !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")) ||
+                          args.Any(a => a.StartsWith("--urls", StringComparison.OrdinalIgnoreCase) ||
+                                        a.StartsWith("/urls", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(a, "--port", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(a, "-port", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(a, "/port", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(a, "-p", StringComparison.OrdinalIgnoreCase));
+
+    if (!hasExplicitUrls)
+    {
+        _ = builder.WebHost.UseUrls("https://0.0.0.0:5432;http://0.0.0.0:5433");
+    }
 }
 
 // Parse --recovery flag from command-line parameters

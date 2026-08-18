@@ -388,9 +388,9 @@ From the login page (localhost only), the user may enter the recovery code to re
 
 If the recovery code is lost, the user must manually delete the data directory (`%LocalAppData%\AIAgentHub`) and restart the application.
 
-### Default Port
+### Default Port & Port Overrides
 
-The Server listens on port 5432 (HTTPS) and 5433 (HTTP) by default.
+The Server listens on port 5432 (HTTPS) and 5433 (HTTP) by default. The listening URLs and ports can be overridden using `--urls "<url>"`, `--port <port>`, or the `ASPNETCORE_URLS` environment variable (e.g., `--urls "https://localhost:5001"` or `--port 5001`).
 
 ### HTTPS Certificates
 

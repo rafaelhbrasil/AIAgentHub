@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { MessageDto, isUserRole } from '../../types/conversation';
 import { formatMessageContent } from '../../utils/markdown';
 import { formatTime } from '../../utils/formatting';
@@ -17,12 +17,33 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   isStreaming,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [messages, streamingContent]);
+    bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
+  }, []);
+
+  useLayoutEffect(() => {
+    scrollToBottom('instant');
+  }, [messages, streamingContent, isStreaming, scrollToBottom]);
+
+  useEffect(() => {
+    scrollToBottom('instant');
+    const rafId = requestAnimationFrame(() => {
+      scrollToBottom('instant');
+    });
+    const timerId = setTimeout(() => {
+      scrollToBottom('instant');
+    }, 50);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timerId);
+    };
+  }, [messages, streamingContent, isStreaming, scrollToBottom]);
 
   return (
     <div className="chat-messages" id="messageList" ref={listRef}>
@@ -63,7 +84,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         </div>
       )}
 
-      <div id="streamingAnchor"></div>
+      <div id="streamingAnchor" ref={bottomRef}></div>
     </div>
   );
 };

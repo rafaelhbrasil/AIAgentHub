@@ -95,18 +95,48 @@ public sealed class CliProviderSessionTests
     }
 
     [Fact]
-    public async Task ClaudeCodeProvider_StartSessionAsync_ReturnsConversationIdAsString()
+    public async Task ClaudeCodeProvider_StartSessionAsync_ReturnsNull()
     {
         var provider = new ClaudeCodeProvider(_options, _promptLogger, _executor);
         var conversationId = Guid.NewGuid();
 
         var sessionId = await provider.StartSessionAsync(conversationId, "C:\\test\\workspace", null);
 
-        Assert.Equal(conversationId.ToString(), sessionId);
+        Assert.Null(sessionId);
     }
 
     [Fact]
-    public void ClaudeCodeProvider_BuildArguments_IncludesSessionIdFlag_WhenSessionIdProvided()
+    public async Task ClaudeCodeProvider_ExecuteAsync_WhenSessionIdNull_CallsOnSessionCreatedWithConversationId()
+    {
+        var provider = new ClaudeCodeProvider(_options, _promptLogger, _executor);
+        var conversationId = Guid.NewGuid();
+        string? capturedSessionId = null;
+
+        var context = new ProviderExecutionContext(
+            conversationId,
+            Guid.NewGuid(),
+            "C:\\test\\workspace",
+            "test prompt",
+            null,
+            null,
+            Array.Empty<string>(),
+            _ => Task.CompletedTask,
+            (_, _) => Task.FromResult(true),
+            CancellationToken.None,
+            newSessionId =>
+            {
+                capturedSessionId = newSessionId;
+                return Task.CompletedTask;
+            }
+        );
+
+        await provider.ExecuteAsync(context);
+
+        Assert.Equal(conversationId.ToString(), capturedSessionId);
+    }
+
+    [Fact]
+    public void ClaudeCodeProvider_BuildArguments_IncludesResumeFlag_WhenSessionIdProvided()
     {
         var provider = new ClaudeCodeProvider(_options, _promptLogger, _executor);
         var sessionId = Guid.NewGuid().ToString();
@@ -126,22 +156,46 @@ public sealed class CliProviderSessionTests
 
         var args = provider.BuildArguments(context);
 
-        Assert.Contains($"--session-id \"{sessionId}\"", args);
+        Assert.Contains($"--resume \"{sessionId}\"", args);
     }
 
     [Fact]
-    public async Task CodexCliProvider_StartSessionAsync_ReturnsConversationIdAsString()
+    public void ClaudeCodeProvider_BuildArguments_IncludesSessionIdFlag_WhenSessionIdNull()
+    {
+        var provider = new ClaudeCodeProvider(_options, _promptLogger, _executor);
+        var conversationId = Guid.NewGuid();
+
+        var context = new ProviderExecutionContext(
+            conversationId,
+            Guid.NewGuid(),
+            "C:\\test\\workspace",
+            "test prompt",
+            null,
+            null,
+            Array.Empty<string>(),
+            _ => Task.CompletedTask,
+            (_, _) => Task.FromResult(true),
+            CancellationToken.None
+        );
+
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains($"--session-id \"{conversationId}\"", args);
+    }
+
+    [Fact]
+    public async Task CodexCliProvider_StartSessionAsync_ReturnsNull()
     {
         var provider = new CodexCliProvider(_options, _promptLogger, _executor);
         var conversationId = Guid.NewGuid();
 
         var sessionId = await provider.StartSessionAsync(conversationId, "C:\\test\\workspace", null);
 
-        Assert.Equal(conversationId.ToString(), sessionId);
+        Assert.Null(sessionId);
     }
 
     [Fact]
-    public void CodexCliProvider_BuildArguments_IncludesSessionFlag_WhenSessionIdProvided()
+    public void CodexCliProvider_BuildArguments_IncludesResume_WhenSessionIdProvided()
     {
         var provider = new CodexCliProvider(_options, _promptLogger, _executor);
         var sessionId = Guid.NewGuid().ToString();
@@ -161,6 +215,31 @@ public sealed class CliProviderSessionTests
 
         var args = provider.BuildArguments(context);
 
-        Assert.Contains($"--session \"{sessionId}\"", args);
+        Assert.StartsWith("exec resume", args);
+        Assert.Contains(sessionId, args);
+    }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_ExecutesNewSession_WhenSessionIdNull()
+    {
+        var provider = new CodexCliProvider(_options, _promptLogger, _executor);
+
+        var context = new ProviderExecutionContext(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "C:\\test\\workspace",
+            "test prompt",
+            null,
+            null,
+            Array.Empty<string>(),
+            _ => Task.CompletedTask,
+            (_, _) => Task.FromResult(true),
+            CancellationToken.None
+        );
+
+        var args = provider.BuildArguments(context);
+
+        Assert.StartsWith("exec --dangerously-bypass-approvals-and-sandbox", args);
+        Assert.DoesNotContain("resume", args);
     }
 }

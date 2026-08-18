@@ -39,21 +39,19 @@ public sealed class ClaudeCodeAndCodexProviderTests
     }
 
     [Fact]
-    public async Task ClaudeCodeProvider_GetModelsAsync_ReturnsCuratedModels_WithSonnet37Default()
+    public async Task ClaudeCodeProvider_GetModelsAsync_ReturnsDefaultModel()
     {
         var provider = new ClaudeCodeProvider(_options, _promptLogger, _executor);
 
         var models = await provider.GetModelsAsync();
 
         Assert.NotEmpty(models);
-        Assert.Contains(models, m => m.Id == "claude-3-7-sonnet" && m.IsDefault);
-        Assert.Contains(models, m => m.Id == "claude-3-5-sonnet");
-        Assert.Contains(models, m => m.Id == "claude-3-5-haiku");
-        Assert.Contains(models, m => m.Id == "claude-3-opus");
+        Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
+        Assert.Single(models);
     }
 
     [Fact]
-    public void ClaudeCodeProvider_BuildArguments_IncludesExpectedFlags()
+    public void ClaudeCodeProvider_BuildArguments_IncludesExpectedFlags_WithResumeWhenSessionIdProvided()
     {
         var provider = new ClaudeCodeProvider(_options, _promptLogger, _executor);
         var sessionId = Guid.NewGuid().ToString();
@@ -66,7 +64,20 @@ public sealed class ClaudeCodeAndCodexProviderTests
         Assert.Contains("--permission-mode acceptEdits", args);
         Assert.Contains("--model \"claude-3-7-sonnet\"", args);
         Assert.Contains("--effort \"high\"", args);
-        Assert.Contains($"--session-id \"{sessionId}\"", args);
+        Assert.Contains($"--resume \"{sessionId}\"", args);
+    }
+
+    [Fact]
+    public void ClaudeCodeProvider_BuildArguments_IncludesSessionIdFlag_WhenInitialSession()
+    {
+        var provider = new ClaudeCodeProvider(_options, _promptLogger, _executor);
+        var context = CreateContext(null, "Fix bug in parser", sessionId: null);
+
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains($"-p \"Fix bug in parser\"", args);
+        Assert.Contains($"--session-id \"{context.ConversationId}\"", args);
+        Assert.DoesNotContain("--resume", args);
     }
 
     [Fact]
@@ -82,31 +93,47 @@ public sealed class ClaudeCodeAndCodexProviderTests
     }
 
     [Fact]
-    public async Task CodexCliProvider_GetModelsAsync_ReturnsCuratedFallbackModels_WithO3MiniDefault()
+    public async Task CodexCliProvider_GetModelsAsync_ReturnsDefaultModel()
     {
         var provider = new CodexCliProvider(_options, _promptLogger, _executor);
 
         var models = await provider.GetModelsAsync();
 
         Assert.NotEmpty(models);
-        Assert.Contains(models, m => m.Id == "o3-mini" && m.IsDefault);
-        Assert.Contains(models, m => m.Id == "o1");
-        Assert.Contains(models, m => m.Id == "gpt-4o");
-        Assert.Contains(models, m => m.Id == "gpt-4o-mini");
+        Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
+        Assert.Single(models);
     }
 
     [Fact]
-    public void CodexCliProvider_BuildArguments_IncludesExpectedFlags()
+    public void CodexCliProvider_BuildArguments_IncludesExpectedFlags_WithResumeWhenSessionIdProvided()
     {
         var provider = new CodexCliProvider(_options, _promptLogger, _executor);
         var sessionId = Guid.NewGuid().ToString();
-        var context = CreateContext("o3-mini", "Optimize DB query", sessionId);
+        var context = CreateContext("o3-mini", "Optimize DB query", sessionId, "high");
 
         var args = provider.BuildArguments(context);
 
-        Assert.Contains("--prompt \"Optimize DB query\"", args);
+        Assert.StartsWith("exec resume", args);
+        Assert.Contains("--dangerously-bypass-approvals-and-sandbox", args);
+        Assert.Contains("--skip-git-repo-check", args);
         Assert.Contains("--model \"o3-mini\"", args);
-        Assert.Contains($"--session \"{sessionId}\"", args);
+        Assert.Contains("-c model_reasoning_effort=high", args);
+        Assert.Contains(sessionId, args);
+        Assert.Contains("\"Optimize DB query\"", args);
+    }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_InitialSession_UsesExecWithoutResume()
+    {
+        var provider = new CodexCliProvider(_options, _promptLogger, _executor);
+        var context = CreateContext("o3-mini", "Optimize DB query", sessionId: null);
+
+        var args = provider.BuildArguments(context);
+
+        Assert.StartsWith("exec --dangerously-bypass-approvals-and-sandbox", args);
+        Assert.DoesNotContain("resume", args);
+        Assert.Contains("--model \"o3-mini\"", args);
+        Assert.Contains("\"Optimize DB query\"", args);
     }
 
     [Fact]
@@ -118,6 +145,6 @@ public sealed class ClaudeCodeAndCodexProviderTests
         var args = provider.BuildArguments(context);
 
         Assert.DoesNotContain("--model", args);
-        Assert.Contains("--prompt \"Optimize DB query\"", args);
+        Assert.Contains("\"Optimize DB query\"", args);
     }
 }
