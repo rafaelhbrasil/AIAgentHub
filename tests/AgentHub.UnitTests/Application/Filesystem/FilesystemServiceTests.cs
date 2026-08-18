@@ -8,23 +8,24 @@ public sealed class FilesystemServiceTests
     public async Task FilesystemService_Operations_ShouldWork()
     {
         var service = new FilesystemService();
-        var tempFolder = Path.GetTempPath();
+        var tempFolder = Path.Combine(Path.GetTempPath(), $"fs_test_dir_{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(tempFolder);
 
-        var suggested = service.SuggestWorkspaceName(tempFolder);
-        Assert.NotEmpty(suggested);
-
-        var drives = await service.GetDrivesAsync();
-        Assert.NotEmpty(drives);
-
-        var browse = await service.BrowseDirectoryAsync(tempFolder);
-        Assert.NotNull(browse);
-
-        var tree = await service.GetWorkspaceTreeAsync(tempFolder);
-        Assert.NotNull(tree);
-
-        var testFile = Path.Combine(tempFolder, $"fs_test_{Guid.NewGuid():N}.txt");
         try
         {
+            var suggested = service.SuggestWorkspaceName(tempFolder);
+            Assert.NotEmpty(suggested);
+
+            var drives = await service.GetDrivesAsync();
+            Assert.NotEmpty(drives);
+
+            var browse = await service.BrowseDirectoryAsync(tempFolder);
+            Assert.NotNull(browse);
+
+            var tree = await service.GetWorkspaceTreeAsync(tempFolder);
+            Assert.NotNull(tree);
+
+            var testFile = Path.Combine(tempFolder, $"fs_test_{Guid.NewGuid():N}.txt");
             await service.WriteFileTextAsync(testFile, "Hello Filesystem");
             Assert.True(service.FileExists(testFile));
             Assert.True(service.DirectoryExists(tempFolder));
@@ -40,9 +41,9 @@ public sealed class FilesystemServiceTests
         }
         finally
         {
-            if (File.Exists(testFile))
+            if (Directory.Exists(tempFolder))
             {
-                File.Delete(testFile);
+                try { Directory.Delete(tempFolder, true); } catch { }
             }
         }
     }

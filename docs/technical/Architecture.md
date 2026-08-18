@@ -137,6 +137,12 @@ Each AI provider is implemented as an adapter inheriting from `CliProviderBase`.
 
 When building CLI arguments, if a conversation is set to "Default Model" (or if `ModelId` is empty, `"default"`, `"auto"`, etc.), provider adapters omit the `--model` CLI argument completely to let the underlying CLI resolve to its own configured or upstream default model.
 
+Provider-specific CLI argument formatting:
+- **Antigravity CLI**: `--output-format text --add-dir "<workspace>" --mode accept-edits -p "<prompt>"` with optional `--model`, `--effort`, `--conversation`.
+- **Claude Code**: `--output-format text --permission-mode acceptEdits -p "<prompt>"` with optional `--model`, `--effort`, `--session-id`.
+- **OpenAI Codex CLI**: `--prompt "<prompt>"` with optional `--model`, `--session`.
+- **OpenCode**: `run --dir "<workspace>" --auto "<prompt>"` with optional `--model`, `--variant`, `--session`.
+
 Examples:
 
 - CodexProvider

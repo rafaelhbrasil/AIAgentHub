@@ -41,7 +41,7 @@ public sealed class ClaudeCodeProvider(
 
             var result = await RunCommandAsync(exePath, "auth status", null, timeoutCts.Token, "Claude Code — Auth Status Check");
             var combined = (result.Output + " " + result.Error).ToLowerInvariant();
-            return combined.Contains("logged in") || combined.Contains("authenticated") || combined.Contains("active session")
+            return combined.Contains("logged in") || combined.Contains("loggedin") || combined.Contains("authenticated") || combined.Contains("active session")
                 ? new TestCommandResult(true, null)
                 : result.ExitCode != 0 || combined.Contains("not logged in") || combined.Contains("unauthenticated") || combined.Contains("login required") || combined.Contains("error")
                 ? new TestCommandResult(false, "Claude Code is not authenticated. Please run 'claude login' in terminal or set ANTHROPIC_API_KEY.")
@@ -62,8 +62,53 @@ public sealed class ClaudeCodeProvider(
         var sessionArg = !string.IsNullOrWhiteSpace(context.ProviderSessionId)
             ? FormatFlag("--session-id", context.ProviderSessionId)
             : string.Empty;
-        return $"--prompt \"{escapedPrompt}\"{FormatFlag("--model", context.ModelId, skipDefaultModel: true)}{sessionArg}";
+        var modelArg = FormatFlag("--model", context.ModelId, skipDefaultModel: true);
+        var effortArg = !string.IsNullOrWhiteSpace(context.Effort)
+            ? FormatFlag("--effort", context.Effort.ToLowerInvariant())
+            : string.Empty;
+        return $"--output-format text --permission-mode acceptEdits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}";
     }
 
-    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);
+    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(CreateDefaultModelList());
+
+    protected override IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
+    [
+        new()
+        {
+            Id = "claude-3-7-sonnet",
+            DisplayName = "Claude 3.7 Sonnet",
+            Description = "Most intelligent Anthropic model with hybrid reasoning.",
+            ContextWindow = 200000,
+            IsDefault = true,
+            IsDisplayed = true
+        },
+        new()
+        {
+            Id = "claude-3-5-sonnet",
+            DisplayName = "Claude 3.5 Sonnet",
+            Description = "High intelligence and fast coding capabilities.",
+            ContextWindow = 200000,
+            IsDefault = false,
+            IsDisplayed = true
+        },
+        new()
+        {
+            Id = "claude-3-5-haiku",
+            DisplayName = "Claude 3.5 Haiku",
+            Description = "Fastest, lightweight Anthropic model.",
+            ContextWindow = 200000,
+            IsDefault = false,
+            IsDisplayed = true
+        },
+        new()
+        {
+            Id = "claude-3-opus",
+            DisplayName = "Claude 3 Opus",
+            Description = "Powerful model for complex analysis.",
+            ContextWindow = 200000,
+            IsDefault = false,
+            IsDisplayed = true
+        }
+    ];
 }

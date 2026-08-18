@@ -36,5 +36,49 @@ public sealed class CodexCliProvider(
         return $"--prompt \"{escapedPrompt}\"{FormatFlag("--model", context.ModelId, skipDefaultModel: true)}{sessionArg}";
     }
 
-    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);
+    public override async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var dynamicModels = await TryFetchDynamicModelsAsync("models", cancellationToken);
+        return dynamicModels.Count > 0 ? dynamicModels : CreateDefaultModelList();
+    }
+
+    protected override IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
+    [
+        new()
+        {
+            Id = "o3-mini",
+            DisplayName = "o3-mini",
+            Description = "OpenAI high-speed reasoning model for coding and STEM.",
+            ContextWindow = 200000,
+            IsDefault = true,
+            IsDisplayed = true
+        },
+        new()
+        {
+            Id = "o1",
+            DisplayName = "o1",
+            Description = "OpenAI advanced reasoning model for complex engineering tasks.",
+            ContextWindow = 200000,
+            IsDefault = false,
+            IsDisplayed = true
+        },
+        new()
+        {
+            Id = "gpt-4o",
+            DisplayName = "GPT-4o",
+            Description = "OpenAI flagship multimodal fast intelligent model.",
+            ContextWindow = 128000,
+            IsDefault = false,
+            IsDisplayed = true
+        },
+        new()
+        {
+            Id = "gpt-4o-mini",
+            DisplayName = "GPT-4o mini",
+            Description = "Lightweight and efficient model for fast iterations.",
+            ContextWindow = 128000,
+            IsDefault = false,
+            IsDisplayed = true
+        }
+    ];
 }
