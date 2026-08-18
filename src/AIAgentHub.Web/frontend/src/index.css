@@ -2145,31 +2145,54 @@ select option, .form-select option {
 @media (max-width: 768px) {
   .modal-overlay {
     padding: 0 !important;
-    align-items: flex-start !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    overscroll-behavior: contain !important;
   }
 
-  .modal-content {
+  .modal-box,
+  .modal-box.modal-sm,
+  .modal-box.modal-md,
+  .modal-box.modal-lg,
+  .modal-box.modal-xl,
+  .modal-box.modal-full {
     width: 100vw !important;
     max-width: 100vw !important;
-    min-height: 100vh !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
+    min-height: 100dvh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     margin: 0 !important;
     border-radius: 0 !important;
     border: none !important;
     display: flex !important;
     flex-direction: column !important;
+    overflow: hidden !important;
   }
 
   .modal-body {
     flex: 1 1 auto !important;
     overflow-y: auto !important;
-    max-height: calc(100vh - 120px) !important;
-    padding: 10px !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+    max-height: calc(100dvh - 120px) !important;
+    padding: 12px 10px !important;
+  }
+
+  .diff-modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
   }
 
   .diff-viewer-scroll-container {
-    max-height: calc(100vh - 200px) !important;
+    flex: 1 1 auto !important;
+    max-height: calc(100dvh - 200px) !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y pan-x !important;
   }
 
   .diff-side-by-side {
@@ -2179,10 +2202,12 @@ select option, .form-select option {
 
   .diff-pane {
     min-width: 100% !important;
-    max-height: 38vh !important;
+    max-height: 38dvh !important;
     border-right: none !important;
     border-bottom: 1px solid var(--border-color) !important;
     padding: 8px 6px !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 }
 

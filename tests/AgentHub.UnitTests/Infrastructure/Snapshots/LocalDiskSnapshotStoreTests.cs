@@ -16,6 +16,11 @@ public sealed class LocalDiskSnapshotStoreTests
         }
         public Task<IReadOnlyList<FileSnapshot>> GetByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<FileSnapshot>>(_list.Where(s => s.ConversationId == conversationId).ToList());
         public Task<FileSnapshot?> GetLatestByPathAsync(Guid workspaceId, string relativePath, CancellationToken cancellationToken = default) => Task.FromResult(_list.LastOrDefault(s => s.WorkspaceId == workspaceId && s.RelativePath == relativePath));
+        public Task DeleteAsync(FileSnapshot snapshot, CancellationToken cancellationToken = default)
+        {
+            _ = _list.Remove(snapshot);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeChangeRepo : IFileChangeRepository
@@ -135,6 +140,56 @@ public sealed class LocalDiskSnapshotStoreTests
             Assert.Empty(changes3);
             var remainingChanges = await changeRepo.GetByConversationIdAsync(convId);
             Assert.Empty(remainingChanges);
+        }
+        finally
+        {
+            if (Directory.Exists(tempWorkspace))
+            {
+                Directory.Delete(tempWorkspace, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task SnapshotStore_AfterApproval_ResetsBaseline_AndDoesNotReDetectOldChanges()
+    {
+        var tempWorkspace = Path.Combine(Path.GetTempPath(), "AgentHubApprovalWs_" + Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempWorkspace);
+        var testFilePath = Path.Combine(tempWorkspace, "Code.cs");
+
+        try
+        {
+            await File.WriteAllTextAsync(testFilePath, "Version 1 Initial");
+
+            var wsId = Guid.NewGuid();
+            var convId = Guid.NewGuid();
+            var snapRepo = new FakeSnapshotRepo();
+            var changeRepo = new FakeChangeRepo();
+            var store = new LocalDiskSnapshotStore(snapRepo, changeRepo);
+
+            // Turn 1: Pre-prompt capture
+            var token1 = await store.CaptureWorkspaceSnapshotAsync(wsId, convId, tempWorkspace, []);
+
+            // AI modifies to Version 2
+            await File.WriteAllTextAsync(testFilePath, "Version 2 Edited by AI");
+
+            // Turn 1 ends: detect changes
+            var changes1 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token1, []);
+            Assert.Single(changes1);
+            var change1 = changes1[0];
+            Assert.Equal(ReviewStatus.Pending, change1.Status);
+
+            // User approves change
+            change1.Accept();
+
+            // Turn 2 starts (e.g. user says /git-commit or thanks)
+            var token2 = await store.CaptureWorkspaceSnapshotAsync(wsId, convId, tempWorkspace, []);
+
+            // AI responds without modifying Code.cs (still Version 2)
+            var changes2 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token2, []);
+
+            // Should NOT detect Code.cs again since it matches the new approved baseline!
+            Assert.Empty(changes2);
         }
         finally
         {

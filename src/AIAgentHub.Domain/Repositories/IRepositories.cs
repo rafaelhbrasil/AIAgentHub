@@ -55,6 +55,7 @@ public interface IFileSnapshotRepository
     public Task<IReadOnlyList<FileSnapshot>> GetByConversationIdAsync(Guid conversationId, CancellationToken cancellationToken = default);
     public Task<FileSnapshot?> GetLatestByPathAsync(Guid workspaceId, string relativePath, CancellationToken cancellationToken = default);
     public Task AddAsync(FileSnapshot snapshot, CancellationToken cancellationToken = default);
+    public Task DeleteAsync(FileSnapshot snapshot, CancellationToken cancellationToken = default);
 }
 
 public interface IEncryptedSecretRepository

@@ -253,6 +253,12 @@ public sealed class FileSnapshotRepository(AgentHubDbContext context) : IFileSna
         _ = await _context.FileSnapshots.AddAsync(snapshot, cancellationToken);
         _ = await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task DeleteAsync(FileSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        _ = _context.FileSnapshots.Remove(snapshot);
+        _ = await _context.SaveChangesAsync(cancellationToken);
+    }
 }
 
 public sealed class EncryptedSecretRepository(AgentHubDbContext context) : IEncryptedSecretRepository

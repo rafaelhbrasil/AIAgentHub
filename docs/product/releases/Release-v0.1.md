@@ -266,10 +266,10 @@ Diffs are generated on demand by comparing the original snapshot with the curren
 
 ## Accept and Reject
 
-AI providers modify the working copy directly.
-
-- **Accept** marks a change as reviewed; no file transformation is performed.
+- **Accept** marks a change as reviewed, no file transformation is performed, and the baseline snapshot for that file is reset to the current accepted state for subsequent change detection cycles.
 - **Reject** restores the affected file(s) from the pre-execution snapshot.
+
+On mobile devices, comparison modals display in full-screen mode with background scroll locking and scroll containment to prevent background chat scrolling during diff review.
 
 This mechanism is independent of Git and must work for any project.
 

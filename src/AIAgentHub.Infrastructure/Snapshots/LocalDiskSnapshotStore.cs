@@ -52,6 +52,11 @@ public sealed class LocalDiskSnapshotStore(
                 .Select(c => c.RelativePath.Replace('\\', '/').TrimStart('/')),
             StringComparer.OrdinalIgnoreCase);
 
+        var existingSnapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+        var existingSnapshotMap = existingSnapshots
+            .GroupBy(s => s.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
         var files = rootDir.GetFiles("*", SearchOption.AllDirectories);
         foreach (var file in files)
         {
@@ -69,6 +74,17 @@ public sealed class LocalDiskSnapshotStore(
             }
 
             var fileHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
+
+            // Clean up any older snapshots for this non-pending file so only the latest baseline is kept
+            if (existingSnapshotMap.TryGetValue(relativePath, out var oldSnapshots))
+            {
+                foreach (var oldSnap in oldSnapshots)
+                {
+                    await _snapshotRepository.DeleteAsync(oldSnap, cancellationToken);
+                    var oldBackup = Path.Combine(snapshotDir, oldSnap.StorageKey);
+                    try { if (File.Exists(oldBackup)) File.Delete(oldBackup); } catch { }
+                }
+            }
 
             var storageKey = Guid.NewGuid().ToString("N");
             var backupDest = Path.Combine(snapshotDir, storageKey);
@@ -99,10 +115,10 @@ public sealed class LocalDiskSnapshotStore(
         CancellationToken cancellationToken = default)
     {
         var baselineSnapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
-        // Use the initial baseline snapshot captured at the start of the change cycle
+        // Use the latest baseline snapshot captured for each relative path
         var baselineMap = baselineSnapshots
             .GroupBy(s => s.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.OrderBy(s => s.CapturedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.CapturedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
 
         var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
 
