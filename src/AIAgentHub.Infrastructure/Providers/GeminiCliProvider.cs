@@ -55,7 +55,7 @@ public sealed class GeminiCliProvider(
                 Id = "discontinued",
                 DisplayName = "Discontinued (Migrate to Antigravity)",
                 Description = "Gemini CLI has been discontinued by Google. Please select Antigravity CLI instead.",
-                ContextWindow = 0,
+                ContextWindow = null,
                 IsDefault = true,
                 IsDisplayed = true
             }

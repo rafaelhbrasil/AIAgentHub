@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
@@ -79,8 +80,100 @@ public sealed class CodexCliProvider(
             : $"exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check{modelArg}{effortArg} \"{escapedPrompt}\"";
     }
 
-    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(CreateDefaultModelList());
+    public override async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var exePath = FindExecutable(ExecutableName);
+        if (string.IsNullOrEmpty(exePath))
+        {
+            return CreateDefaultModelList();
+        }
+
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var result = await RunCommandAsync(exePath, "debug models", null, timeoutCts.Token, "OpenAI Codex — List Models");
+            if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Output))
+            {
+                return CreateDefaultModelList();
+            }
+
+            var parsed = ParseModelsJson(result.Output);
+            return parsed.Count > 0 ? parsed : CreateDefaultModelList();
+        }
+        catch
+        {
+            return CreateDefaultModelList();
+        }
+    }
+
+    public static IReadOnlyList<ModelInfo> ParseModelsJson(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return Array.Empty<ModelInfo>();
+        }
+
+        try
+        {
+            var trimmed = output.Trim();
+            var jsonStart = trimmed.IndexOf('{');
+            var jsonEnd = trimmed.LastIndexOf('}');
+            if (jsonStart >= 0 && jsonEnd > jsonStart)
+            {
+                trimmed = trimmed[jsonStart..(jsonEnd + 1)];
+            }
+
+            using var doc = JsonDocument.Parse(trimmed);
+            if (!doc.RootElement.TryGetProperty("models", out var modelsProp) || modelsProp.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<ModelInfo>();
+            }
+
+            var models = new List<ModelInfo>();
+            var isFirst = true;
+
+            foreach (var item in modelsProp.EnumerateArray())
+            {
+                if (!item.TryGetProperty("slug", out var slugProp) || slugProp.GetString() is not { } slug || string.IsNullOrWhiteSpace(slug))
+                {
+                    continue;
+                }
+
+                var displayName = item.TryGetProperty("display_name", out var dnProp) && !string.IsNullOrWhiteSpace(dnProp.GetString())
+                    ? dnProp.GetString()!
+                    : slug;
+
+                var description = item.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+
+                int? contextWindow = item.TryGetProperty("context_window", out var cwProp) && cwProp.TryGetInt32(out var cw)
+                    ? cw
+                    : null;
+
+                var visibility = item.TryGetProperty("visibility", out var visProp) ? visProp.GetString() : null;
+                var isDisplayed = !string.Equals(visibility, "hidden", StringComparison.OrdinalIgnoreCase);
+
+                models.Add(new ModelInfo
+                {
+                    Id = slug,
+                    DisplayName = displayName,
+                    Description = description,
+                    ContextWindow = contextWindow,
+                    IsDefault = isFirst,
+                    IsDisplayed = isDisplayed
+                });
+
+                isFirst = false;
+            }
+
+            return models;
+        }
+        catch
+        {
+            return Array.Empty<ModelInfo>();
+        }
+    }
 
     protected override IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
     [
@@ -89,7 +182,7 @@ public sealed class CodexCliProvider(
             Id = "default",
             DisplayName = "Default",
             Description = "OpenAI Codex default model.",
-            ContextWindow = 200000,
+            ContextWindow = null,
             IsDefault = true,
             IsDisplayed = true
         }

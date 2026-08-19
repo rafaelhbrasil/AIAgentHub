@@ -302,7 +302,7 @@ public abstract class CliProviderBase(
                         Id = modelId,
                         DisplayName = displayName == modelId ? displayName : $"{displayName} ({modelId})",
                         Description = $"{DisplayName} model: {displayName}",
-                        ContextWindow = 0,
+                        ContextWindow = null,
                         IsDefault = isFirst
                     });
 

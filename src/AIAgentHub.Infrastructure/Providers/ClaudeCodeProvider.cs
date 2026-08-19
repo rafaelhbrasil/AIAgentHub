@@ -90,7 +90,7 @@ public sealed class ClaudeCodeProvider(
             Id = "default",
             DisplayName = "Default",
             Description = "Claude Code default model.",
-            ContextWindow = 200000,
+            ContextWindow = null,
             IsDefault = true,
             IsDisplayed = true
         }

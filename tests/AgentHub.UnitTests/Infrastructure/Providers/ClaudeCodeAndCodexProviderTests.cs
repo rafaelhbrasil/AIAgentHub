@@ -48,6 +48,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
         Assert.NotEmpty(models);
         Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
         Assert.Single(models);
+        Assert.Null(models[0].ContextWindow);
     }
 
     [Fact]
@@ -102,6 +103,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
         Assert.NotEmpty(models);
         Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
         Assert.Single(models);
+        Assert.Null(models[0].ContextWindow);
     }
 
     [Fact]
@@ -137,6 +139,60 @@ public sealed class ClaudeCodeAndCodexProviderTests
     }
 
     [Fact]
+    public void CodexCliProvider_ParseModelsJson_ParsesModelsCorrectly()
+    {
+        var sampleJson = """
+        {
+          "models": [
+            {
+              "slug": "gpt-5.6-terra",
+              "display_name": "GPT-5.6-Terra",
+              "description": "Balanced agentic coding model for everyday work.",
+              "visibility": "list",
+              "context_window": 272000
+            },
+            {
+              "slug": "o3-mini",
+              "display_name": "o3-mini",
+              "description": "Fast reasoning model.",
+              "visibility": "list",
+              "context_window": 200000
+            },
+            {
+              "slug": "internal-model",
+              "display_name": "Internal Test",
+              "description": "Hidden test model.",
+              "visibility": "hidden",
+              "context_window": 128000
+            }
+          ]
+        }
+        """;
+
+        var models = CodexCliProvider.ParseModelsJson(sampleJson);
+
+        Assert.Equal(3, models.Count);
+
+        var first = models[0];
+        Assert.Equal("gpt-5.6-terra", first.Id);
+        Assert.Equal("GPT-5.6-Terra", first.DisplayName);
+        Assert.Equal("Balanced agentic coding model for everyday work.", first.Description);
+        Assert.Equal(272000, first.ContextWindow);
+        Assert.True(first.IsDefault);
+        Assert.True(first.IsDisplayed);
+
+        var second = models[1];
+        Assert.Equal("o3-mini", second.Id);
+        Assert.False(second.IsDefault);
+        Assert.True(second.IsDisplayed);
+
+        var third = models[2];
+        Assert.Equal("internal-model", third.Id);
+        Assert.False(third.IsDefault);
+        Assert.False(third.IsDisplayed);
+    }
+
+    [Fact]
     public void CodexCliProvider_BuildArguments_OmitsModel_WhenDefaultModelSpecified()
     {
         var provider = new CodexCliProvider(_options, _promptLogger, _executor);
@@ -146,5 +202,13 @@ public sealed class ClaudeCodeAndCodexProviderTests
 
         Assert.DoesNotContain("--model", args);
         Assert.Contains("\"Optimize DB query\"", args);
+    }
+
+    [Fact]
+    public void CodexCliProvider_ParseModelsJson_InvalidOrEmptyOutput_ReturnsEmpty()
+    {
+        Assert.Empty(CodexCliProvider.ParseModelsJson(""));
+        Assert.Empty(CodexCliProvider.ParseModelsJson("Not a json"));
+        Assert.Empty(CodexCliProvider.ParseModelsJson("{}"));
     }
 }
