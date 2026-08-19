@@ -320,7 +320,18 @@ public abstract class CliProviderBase(
         return CreateDefaultModelList();
     }
 
-    protected virtual IReadOnlyList<ModelInfo> CreateDefaultModelList() => Array.Empty<ModelInfo>();
+    protected virtual IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
+    [
+        new()
+        {
+            Id = "default",
+            DisplayName = "Default",
+            Description = "Default model. The model will not be enforced, and whatever was set or used last directly in the provider CLI will remain active without being overridden.",
+            ContextWindow = null,
+            IsDefault = true,
+            IsDisplayed = true
+        }
+    ];
 
     public virtual Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
 

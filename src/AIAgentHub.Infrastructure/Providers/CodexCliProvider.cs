@@ -174,17 +174,4 @@ public sealed class CodexCliProvider(
             return Array.Empty<ModelInfo>();
         }
     }
-
-    protected override IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
-    [
-        new()
-        {
-            Id = "default",
-            DisplayName = "Default",
-            Description = "OpenAI Codex default model.",
-            ContextWindow = null,
-            IsDefault = true,
-            IsDisplayed = true
-        }
-    ];
 }

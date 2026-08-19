@@ -94,6 +94,68 @@ public sealed class ClaudeCodeAndCodexProviderTests
     }
 
     [Fact]
+    public void ClaudeCodeProvider_ParseModelsOutput_ParsesAvailableAndCurrentModelCorrectly()
+    {
+        var sampleOutput = """
+        "minimax-m3:cloud" is not a model this version of Claude Code recognizes, so auto-compact will keep this session within 200k tokens (the context window it assumes). If the model accepts more, append [1m] to the model name for 1M, or set CLAUDE_CODE_MAX_CONTEXT_TOKENS to its real window; to make it recognized, map it in the modelOverrides setting or update Claude Code; CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 restores the previous wait-for-the-API behavior.
+        Current model: minimax-m3:cloud
+        Usage: /model <name>. Available: sonnet, opus, haiku, fable, best, sonnet[1m], opus[1m], fable[1m], opusplan, default, or a full model ID.
+        """;
+
+        var models = ClaudeCodeProvider.ParseModelsOutput(sampleOutput);
+
+        Assert.NotEmpty(models);
+        Assert.Contains(models, m => m.Id == "minimax-m3:cloud" && m.IsDefault);
+        Assert.Contains(models, m => m.Id == "sonnet");
+        Assert.Contains(models, m => m.Id == "opus");
+        Assert.Contains(models, m => m.Id == "haiku");
+        Assert.Contains(models, m => m.Id == "fable");
+        Assert.Contains(models, m => m.Id == "best");
+        Assert.Contains(models, m => m.Id == "sonnet[1m]" && m.DisplayName == "Sonnet [1M]");
+        Assert.Contains(models, m => m.Id == "opus[1m]" && m.DisplayName == "Opus [1M]");
+        Assert.Contains(models, m => m.Id == "fable[1m]" && m.DisplayName == "Fable [1M]");
+        Assert.Contains(models, m => m.Id == "opusplan");
+        Assert.Contains(models, m => m.Id == "default");
+        Assert.DoesNotContain(models, m => m.Id.Contains("full model ID", StringComparison.OrdinalIgnoreCase));
+        Assert.All(models, m => Assert.Null(m.ContextWindow));
+    }
+
+    [Fact]
+    public void ClaudeCodeProvider_ParseModelsOutput_EmptyOrInvalid_ReturnsEmpty()
+    {
+        Assert.Empty(ClaudeCodeProvider.ParseModelsOutput(""));
+        Assert.Empty(ClaudeCodeProvider.ParseModelsOutput("Random warning without pattern"));
+    }
+
+    [Fact]
+    public void ClaudeCodeProvider_ParseEffortOutput_ParsesEffortsCorrectly_FilteringUltracode()
+    {
+        var sampleOutput = """
+        "minimax-m3:cloud" is not a model this version of Claude Code recognizes...
+        Usage: /effort <low|medium|high|xhigh|max|ultracode|auto>
+        """;
+
+        var efforts = ClaudeCodeProvider.ParseEffortOutput(sampleOutput);
+
+        Assert.Equal(6, efforts.Count);
+        Assert.Contains("low", efforts);
+        Assert.Contains("medium", efforts);
+        Assert.Contains("high", efforts);
+        Assert.Contains("xhigh", efforts);
+        Assert.Contains("max", efforts);
+        Assert.Contains("auto", efforts);
+        Assert.DoesNotContain("ultracode", efforts);
+        Assert.DoesNotContain("ultrathink", efforts);
+    }
+
+    [Fact]
+    public void ClaudeCodeProvider_ParseEffortOutput_EmptyOrInvalid_ReturnsEmpty()
+    {
+        Assert.Empty(ClaudeCodeProvider.ParseEffortOutput(""));
+        Assert.Empty(ClaudeCodeProvider.ParseEffortOutput("Usage: /effort without braces"));
+    }
+
+    [Fact]
     public async Task CodexCliProvider_GetModelsAsync_ReturnsDefaultModel()
     {
         var provider = new CodexCliProvider(_options, _promptLogger, _executor);
