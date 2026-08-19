@@ -20,7 +20,8 @@ public sealed record ConversationDto(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     int MessageCount,
-    int FileChangeCount);
+    int FileChangeCount,
+    DateTimeOffset? LastUserInteractionAtUtc = null);
 
 public sealed record ConversationDetailDto(
     Guid Id,
@@ -31,7 +32,8 @@ public sealed record ConversationDetailDto(
     string? Effort,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    IReadOnlyList<MessageDto> Messages);
+    IReadOnlyList<MessageDto> Messages,
+    DateTimeOffset? LastUserInteractionAtUtc = null);
 
 public sealed record CreateConversationRequest(
     Guid WorkspaceId,

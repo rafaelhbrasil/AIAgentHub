@@ -77,10 +77,15 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
 
       if (treeRes.ok && treeRes.data) setTreeData(treeRes.data);
       const loadedConvs = convsRes.ok && convsRes.data ? convsRes.data : [];
-      setConversations(loadedConvs);
+      const sortedConvs = [...loadedConvs].sort((a, b) => {
+        const timeA = new Date(a.lastUserInteractionAtUtc || a.updatedAtUtc || a.createdAtUtc).getTime();
+        const timeB = new Date(b.lastUserInteractionAtUtc || b.updatedAtUtc || b.createdAtUtc).getTime();
+        return timeB - timeA;
+      });
+      setConversations(sortedConvs);
 
-      if (loadedConvs.length > 0) {
-        await selectConversationById(loadedConvs[0].id);
+      if (sortedConvs.length > 0) {
+        await selectConversationById(sortedConvs[0].id);
       } else {
         setActiveConversation(null);
         setFileChanges([]);
@@ -439,18 +444,32 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
       }
     }
 
-    // Append user message immediately to local state
+    // Append user message immediately to local state and bump recency
+    const now = new Date().toISOString();
     const userMsg = {
       id: Math.random().toString(),
       conversationId: activeConversation.id,
       role: MessageRole.User,
       content: prompt,
-      createdAtUtc: new Date().toISOString(),
+      createdAtUtc: now,
     };
 
     setActiveConversation((prev) =>
-      prev ? { ...prev, messages: [...prev.messages, userMsg] } : prev
+      prev ? { ...prev, messages: [...prev.messages, userMsg], updatedAtUtc: now, lastUserInteractionAtUtc: now } : prev
     );
+
+    setConversations((prev) => {
+      const active = prev.find((c) => c.id === activeConversation.id);
+      if (!active) return prev;
+      const updatedActive: ConversationDto = {
+        ...active,
+        updatedAtUtc: now,
+        lastUserInteractionAtUtc: now,
+        messageCount: (active.messageCount || 0) + 1,
+      };
+      const others = prev.filter((c) => c.id !== activeConversation.id);
+      return [updatedActive, ...others];
+    });
 
     setIsStreaming(true);
     setStreamingContent('');

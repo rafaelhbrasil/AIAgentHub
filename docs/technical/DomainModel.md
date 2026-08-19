@@ -92,6 +92,7 @@ A Conversation always belongs to exactly one Workspace.
 * Tracks reasoning effort / thinking level setting (`Effort`).
 * Persists external CLI session mapping (`ProviderSessionId`).
 * Records execution metadata.
+* Tracks user interaction recency (`LastUserInteractionAtUtc`) for workspace conversation ordering.
 
 ### Relationships
 

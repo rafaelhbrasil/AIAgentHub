@@ -69,4 +69,34 @@ public sealed class ConversationServiceTests
         var searchResult = await service.SearchAsync("Prompt");
         _ = Assert.Single(searchResult);
     }
+
+    [Fact]
+    public async Task ConversationService_GetByWorkspaceIdAsync_OrdersByLastUserInteractionAtUtc_Descending()
+    {
+        var convRepo = Substitute.For<IConversationRepository>();
+        var wsRepo = Substitute.For<IWorkspaceRepository>();
+        var service = new ConversationService(convRepo, wsRepo);
+
+        var wsId = Guid.NewGuid();
+        var conv1 = Conversation.Create(wsId, "Older Conversation");
+        await Task.Delay(10);
+        var conv2 = Conversation.Create(wsId, "Newer Conversation");
+
+        // Older conversation has a recent user message
+        await Task.Delay(10);
+        _ = conv1.AddMessage(MessageRole.User, "Recent query on older conv");
+
+        // Newer conversation has an assistant message (which should not make it more recent than user interaction)
+        await Task.Delay(10);
+        _ = conv2.AddMessage(MessageRole.Assistant, "AI answer");
+
+        _ = convRepo.GetByWorkspaceIdAsync(wsId, Arg.Any<CancellationToken>())
+            .Returns(new List<Conversation> { conv2, conv1 });
+
+        var list = await service.GetByWorkspaceIdAsync(wsId);
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal("Older Conversation", list[0].Title);
+        Assert.Equal("Newer Conversation", list[1].Title);
+    }
 }

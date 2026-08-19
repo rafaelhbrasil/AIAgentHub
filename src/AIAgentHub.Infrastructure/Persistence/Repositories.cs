@@ -75,7 +75,7 @@ public sealed class ConversationRepository(AgentHubDbContext context) : IConvers
             .Where(c => c.WorkspaceId == workspaceId)
             .ToListAsync(cancellationToken);
 
-        return list.OrderByDescending(c => c.UpdatedAtUtc).ToList();
+        return list.OrderByDescending(c => c.LastUserInteractionAtUtc).ToList();
     }
 
     public async Task<Conversation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

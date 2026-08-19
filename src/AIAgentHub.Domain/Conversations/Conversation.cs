@@ -13,6 +13,7 @@ public sealed class Conversation : AggregateRoot
     public string? ProviderSessionId { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset LastUserInteractionAtUtc { get; private set; } = DateTimeOffset.UtcNow;
 
     private readonly List<Message> _messages = [];
     public IReadOnlyCollection<Message> Messages => _messages.AsReadOnly();
@@ -24,6 +25,7 @@ public sealed class Conversation : AggregateRoot
 
     public static Conversation Create(Guid workspaceId, string title, string providerId = "gemini", string? modelId = null, string? providerSessionId = null, string? effort = null)
     {
+        var now = DateTimeOffset.UtcNow;
         return workspaceId == Guid.Empty
             ? throw new ArgumentException("Workspace ID must be valid.", nameof(workspaceId))
             : new Conversation
@@ -35,8 +37,9 @@ public sealed class Conversation : AggregateRoot
                 ModelId = NormalizeModelId(modelId),
                 Effort = effort,
                 ProviderSessionId = providerSessionId,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
-                UpdatedAtUtc = DateTimeOffset.UtcNow
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+                LastUserInteractionAtUtc = now
             };
     }
 
@@ -49,6 +52,7 @@ public sealed class Conversation : AggregateRoot
 
         Title = newTitle.Trim();
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+        LastUserInteractionAtUtc = DateTimeOffset.UtcNow;
     }
 
     public void SetProviderAndModel(string providerId, string? modelId, string? effort = null)
@@ -66,6 +70,7 @@ public sealed class Conversation : AggregateRoot
         }
 
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+        LastUserInteractionAtUtc = DateTimeOffset.UtcNow;
     }
 
     private static string? NormalizeModelId(string? modelId)
@@ -82,6 +87,7 @@ public sealed class Conversation : AggregateRoot
     {
         Effort = effort;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+        LastUserInteractionAtUtc = DateTimeOffset.UtcNow;
     }
 
     public void SetProviderSessionId(string? sessionId)
@@ -95,6 +101,10 @@ public sealed class Conversation : AggregateRoot
         var message = Message.Create(Id, role, content, metadata);
         _messages.Add(message);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+        if (role == MessageRole.User)
+        {
+            LastUserInteractionAtUtc = DateTimeOffset.UtcNow;
+        }
         return message;
     }
 
