@@ -16,7 +16,7 @@ export const CreateConversationModal: React.FC<CreateConversationModalProps> = (
   onSubmit,
   onCancel,
 }) => {
-  const [title, setTitle] = useState<string>('New Feature Task');
+  const [title, setTitle] = useState<string>('');
   const [availableProviders, setAvailableProviders] = useState<ProviderDto[]>([]);
   const [providerId, setProviderId] = useState<string>(defaultProviderId || 'antigravity');
   const [modelId, setModelId] = useState<string>(defaultModelId || '');
