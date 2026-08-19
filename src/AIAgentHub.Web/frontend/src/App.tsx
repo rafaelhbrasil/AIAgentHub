@@ -14,41 +14,38 @@ import { ProvidersView } from './components/providers/ProvidersView';
 import { ToolsView } from './components/tools/ToolsView';
 import { SettingsView } from './components/settings/SettingsView';
 
+const parseUrlRoute = (): { tab: NavTab; workspaceId: string | null } => {
+  const path = window.location.pathname;
+  const parts = path.split('/').filter(Boolean);
+
+  if (parts.length === 0 || parts[0] === 'dashboard') {
+    return { tab: 'dashboard', workspaceId: null };
+  } else if (parts[0] === 'workspaces') {
+    return { tab: 'workspaces', workspaceId: parts.length >= 2 ? parts[1] : null };
+  } else if (parts[0] === 'providers') {
+    return { tab: 'providers', workspaceId: null };
+  } else if (parts[0] === 'tools' || parts[0] === 'mcps') {
+    return { tab: 'tools', workspaceId: null };
+  } else if (parts[0] === 'settings') {
+    return { tab: 'settings', workspaceId: null };
+  }
+  return { tab: 'dashboard', workspaceId: null };
+};
+
 export const App: React.FC = () => {
   const { isSetupCompleted, isAuthenticated, isLoading } = useAuth();
   const { showModal, hideModal } = useModal();
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
-  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<NavTab>(() => parseUrlRoute().tab);
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string | null>(() => parseUrlRoute().workspaceId);
 
-  // Parse path on initial load & popstate
+  // Parse path on popstate
   const handleUrlRoute = () => {
-    const path = window.location.pathname;
-    const parts = path.split('/').filter(Boolean);
-
-    if (parts.length === 0 || parts[0] === 'dashboard') {
-      setActiveTab('dashboard');
-      setTargetWorkspaceId(null);
-    } else if (parts[0] === 'workspaces') {
-      setActiveTab('workspaces');
-      if (parts.length >= 2) {
-        setTargetWorkspaceId(parts[1]);
-      } else {
-        setTargetWorkspaceId(null);
-      }
-    } else if (parts[0] === 'providers') {
-      setActiveTab('providers');
-      setTargetWorkspaceId(null);
-    } else if (parts[0] === 'tools' || parts[0] === 'mcps') {
-      setActiveTab('tools');
-      setTargetWorkspaceId(null);
-    } else if (parts[0] === 'settings') {
-      setActiveTab('settings');
-      setTargetWorkspaceId(null);
-    }
+    const route = parseUrlRoute();
+    setActiveTab(route.tab);
+    setTargetWorkspaceId(route.workspaceId);
   };
 
   useEffect(() => {
-    handleUrlRoute();
     window.addEventListener('popstate', handleUrlRoute);
     return () => window.removeEventListener('popstate', handleUrlRoute);
   }, []);
@@ -57,6 +54,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       signalRService.start();
+      return () => {
+        signalRService.stop();
+      };
     } else {
       signalRService.stop();
     }
