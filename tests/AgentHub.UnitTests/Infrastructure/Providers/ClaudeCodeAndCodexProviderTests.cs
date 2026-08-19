@@ -1,3 +1,4 @@
+using System.Text;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Providers;
@@ -272,5 +273,124 @@ public sealed class ClaudeCodeAndCodexProviderTests
         Assert.Empty(CodexCliProvider.ParseModelsJson(""));
         Assert.Empty(CodexCliProvider.ParseModelsJson("Not a json"));
         Assert.Empty(CodexCliProvider.ParseModelsJson("{}"));
+    }
+
+    [Fact]
+    public async Task CodexCliProvider_ProcessBufferAsync_ExtractsSessionIdAndStreamsMessage()
+    {
+        var streamedTokens = new List<string>();
+        string? capturedSessionId = null;
+
+        var context = new ProviderExecutionContext(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "C:\\test\\ws",
+            "hello",
+            null,
+            null,
+            Array.Empty<string>(),
+            token =>
+            {
+                streamedTokens.Add(token);
+                return Task.CompletedTask;
+            },
+            (_, _) => Task.FromResult(true),
+            CancellationToken.None,
+            sessionId =>
+            {
+                capturedSessionId = sessionId;
+                return Task.CompletedTask;
+            }
+        );
+
+        var buffer = new StringBuilder();
+        var isFirstMessage = true;
+
+        // Chunk 1: thread.started and turn.started
+        _ = buffer.Append("Reading prompt from stdin...\n{\"type\":\"thread.started\",\"thread_id\":\"01a01ab1-test-session-id\"}\n{\"type\":\"turn.started\"}\n");
+        await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
+
+        Assert.Equal("01a01ab1-test-session-id", capturedSessionId);
+        Assert.Empty(streamedTokens);
+
+        // Chunk 2: item.completed with agent message and turn.completed
+        _ = buffer.Append("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Hello! How can I help?\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":100,\"output_tokens\":10}}\n");
+        await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
+
+        Assert.Single(streamedTokens);
+        Assert.Equal("Hello! How can I help?", streamedTokens[0]);
+    }
+
+    [Fact]
+    public async Task CodexCliProvider_ProcessBufferAsync_HandlesErrorEvent()
+    {
+        var streamedTokens = new List<string>();
+
+        var context = new ProviderExecutionContext(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "C:\\test\\ws",
+            "hello",
+            null,
+            null,
+            Array.Empty<string>(),
+            token =>
+            {
+                streamedTokens.Add(token);
+                return Task.CompletedTask;
+            },
+            (_, _) => Task.FromResult(true),
+            CancellationToken.None
+        );
+
+        var buffer = new StringBuilder();
+        var isFirstMessage = true;
+
+        _ = buffer.Append("{\"type\":\"error\",\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"Model not supported.\\\"}}\"}\n");
+        await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
+
+        Assert.Single(streamedTokens);
+        Assert.Contains("Model not supported.", streamedTokens[0]);
+    }
+
+    [Fact]
+    public async Task CodexCliProvider_ProcessBufferAsync_StreamsCommandExecutionProgress()
+    {
+        var streamedTokens = new List<string>();
+
+        var context = new ProviderExecutionContext(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "C:\\test\\ws",
+            "hello",
+            null,
+            null,
+            Array.Empty<string>(),
+            token =>
+            {
+                streamedTokens.Add(token);
+                return Task.CompletedTask;
+            },
+            (_, _) => Task.FromResult(true),
+            CancellationToken.None
+        );
+
+        var buffer = new StringBuilder();
+        var isFirstMessage = true;
+
+        // Command started
+        _ = buffer.Append("{\"type\":\"item.started\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\"}}\n");
+        await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
+
+        Assert.Single(streamedTokens);
+        Assert.Contains("Running command:", streamedTokens[0]);
+        Assert.Contains("dotnet build", streamedTokens[0]);
+
+        // Command completed
+        _ = buffer.Append("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\",\"aggregated_output\":\"Build succeeded.\"}}\n");
+        await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
+
+        Assert.Equal(2, streamedTokens.Count);
+        Assert.Contains("Build succeeded.", streamedTokens[1]);
     }
 }
