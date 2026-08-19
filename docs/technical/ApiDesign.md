@@ -54,17 +54,24 @@ The API follows these principles.
 
 ---
 
-# Base URL
+# Base URL & Client Routes
 
 Examples:
 
 ```
 https://localhost:5432
+https://localhost:5432/workspaces/{workspaceId}/conversations/{conversationId}
+https://localhost:5432/providers
 ```
 
-```
-https://192.168.1.100:5432
-```
+SPA Client Routes:
+- `/` or `/dashboard`: Dashboard View
+- `/workspaces`: Workspaces List View
+- `/workspaces/{workspaceId}`: Workspace Studio View
+- `/workspaces/{workspaceId}/conversations/{conversationId}`: Direct Workspace Studio deep link to active conversation
+- `/providers`: AI Providers View
+- `/tools` / `/mcps`: Tools & Skills View
+- `/settings`: Server Settings View
 
 ---
 

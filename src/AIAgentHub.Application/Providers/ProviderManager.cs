@@ -164,6 +164,25 @@ public sealed class ProviderManager(
     public async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
         var provider = GetProvider(providerId);
+
+        if (!forceRefresh && _repositoryFactory != null)
+        {
+            var repo = _repositoryFactory();
+            var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
+            if (dbModels.Count > 0)
+            {
+                return dbModels.Select(m => new ModelInfo
+                {
+                    Id = m.ModelId,
+                    DisplayName = m.DisplayName,
+                    Description = m.Description,
+                    ContextWindow = m.ContextWindow,
+                    IsDefault = m.IsDefault,
+                    IsDisplayed = m.IsDisplayed
+                }).ToList();
+            }
+        }
+
         var rawModels = await provider.GetModelsAsync(cancellationToken);
 
         if (_repositoryFactory != null)

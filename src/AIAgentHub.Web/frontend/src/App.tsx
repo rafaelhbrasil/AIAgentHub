@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import { useModal } from './context/ModalContext';
 import { signalRService } from './services/signalrService';
-import { Header, NavTab } from './components/common/Header';
+import { NavTab, Header } from './components/common/Header';
 import { ToastContainer } from './components/common/ToastContainer';
 import { Modal } from './components/common/Modal';
 import { LoadingOverlay } from './components/common/LoadingOverlay';
@@ -13,42 +13,24 @@ import { WorkspacesView } from './components/workspaces/WorkspacesView';
 import { ProvidersView } from './components/providers/ProvidersView';
 import { ToolsView } from './components/tools/ToolsView';
 import { SettingsView } from './components/settings/SettingsView';
+import { parseUrlRoute } from './utils/urlRouting';
 
 export const App: React.FC = () => {
   const { isSetupCompleted, isAuthenticated, isLoading } = useAuth();
   const { showModal, hideModal } = useModal();
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
-  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<NavTab>(() => parseUrlRoute().tab);
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string | null>(() => parseUrlRoute().workspaceId);
+  const [targetConversationId, setTargetConversationId] = useState<string | null>(() => parseUrlRoute().conversationId);
 
-  // Parse path on initial load & popstate
+  // Parse path on popstate
   const handleUrlRoute = () => {
-    const path = window.location.pathname;
-    const parts = path.split('/').filter(Boolean);
-
-    if (parts.length === 0 || parts[0] === 'dashboard') {
-      setActiveTab('dashboard');
-      setTargetWorkspaceId(null);
-    } else if (parts[0] === 'workspaces') {
-      setActiveTab('workspaces');
-      if (parts.length >= 2) {
-        setTargetWorkspaceId(parts[1]);
-      } else {
-        setTargetWorkspaceId(null);
-      }
-    } else if (parts[0] === 'providers') {
-      setActiveTab('providers');
-      setTargetWorkspaceId(null);
-    } else if (parts[0] === 'tools' || parts[0] === 'mcps') {
-      setActiveTab('tools');
-      setTargetWorkspaceId(null);
-    } else if (parts[0] === 'settings') {
-      setActiveTab('settings');
-      setTargetWorkspaceId(null);
-    }
+    const route = parseUrlRoute();
+    setActiveTab(route.tab);
+    setTargetWorkspaceId(route.workspaceId);
+    setTargetConversationId(route.conversationId);
   };
 
   useEffect(() => {
-    handleUrlRoute();
     window.addEventListener('popstate', handleUrlRoute);
     return () => window.removeEventListener('popstate', handleUrlRoute);
   }, []);
@@ -57,6 +39,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       signalRService.start();
+      return () => {
+        signalRService.stop();
+      };
     } else {
       signalRService.stop();
     }
@@ -83,6 +68,7 @@ export const App: React.FC = () => {
 
   const handleOpenWorkspace = (workspaceId: string) => {
     setTargetWorkspaceId(workspaceId);
+    setTargetConversationId(null);
     navigateTo('workspaces', workspaceId);
   };
 
@@ -114,12 +100,16 @@ export const App: React.FC = () => {
         {activeTab === 'workspaces' && (
           <WorkspacesView
             initialWorkspaceId={targetWorkspaceId}
-            onNavigateToWorkspace={(id) => {
-              setTargetWorkspaceId(id);
-              window.history.pushState({}, '', `/workspaces/${id}`);
+            initialConversationId={targetConversationId}
+            onNavigateToWorkspace={(wsId, convId) => {
+              setTargetWorkspaceId(wsId);
+              setTargetConversationId(convId || null);
+              const path = convId ? `/workspaces/${wsId}/conversations/${convId}` : `/workspaces/${wsId}`;
+              window.history.pushState({}, '', path);
             }}
             onBackToWorkspaces={() => {
               setTargetWorkspaceId(null);
+              setTargetConversationId(null);
               window.history.pushState({}, '', '/workspaces');
             }}
           />

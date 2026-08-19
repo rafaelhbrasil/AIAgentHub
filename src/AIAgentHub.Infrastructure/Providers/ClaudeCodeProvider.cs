@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Providers;
@@ -80,19 +81,200 @@ public sealed class ClaudeCodeProvider(
         return $"--output-format text --permission-mode acceptEdits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}";
     }
 
-    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(CreateDefaultModelList());
-
-    protected override IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
-    [
-        new()
+    public override async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var exePath = FindExecutable(ExecutableName);
+        if (string.IsNullOrEmpty(exePath))
         {
-            Id = "default",
-            DisplayName = "Default",
-            Description = "Claude Code default model.",
-            ContextWindow = 200000,
-            IsDefault = true,
-            IsDisplayed = true
+            return CreateDefaultModelList();
         }
-    ];
+
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var result = await RunCommandAsync(exePath, "-p /model", null, timeoutCts.Token, "Claude Code — List Models");
+            if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Output))
+            {
+                return CreateDefaultModelList();
+            }
+
+            var parsed = ParseModelsOutput(result.Output);
+            return parsed.Count > 0 ? parsed : CreateDefaultModelList();
+        }
+        catch
+        {
+            return CreateDefaultModelList();
+        }
+    }
+
+    public static IReadOnlyList<ModelInfo> ParseModelsOutput(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return Array.Empty<ModelInfo>();
+        }
+
+        try
+        {
+            string? currentModel = null;
+            var currentMatch = Regex.Match(output, @"Current model:\s*([^\r\n]+)", RegexOptions.IgnoreCase);
+            if (currentMatch.Success)
+            {
+                currentModel = currentMatch.Groups[1].Value.Trim();
+            }
+
+            var availableMatch = Regex.Match(output, @"Available:\s*([^\r\n]+)", RegexOptions.IgnoreCase);
+            var modelIds = new List<string>();
+
+            if (availableMatch.Success)
+            {
+                var rawAvailable = availableMatch.Groups[1].Value.Trim().TrimEnd('.');
+                var parts = rawAvailable.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                foreach (var part in parts)
+                {
+                    var cleanPart = part;
+                    if (cleanPart.StartsWith("or ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cleanPart = cleanPart[3..].Trim();
+                    }
+
+                    if (string.IsNullOrWhiteSpace(cleanPart) ||
+                        cleanPart.Contains("full model ID", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!modelIds.Contains(cleanPart, StringComparer.OrdinalIgnoreCase))
+                    {
+                        modelIds.Add(cleanPart);
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(currentModel) && !modelIds.Contains(currentModel, StringComparer.OrdinalIgnoreCase))
+            {
+                modelIds.Insert(0, currentModel);
+            }
+
+            if (modelIds.Count == 0)
+            {
+                return Array.Empty<ModelInfo>();
+            }
+
+            var result = new List<ModelInfo>();
+            var defaultTarget = !string.IsNullOrWhiteSpace(currentModel) ? currentModel : "default";
+
+            foreach (var id in modelIds)
+            {
+                var isDefault = string.Equals(id, defaultTarget, StringComparison.OrdinalIgnoreCase);
+                var displayName = FormatDisplayName(id);
+
+                result.Add(new ModelInfo
+                {
+                    Id = id,
+                    DisplayName = displayName,
+                    Description = $"Claude Code model: {displayName}",
+                    ContextWindow = null,
+                    IsDefault = isDefault,
+                    IsDisplayed = true
+                });
+            }
+
+            if (result.Count > 0 && !result.Any(m => m.IsDefault))
+            {
+                result[0].IsDefault = true;
+            }
+
+            return result;
+        }
+        catch
+        {
+            return Array.Empty<ModelInfo>();
+        }
+    }
+
+    public static IReadOnlyList<string> ParseEffortOutput(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return Array.Empty<string>();
+        }
+
+        try
+        {
+            var match = Regex.Match(output, @"Usage:\s*/effort\s*<([^>]+)>", RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                return Array.Empty<string>();
+            }
+
+            var rawOptions = match.Groups[1].Value;
+            var parts = rawOptions.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var efforts = new List<string>();
+
+            foreach (var part in parts)
+            {
+                var lower = part.ToLowerInvariant();
+                if (lower is "ultracode" or "ultrathink" || string.IsNullOrWhiteSpace(lower))
+                {
+                    continue;
+                }
+
+                if (!efforts.Contains(lower))
+                {
+                    efforts.Add(lower);
+                }
+            }
+
+            return efforts;
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> GetSupportedEffortsAsync(CancellationToken cancellationToken = default)
+    {
+        var exePath = FindExecutable(ExecutableName);
+        if (string.IsNullOrEmpty(exePath))
+        {
+            return ["low", "medium", "high", "max"];
+        }
+
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var result = await RunCommandAsync(exePath, "-p /effort", null, timeoutCts.Token, "Claude Code — List Efforts");
+            if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Output))
+            {
+                return ["low", "medium", "high", "max"];
+            }
+
+            var efforts = ParseEffortOutput(result.Output);
+            return efforts.Count > 0 ? efforts : ["low", "medium", "high", "max"];
+        }
+        catch
+        {
+            return ["low", "medium", "high", "max"];
+        }
+    }
+
+    private static string FormatDisplayName(string id)
+    {
+        if (id.EndsWith("[1m]", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseName = id[..^4];
+            return $"{FormatDisplayName(baseName)} [1M]";
+        }
+
+        var clean = id.Replace("-", " ").Replace("_", " ");
+        if (clean.Length <= 1) return clean.ToUpperInvariant();
+        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(clean);
+    }
 }
+
