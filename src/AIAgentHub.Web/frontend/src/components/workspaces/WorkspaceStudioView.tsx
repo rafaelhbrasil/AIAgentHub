@@ -20,12 +20,16 @@ import { Spinner } from '../common/Spinner';
 
 interface WorkspaceStudioViewProps {
   workspace: WorkspaceDto;
+  initialConversationId?: string | null;
+  onConversationChanged?: (conversationId: string | null) => void;
   onBack: () => void;
   onRemoveWorkspace?: (workspace: WorkspaceDto) => void;
 }
 
 export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
   workspace,
+  initialConversationId,
+  onConversationChanged,
   onBack,
 }) => {
   const { showToast } = useToast();
@@ -68,6 +72,21 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     }
   }, []);
 
+  const selectConversationById = async (convId: string, notifyUrl: boolean = true) => {
+    const res = await apiFetch<ConversationDetailDto>(`/api/v1/conversations/${convId}`);
+    if (res.ok && res.data) {
+      setActiveConversation(res.data);
+      signalRService.joinConversation(convId);
+      if (res.data.providerId) {
+        loadModelsForProvider(res.data.providerId);
+      }
+      fetchFileChanges(convId);
+      if (notifyUrl) {
+        onConversationChanged?.(convId);
+      }
+    }
+  };
+
   const fetchWorkspaceData = useCallback(async () => {
     try {
       const [treeRes, convsRes] = await Promise.all([
@@ -80,27 +99,20 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
       setConversations(loadedConvs);
 
       if (loadedConvs.length > 0) {
-        await selectConversationById(loadedConvs[0].id);
+        const targetId =
+          initialConversationId && loadedConvs.some((c) => c.id === initialConversationId)
+            ? initialConversationId
+            : loadedConvs[0].id;
+        await selectConversationById(targetId);
       } else {
         setActiveConversation(null);
         setFileChanges([]);
+        onConversationChanged?.(null);
       }
     } catch {
       // ignore
     }
-  }, [workspace.id]);
-
-  const selectConversationById = async (convId: string) => {
-    const res = await apiFetch<ConversationDetailDto>(`/api/v1/conversations/${convId}`);
-    if (res.ok && res.data) {
-      setActiveConversation(res.data);
-      signalRService.joinConversation(convId);
-      if (res.data.providerId) {
-        loadModelsForProvider(res.data.providerId);
-      }
-      fetchFileChanges(convId);
-    }
-  };
+  }, [workspace.id, initialConversationId]);
 
   const loadModelsForProvider = async (providerId: string) => {
     const res = await apiFetch<ModelInfo[]>(`/api/v1/providers/${providerId}/models`);
@@ -269,6 +281,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
                   selectConversationById(remaining[0].id);
                 } else {
                   setActiveConversation(null);
+                  onConversationChanged?.(null);
                 }
               }
             } else {
@@ -477,7 +490,10 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
             {activeConversation && (
               <>
                 <span className="studio-crumb-sep">/</span>
-                <span className="studio-conv-title" title={activeConversation.title}>
+                <span
+                  className="studio-conv-title"
+                  title={`ID: ${activeConversation.id}\n${activeConversation.title}`}
+                >
                   {activeConversation.title}
                 </span>
                 <span className="badge badge-provider">{activeConversation.providerId}</span>
@@ -546,6 +562,37 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
                   >
                     📝 Changed Files
                   </button>
+
+                  {activeConversation && (
+                    <>
+                      <button
+                        type="button"
+                        className="dropdown-item"
+                        id="copyConvLinkBtn"
+                        onClick={() => {
+                          setShowActionsMenu(false);
+                          const url = `${window.location.origin}/workspaces/${workspace.id}/conversations/${activeConversation.id}`;
+                          navigator.clipboard.writeText(url);
+                          showToast('Conversation link copied to clipboard!', 'success');
+                        }}
+                      >
+                        🔗 Copy Conversation Link
+                      </button>
+
+                      <button
+                        type="button"
+                        className="dropdown-item"
+                        id="copyConvIdBtn"
+                        onClick={() => {
+                          setShowActionsMenu(false);
+                          navigator.clipboard.writeText(activeConversation.id);
+                          showToast('Conversation ID copied to clipboard!', 'success');
+                        }}
+                      >
+                        📋 Copy Conversation ID
+                      </button>
+                    </>
+                  )}
 
                   {activeConversation && (
                     <div className="dropdown-item-group">

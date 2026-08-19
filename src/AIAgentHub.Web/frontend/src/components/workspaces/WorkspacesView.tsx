@@ -8,12 +8,14 @@ import { WorkspaceStudioView } from './WorkspaceStudioView';
 
 interface WorkspacesViewProps {
   initialWorkspaceId?: string | null;
-  onNavigateToWorkspace?: (id: string) => void;
+  initialConversationId?: string | null;
+  onNavigateToWorkspace?: (wsId: string, convId?: string | null) => void;
   onBackToWorkspaces?: () => void;
 }
 
 export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
   initialWorkspaceId,
+  initialConversationId,
   onNavigateToWorkspace,
   onBackToWorkspaces,
 }) => {
@@ -131,6 +133,10 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
     return (
       <WorkspaceStudioView
         workspace={currentWorkspace}
+        initialConversationId={initialConversationId}
+        onConversationChanged={(convId) => {
+          onNavigateToWorkspace?.(currentWorkspace.id, convId);
+        }}
         onBack={handleBack}
         onRemoveWorkspace={handleConfirmRemove}
       />
