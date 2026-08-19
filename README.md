@@ -8,6 +8,18 @@ The project is designed for local and self-hosted environments, providing a secu
 
 ---
 
+# License
+
+AI Agent Hub is open-source software licensed under the Apache License 2.0.
+
+The software is provided "AS IS" as described in the license.
+
+Users are responsible for evaluating the risks of running AI coding agents with access to their systems and for complying with the terms of any third-party providers they use.
+
+See the [LICENSE](LICENSE) file for details.
+
+---
+
 # Goals
 
 * Provide a single interface for multiple AI coding providers.
@@ -308,13 +320,3 @@ The current roadmap is maintained in:
 ```text
 docs/product/Roadmap.md
 ```
-
----
-
-# License
-
-Copyright © 2026 Rafael Brasil.
-
-Licensed under the Apache License, Version 2.0.
-
-See the [LICENSE](LICENSE) file for details.
