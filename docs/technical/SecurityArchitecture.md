@@ -87,6 +87,7 @@ Version 0.1 supports:
 * One administrator account
 * Username/password authentication
 * Cookie-based sessions
+* **Account Lockout Policy**: 3 consecutive failed password attempts temporarily lock the account for 10 minutes. During this period, further login attempts are blocked. After the 10-minute duration has elapsed, login attempts are permitted again. Successful authentication immediately resets the failed attempts counter.
 
 Future versions may introduce:
 

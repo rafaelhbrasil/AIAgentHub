@@ -66,4 +66,22 @@ public sealed class ConversationTests
         _ = Assert.Single(conv.FileChanges);
         _ = Assert.Throws<ArgumentNullException>(() => conv.AddFileChange(null!));
     }
+
+    [Fact]
+    public async Task Conversation_LastUserInteractionAtUtc_ShouldUpdateOnUserMessageOnly()
+    {
+        var conv = Conversation.Create(Guid.NewGuid(), "Title");
+        var initialInteraction = conv.LastUserInteractionAtUtc;
+
+        await Task.Delay(10);
+        _ = conv.AddMessage(MessageRole.User, "User query");
+        var afterUserMessage = conv.LastUserInteractionAtUtc;
+        Assert.True(afterUserMessage > initialInteraction);
+
+        await Task.Delay(10);
+        _ = conv.AddMessage(MessageRole.Assistant, "Assistant response");
+        var afterAssistantMessage = conv.LastUserInteractionAtUtc;
+        Assert.Equal(afterUserMessage, afterAssistantMessage);
+        Assert.True(conv.UpdatedAtUtc > afterUserMessage);
+    }
 }

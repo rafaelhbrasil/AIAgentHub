@@ -21,9 +21,26 @@ public sealed class AuthenticationService(IUserAccountRepository userRepository,
             return new AuthResult(false, null, "Invalid username or password.");
         }
 
+        var now = DateTimeOffset.UtcNow;
+        if (admin.IsLockedOut(now))
+        {
+            var remaining = admin.LockoutEndUtc!.Value - now;
+            var remainingMinutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+            return new AuthResult(false, null, $"Account is temporarily locked due to 3 consecutive failed login attempts. Please try again in {remainingMinutes} minute(s).", IsLockedOut: true);
+        }
+
         if (!_passwordHasher.VerifyPassword(password, admin.PasswordHash, admin.PasswordSalt))
         {
-            return new AuthResult(false, null, "Invalid username or password.");
+            admin.RecordFailedLogin(now);
+            await _userRepository.UpdateAsync(admin, cancellationToken);
+
+            if (admin.IsLockedOut(now))
+            {
+                return new AuthResult(false, null, "Account is temporarily locked due to 3 consecutive failed login attempts. Please try again in 10 minutes.", IsLockedOut: true);
+            }
+
+            var remainingAttempts = Math.Max(0, 3 - admin.FailedLoginAttempts);
+            return new AuthResult(false, null, $"Invalid username or password. ({remainingAttempts} attempt(s) remaining before a 10-minute lockout)");
         }
 
         admin.RecordLogin();

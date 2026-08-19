@@ -10,6 +10,8 @@ public sealed class UserAccount : AggregateRoot
     public string RecoveryCodeHash { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginAtUtc { get; private set; }
+    public int FailedLoginAttempts { get; private set; } = 0;
+    public DateTimeOffset? LockoutEndUtc { get; private set; }
 
     private UserAccount() { }
 
@@ -28,12 +30,47 @@ public sealed class UserAccount : AggregateRoot
             };
     }
 
-    public void RecordLogin() => LastLoginAtUtc = DateTimeOffset.UtcNow;
+    public bool IsLockedOut(DateTimeOffset? now = null)
+    {
+        var current = now ?? DateTimeOffset.UtcNow;
+        return LockoutEndUtc.HasValue && LockoutEndUtc.Value > current;
+    }
+
+    public void RecordFailedLogin(DateTimeOffset? now = null)
+    {
+        var current = now ?? DateTimeOffset.UtcNow;
+        if (LockoutEndUtc.HasValue && LockoutEndUtc.Value <= current)
+        {
+            FailedLoginAttempts = 0;
+            LockoutEndUtc = null;
+        }
+
+        FailedLoginAttempts++;
+        if (FailedLoginAttempts >= 3)
+        {
+            LockoutEndUtc = current.AddMinutes(10);
+        }
+    }
+
+    public void RecordLogin()
+    {
+        LastLoginAtUtc = DateTimeOffset.UtcNow;
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
+    }
+
+    public void ResetLockout()
+    {
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
+    }
 
     public void UpdatePassword(string passwordHash, string passwordSalt)
     {
         PasswordHash = passwordHash;
         PasswordSalt = passwordSalt;
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
     }
 }
 

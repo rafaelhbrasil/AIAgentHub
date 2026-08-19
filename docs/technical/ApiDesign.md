@@ -234,10 +234,12 @@ GET /api/v1/filesystem/forbidden-paths
 
 ## Conversations
 
+Conversations are ordered by most recent user interaction (`lastUserInteractionAtUtc`) descending. Sending a prompt, creating a conversation, or renaming immediately updates this timestamp and moves the conversation to the top.
+
 Examples:
 
 ```
-GET /api/v1/conversations
+GET /api/v1/conversations?workspaceId={workspaceId}
 
 POST /api/v1/conversations
 

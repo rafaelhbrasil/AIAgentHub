@@ -33,6 +33,7 @@ export interface ConversationDto {
   effort?: string | null;
   createdAtUtc: string;
   updatedAtUtc: string;
+  lastUserInteractionAtUtc?: string;
   messageCount: number;
   fileChangeCount: number;
 }
@@ -46,5 +47,6 @@ export interface ConversationDetailDto {
   effort?: string | null;
   createdAtUtc: string;
   updatedAtUtc: string;
+  lastUserInteractionAtUtc?: string;
   messages: MessageDto[];
 }

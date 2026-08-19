@@ -3,16 +3,19 @@ using System;
 using AIAgentHub.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace AIAgentHub.Infrastructure.Migrations
-{
-    [DbContext(typeof(AgentHubDbContext))]
-    partial class AgentHubDbContextModelSnapshot : ModelSnapshot
+namespace AIAgentHub.Infrastructure.Migrations;
+
+[DbContext(typeof(AgentHubDbContext))]
+[Migration("20260819001853_AddUserAccountLockout")]
+partial class AddUserAccountLockout
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -46,9 +49,6 @@ namespace AIAgentHub.Infrastructure.Migrations
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("LastUserInteractionAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
@@ -609,4 +609,4 @@ namespace AIAgentHub.Infrastructure.Migrations
 #pragma warning restore 612, 618
         }
     }
-}
+

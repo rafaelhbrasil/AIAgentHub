@@ -354,6 +354,7 @@ Version 0.1 supports:
 - one administrator account
 - HTTPS
 - password hashing
+- account lockout safety measure (3 failed password attempts block login for 10 minutes)
 - encrypted provider credentials
 - session management
 

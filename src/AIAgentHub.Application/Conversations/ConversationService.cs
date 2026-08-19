@@ -11,7 +11,7 @@ public sealed class ConversationService(IConversationRepository conversationRepo
     public async Task<IReadOnlyList<ConversationDto>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken cancellationToken = default)
     {
         var list = await _conversationRepository.GetByWorkspaceIdAsync(workspaceId, cancellationToken);
-        return list.Select(MapToDto).OrderByDescending(c => c.UpdatedAtUtc).ToList();
+        return list.Select(MapToDto).OrderByDescending(c => c.LastUserInteractionAtUtc ?? c.UpdatedAtUtc).ToList();
     }
 
     public async Task<ConversationDetailDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -36,7 +36,8 @@ public sealed class ConversationService(IConversationRepository conversationRepo
             conv.Effort,
             conv.CreatedAtUtc,
             conv.UpdatedAtUtc,
-            messages
+            messages,
+            conv.LastUserInteractionAtUtc
         );
     }
 
@@ -108,7 +109,7 @@ public sealed class ConversationService(IConversationRepository conversationRepo
             }
         }
 
-        return allConversations.OrderByDescending(c => c.UpdatedAtUtc).ToList();
+        return allConversations.OrderByDescending(c => c.LastUserInteractionAtUtc ?? c.UpdatedAtUtc).ToList();
     }
 
     private static ConversationDto MapToDto(Conversation c)
@@ -123,7 +124,8 @@ public sealed class ConversationService(IConversationRepository conversationRepo
             c.CreatedAtUtc,
             c.UpdatedAtUtc,
             c.Messages.Count,
-            c.FileChanges.Count
+            c.FileChanges.Count,
+            c.LastUserInteractionAtUtc
         );
     }
 }

@@ -4,7 +4,7 @@ namespace AIAgentHub.Application.Security;
 
 public sealed record SetupResult(bool Success, string? RecoveryCode, string? Error = null);
 
-public sealed record AuthResult(bool Success, UserAccount? Account, string? Error = null);
+public sealed record AuthResult(bool Success, UserAccount? Account, string? Error = null, bool IsLockedOut = false);
 
 public interface IPasswordHasher
 {

@@ -93,6 +93,11 @@ public sealed class AuthController(
         var result = await _authService.LoginAsync(request.Username, request.Password, cancellationToken);
         if (!result.Success || result.Account == null)
         {
+            if (result.IsLockedOut)
+            {
+                return StatusCode(StatusCodes.Status423Locked, new { code = "account_locked", message = result.Error });
+            }
+
             return Unauthorized(new { code = "invalid_credentials", message = result.Error ?? "Invalid username or password." });
         }
 
