@@ -70,11 +70,14 @@ public sealed class SetupService(
     public async Task<bool> ResetToSetupModeAsync(string? recoveryCode, CancellationToken cancellationToken = default)
     {
         var admin = await _userRepository.GetAdminAsync(cancellationToken);
-        if (admin != null && !string.IsNullOrWhiteSpace(recoveryCode))
+        if (admin != null)
         {
-            if (!_passwordHasher.VerifyRecoveryCode(recoveryCode, admin.RecoveryCodeHash))
+            if (recoveryCode != null)
             {
-                return false;
+                if (string.IsNullOrWhiteSpace(recoveryCode) || !_passwordHasher.VerifyRecoveryCode(recoveryCode, admin.RecoveryCodeHash))
+                {
+                    return false;
+                }
             }
         }
 

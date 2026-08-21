@@ -199,4 +199,33 @@ public sealed class LocalDiskSnapshotStoreTests
             }
         }
     }
+
+    [Fact]
+    public async Task SnapshotStore_Rollback_ShouldThrow_WhenPathEscapesWorkspace()
+    {
+        var tempWorkspace = Path.Combine(Path.GetTempPath(), "AgentHubTraverseWs_" + Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempWorkspace);
+
+        try
+        {
+            var snapRepo = new FakeSnapshotRepo();
+            var changeRepo = new FakeChangeRepo();
+            var store = new LocalDiskSnapshotStore(snapRepo, changeRepo);
+
+            var maliciousChange = FileChange.Create(
+                Guid.NewGuid(),
+                "../../Windows/System32/drivers/etc/hosts",
+                FileChangeType.Created);
+
+            _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                store.RollbackFileAsync(maliciousChange, tempWorkspace));
+        }
+        finally
+        {
+            if (Directory.Exists(tempWorkspace))
+            {
+                Directory.Delete(tempWorkspace, true);
+            }
+        }
+    }
 }

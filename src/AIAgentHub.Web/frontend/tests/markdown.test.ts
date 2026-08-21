@@ -246,7 +246,7 @@ Index: C:\\tmp\\testing\\opencode\\Example.cs
     expect(formatted).toContain('diff-line-hunk');
     expect(formatted).toContain('diff-line-deleted');
     expect(formatted).toContain('diff-line-added');
-    expect(formatted).toContain('&quot;;</span>');
+    expect(formatted).toContain('(Age: {Age})";</span>');
   });
 
   it('correctly detects and collapses unfenced tool output inline diffs with method deletions', () => {
@@ -279,5 +279,20 @@ Index: C:\\tmp\\testing\\opencode\\Example.cs
     expect(formatted).toContain('diff-line-header');
     expect(formatted).toContain('diff-line-hunk');
     expect(formatted).toContain('Multiply(int factor)');
+  });
+
+  it('sanitizes raw script tags and XSS injection vectors', () => {
+    const malicious = '<script>alert("xss")</script>Hello World';
+    const output = formatMessageContent(malicious);
+    expect(output).not.toContain('<script>');
+    expect(output).not.toContain('alert("xss")');
+    expect(output).toContain('Hello World');
+  });
+
+  it('neutralizes onerror event handlers and javascript: pseudoprotocols', () => {
+    const malicious = '<img src="x" onerror="alert(1)"><a href="javascript:alert(1)">Click Me</a>';
+    const output = formatMessageContent(malicious);
+    expect(output).not.toContain('onerror');
+    expect(output).not.toContain('href="javascript:');
   });
 });

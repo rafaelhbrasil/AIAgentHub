@@ -1,10 +1,12 @@
 using AIAgentHub.Application.Execution;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/conversations/{id:guid}")]
 public sealed class ExecuteController(IServiceScopeFactory scopeFactory, ILogger<ExecuteController> logger) : ControllerBase
 {

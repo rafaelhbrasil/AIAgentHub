@@ -3,10 +3,12 @@ using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Permissions;
 using AIAgentHub.Domain.Providers;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace AIAgentHub.Infrastructure.Realtime;
 
+[Authorize]
 public sealed class AgentHubHub : Hub
 {
     public async Task JoinConversation(string conversationId) => await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{conversationId}");

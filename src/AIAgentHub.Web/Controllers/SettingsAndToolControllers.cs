@@ -4,6 +4,7 @@ using AIAgentHub.Application.Execution;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Security;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using IAppAuthService = AIAgentHub.Application.Security.IAuthenticationService;
@@ -11,6 +12,7 @@ using IAppAuthService = AIAgentHub.Application.Security.IAuthenticationService;
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/permissions")]
 public sealed class PermissionsController(IPermissionService permissionService) : ControllerBase
 {
@@ -41,6 +43,7 @@ public sealed class PermissionsController(IPermissionService permissionService) 
 }
 
 [ApiController]
+[Authorize]
 [Route("api/v1/settings")]
 public sealed class SettingsController(IServerSettingsRepository settingsRepository, IAppAuthService authService) : ControllerBase
 {
@@ -141,6 +144,7 @@ public sealed class SettingsController(IServerSettingsRepository settingsReposit
 }
 
 [ApiController]
+[Authorize]
 [Route("api/v1/skills")]
 public sealed class SkillsController(ISkillRepository skillRepository) : ControllerBase
 {
@@ -155,6 +159,7 @@ public sealed class SkillsController(ISkillRepository skillRepository) : Control
 }
 
 [ApiController]
+[Authorize]
 [Route("api/v1/mcps")]
 public sealed class McpsController(IMcpServerRepository mcpRepository) : ControllerBase
 {

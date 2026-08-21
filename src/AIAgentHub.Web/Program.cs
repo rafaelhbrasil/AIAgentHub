@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 using AIAgentHub.Application.Security;
 using AIAgentHub.Infrastructure.Certificates;
@@ -6,6 +7,7 @@ using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Web;
 
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
 
 using Scalar.AspNetCore;
@@ -94,6 +96,17 @@ builder.Services.AddControllers()
 builder.Services.AddOpenApi();
 builder.Services.AddAgentHubServices(builder.Configuration);
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("AuthLimiter", opt =>
+    {
+        opt.PermitLimit = 15;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+});
+
 var app = builder.Build();
 
 // Database and certificate initialization
@@ -108,6 +121,15 @@ if (app.Environment.IsDevelopment())
     _ = app.MapOpenApi();
     _ = app.MapScalarApiReference();
 }
+
+// Security Response Headers
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    await next();
+});
 
 // Static files configuration
 if (!string.IsNullOrEmpty(resolvedWebRoot) && Directory.Exists(resolvedWebRoot))
@@ -131,6 +153,8 @@ else
 }
 
 app.UseRouting();
+
+app.UseRateLimiter();
 
 app.UseMiddleware<AIAgentHub.Web.Middleware.NetworkModeMiddleware>();
 

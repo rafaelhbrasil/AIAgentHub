@@ -90,15 +90,19 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
         // 1. Check Setup Status
         var setupStatusRes = await client.GetAsync("/api/v1/auth/setup/status");
         Assert.Equal(HttpStatusCode.OK, setupStatusRes.StatusCode);
+        var setupStatus = await setupStatusRes.Content.ReadFromJsonAsync<SetupStatusResponse>(_jsonOptions);
 
-        // 2. Initialize Setup
-        var setupInitRes = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+        // 2. Initialize Setup if not already done
+        if (setupStatus?.IsSetupCompleted != true)
         {
-            Username = "admin",
-            Password = "SecurePassword123!",
-            ConfirmPassword = "SecurePassword123!"
-        });
-        Assert.True(setupInitRes.IsSuccessStatusCode);
+            var setupInitRes = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+            {
+                Username = "admin",
+                Password = "SecurePassword123!",
+                ConfirmPassword = "SecurePassword123!"
+            });
+            Assert.True(setupInitRes.IsSuccessStatusCode);
+        }
 
         // 3. Login
         var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
@@ -151,10 +155,34 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
         }
     }
 
+    private async Task<HttpClient> CreateAuthenticatedClientAsync()
+    {
+        var client = _factory.CreateClient();
+        var setupStatusRes = await client.GetAsync("/api/v1/auth/setup/status");
+        var setupStatus = await setupStatusRes.Content.ReadFromJsonAsync<SetupStatusResponse>(_jsonOptions);
+
+        if (setupStatus?.IsSetupCompleted != true)
+        {
+            _ = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+            {
+                Username = "admin",
+                Password = "SecurePassword123!",
+                ConfirmPassword = "SecurePassword123!"
+            });
+        }
+
+        _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            Username = "admin",
+            Password = "SecurePassword123!"
+        });
+        return client;
+    }
+
     [Fact]
     public async Task Provider_Discovery_And_Model_Listing_Test()
     {
-        var client = _factory.CreateClient();
+        var client = await CreateAuthenticatedClientAsync();
 
         // 1. Providers endpoint
         var providersRes = await client.GetAsync("/api/v1/providers");
@@ -254,4 +282,6 @@ public sealed class IntegrationTests : IClassFixture<IntegrationTestFactory>
             }
         }
     }
+
+    private sealed record SetupStatusResponse(bool IsSetupCompleted, bool IsRecoveryModeEnabled, bool IsLocalRequest, bool CanResetWithoutCode);
 }

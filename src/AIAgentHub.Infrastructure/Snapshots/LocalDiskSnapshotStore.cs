@@ -231,7 +231,15 @@ public sealed class LocalDiskSnapshotStore(
 
     public Task RollbackFileAsync(FileChange change, string workspacePath, CancellationToken cancellationToken = default)
     {
-        var targetFullPath = Path.Combine(workspacePath, change.RelativePath);
+        var workspaceRoot = Path.GetFullPath(workspacePath);
+        var cleanRel = change.RelativePath.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar);
+        var targetFullPath = Path.GetFullPath(Path.Combine(workspaceRoot, cleanRel));
+
+        if (!targetFullPath.StartsWith(workspaceRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+            !targetFullPath.Equals(workspaceRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Target path '{targetFullPath}' escapes workspace root '{workspaceRoot}'.");
+        }
 
         if (change.ChangeType == FileChangeType.Created)
         {

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 using IAppAuthService = AIAgentHub.Application.Security.IAuthenticationService;
 
@@ -45,6 +46,7 @@ public sealed class AuthController(
 
     [HttpPost("setup/initialize")]
     [AllowAnonymous]
+    [EnableRateLimiting("AuthLimiter")]
     public async Task<IActionResult> InitializeSetup([FromBody] SetupInitRequest request, CancellationToken cancellationToken)
     {
         var result = await _setupService.InitializeAdminAsync(request.Username, request.Password, request.ConfirmPassword, cancellationToken);
@@ -88,6 +90,7 @@ public sealed class AuthController(
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("AuthLimiter")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var result = await _authService.LoginAsync(request.Username, request.Password, cancellationToken);
@@ -112,6 +115,7 @@ public sealed class AuthController(
     }
 
     [HttpPost("logout")]
+    [Authorize]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -119,6 +123,7 @@ public sealed class AuthController(
     }
 
     [HttpGet("session")]
+    [Authorize]
     public async Task<IActionResult> GetSession(CancellationToken cancellationToken)
     {
         if (!User.Identity?.IsAuthenticated ?? true)
@@ -139,6 +144,7 @@ public sealed class AuthController(
 
     [HttpPost("recover")]
     [AllowAnonymous]
+    [EnableRateLimiting("AuthLimiter")]
     public async Task<IActionResult> RecoverPassword([FromBody] RecoverRequest request, CancellationToken cancellationToken)
     {
         var success = await _setupService.ResetToSetupModeAsync(request.RecoveryCode, cancellationToken);

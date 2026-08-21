@@ -18,6 +18,7 @@ using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Infrastructure.Snapshots;
 
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -133,7 +134,7 @@ public static class DependencyInjection
                 options.Cookie.Name = "AIAgentHub.Session";
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Strict;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.ExpireTimeSpan = TimeSpan.FromDays(30);
                 options.SlidingExpiration = true;
                 options.Events.OnRedirectToLogin = context =>
@@ -143,7 +144,12 @@ public static class DependencyInjection
                 };
             });
 
-        _ = services.AddAuthorization();
+        _ = services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
 
         return services;
     }

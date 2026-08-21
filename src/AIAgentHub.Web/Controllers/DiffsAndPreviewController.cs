@@ -2,11 +2,13 @@ using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Rendering;
 using AIAgentHub.Application.Workspaces;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/diffs")]
 public sealed class DiffsController(IFileChangeService fileChangeService, IWorkspaceService workspaceService) : ControllerBase
 {
@@ -65,11 +67,19 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
                     var ws = await _workspaceService.GetByIdAsync(workspaceId.Value, cancellationToken);
                     if (ws != null)
                     {
-                        var fullPath = Path.Combine(ws.Path, change.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+                        var workspaceRoot = Path.GetFullPath(ws.Path);
+                        var cleanRel = change.RelativePath.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar);
+                        var fullPath = Path.GetFullPath(Path.Combine(workspaceRoot, cleanRel));
+
+                        if (!fullPath.StartsWith(workspaceRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return BadRequest(new { code = "path_traversal", message = "Target path is outside workspace root." });
+                        }
+
                         var dir = Path.GetDirectoryName(fullPath);
                         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                         {
-                            Directory.CreateDirectory(dir);
+                            _ = Directory.CreateDirectory(dir);
                         }
                         await System.IO.File.WriteAllTextAsync(fullPath, request.Content, cancellationToken);
                     }
@@ -141,6 +151,7 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
 }
 
 [ApiController]
+[Authorize]
 [Route("api/v1/preview")]
 public sealed class PreviewController(IWorkspaceService workspaceService, IContentRenderingManager renderingManager) : ControllerBase
 {
@@ -150,13 +161,28 @@ public sealed class PreviewController(IWorkspaceService workspaceService, IConte
     [HttpGet]
     public async Task<IActionResult> GetPreview([FromQuery] Guid workspaceId, [FromQuery] string path, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return BadRequest(new { code = "invalid_path", message = "Path parameter is required." });
+        }
+
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
         {
             return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
         }
 
-        var fullPath = Path.Combine(ws.Path, path.Replace('/', Path.DirectorySeparatorChar));
+        var workspaceRoot = Path.GetFullPath(ws.Path);
+        var cleanRel = path.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar);
+        var fullPath = Path.GetFullPath(Path.Combine(workspaceRoot, cleanRel));
+
+        // Enforce strict workspace root containment
+        if (!fullPath.StartsWith(workspaceRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+            !fullPath.Equals(workspaceRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { code = "forbidden_path", message = "Path traversal outside workspace root is forbidden." });
+        }
+
         if (!System.IO.File.Exists(fullPath))
         {
             return NotFound(new { code = "file_not_found", message = $"File '{path}' was not found in workspace." });

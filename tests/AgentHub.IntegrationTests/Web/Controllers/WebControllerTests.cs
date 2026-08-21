@@ -71,7 +71,7 @@ public sealed class WebControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task GetSetupStatus_ShouldReturnJson()
+    public async Task GetSetupStatus_ShouldReturnJson_AnonymousAllowed()
     {
         var client = _factory.CreateClient();
         var res = await client.GetAsync("/api/v1/auth/setup/status");
@@ -84,30 +84,52 @@ public sealed class WebControllerTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task ProtectedEndpoints_WhenUnauthenticated_ShouldReturnUnauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var drivesRes = await client.GetAsync("/api/v1/filesystem/drives");
+        Assert.Equal(HttpStatusCode.Unauthorized, drivesRes.StatusCode);
+
+        var providersRes = await client.GetAsync("/api/v1/providers");
+        Assert.Equal(HttpStatusCode.Unauthorized, providersRes.StatusCode);
+
+        var workspacesRes = await client.GetAsync("/api/v1/workspaces");
+        Assert.Equal(HttpStatusCode.Unauthorized, workspacesRes.StatusCode);
+
+        var settingsRes = await client.GetAsync("/api/v1/settings");
+        Assert.Equal(HttpStatusCode.Unauthorized, settingsRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetupAndLoginFlow_AllowsAccessToProtectedEndpoints()
+    {
+        var client = _factory.CreateClient();
+
+        // 1. Initialize admin
+        var initRes = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+        {
+            username = "admin",
+            password = "SecurePassword123!",
+            confirmPassword = "SecurePassword123!"
+        });
+        Assert.Equal(HttpStatusCode.OK, initRes.StatusCode);
+
+        // 2. Cookie session is automatically established
+        var drivesRes = await client.GetAsync("/api/v1/filesystem/drives");
+        Assert.Equal(HttpStatusCode.OK, drivesRes.StatusCode);
+
+        var providersRes = await client.GetAsync("/api/v1/providers");
+        Assert.Equal(HttpStatusCode.OK, providersRes.StatusCode);
+    }
+
+    [Fact]
     public async Task RecoverWipe_WithoutRecoveryFlag_ShouldReturnForbidden()
     {
         var client = _factory.CreateClient();
         var res = await client.PostAsync("/api/v1/auth/recover-wipe", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetDrives_ShouldReturnDriveList()
-    {
-        var client = _factory.CreateClient();
-        var res = await client.GetAsync("/api/v1/filesystem/drives");
-
-        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetProviders_ShouldReturnRegisteredProviders()
-    {
-        var client = _factory.CreateClient();
-        var res = await client.GetAsync("/api/v1/providers");
-
-        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
 
     private sealed record SetupStatusResponse(bool IsSetupCompleted, bool IsRecoveryModeEnabled, bool IsLocalRequest, bool CanResetWithoutCode);

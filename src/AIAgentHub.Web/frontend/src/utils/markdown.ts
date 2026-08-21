@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 // Configure marked for full GitHub Flavored Markdown (GFM)
@@ -5,6 +6,40 @@ marked.setOptions({
   gfm: true,
   breaks: true,
 });
+
+let cachedPurify: DOMPurify.DOMPurifyI | null = null;
+
+function getPurify(): DOMPurify.DOMPurifyI | null {
+  if (cachedPurify) {
+    return cachedPurify;
+  }
+
+  if (typeof DOMPurify === 'function') {
+    const win = typeof window !== 'undefined' ? window : (globalThis as any).window;
+    if (win) {
+      cachedPurify = (DOMPurify as unknown as (w: Window) => DOMPurify.DOMPurifyI)(win);
+      return cachedPurify;
+    }
+  } else if (DOMPurify && typeof (DOMPurify as any).sanitize === 'function') {
+    cachedPurify = DOMPurify as unknown as DOMPurify.DOMPurifyI;
+    return cachedPurify;
+  }
+
+  return null;
+}
+
+export function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  const purify = getPurify();
+  if (purify && typeof purify.sanitize === 'function') {
+    return purify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: ['target', 'style', 'class'],
+      ADD_TAGS: ['details', 'summary'],
+    });
+  }
+  return html;
+}
 
 export const ANSI_COLORS: Record<number, string> = {
   30: '#1e293b', // Black
@@ -85,12 +120,13 @@ export function ansiToHtml(input: string): string {
 }
 
 /**
- * Parses markdown to complete GitHub Flavored Markdown (GFM) HTML.
+ * Parses markdown to complete GitHub Flavored Markdown (GFM) HTML with DOMPurify sanitization.
  */
 export function renderMarkdown(content: string): string {
   if (!content) return '';
   try {
-    return marked.parse(content, { async: false }) as string;
+    const raw = marked.parse(content, { async: false }) as string;
+    return sanitizeHtml(raw);
   } catch {
     return escapeHtml(content);
   }
@@ -554,7 +590,10 @@ export function formatMessageContent(content: string): string {
   const colorized = colorizeDiffCodeBlocks(rendered);
 
   // 5. Wrap long code blocks in collapsible details elements
-  return wrapCollapsibleCodeBlocks(colorized);
+  const wrapped = wrapCollapsibleCodeBlocks(colorized);
+
+  // 6. Sanitize final HTML to prevent XSS
+  return sanitizeHtml(wrapped);
 }
 
 /**

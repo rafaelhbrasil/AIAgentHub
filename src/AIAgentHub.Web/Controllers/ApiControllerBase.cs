@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
+[Authorize]
 public abstract class ApiControllerBase : ControllerBase
 {
     protected NotFoundObjectResult NotFoundResponse(string code, string message) => NotFound(new { code, message });

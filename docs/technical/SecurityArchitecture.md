@@ -88,6 +88,8 @@ Version 0.1 supports:
 * Username/password authentication
 * Cookie-based sessions
 * **Account Lockout Policy**: 3 consecutive failed password attempts temporarily lock the account for 10 minutes. During this period, further login attempts are blocked. After the 10-minute duration has elapsed, login attempts are permitted again. Successful authentication immediately resets the failed attempts counter.
+* **HTTP Rate Limiting**: Authentication and recovery endpoints (`/api/v1/auth/login`, `/api/v1/auth/recover`, `/api/v1/auth/setup/initialize`) are protected by an IP-based fixed window rate limiter (maximum 10 requests per minute) to prevent Denial of Service via Argon2id computation exhaustion.
+* **Recovery Code Hashing & Verification**: 16-character alphanumeric recovery codes are stored hashed via SHA-256 and verified using constant-time equality comparisons (`CryptographicOperations.FixedTimeEquals`).
 
 Future versions may introduce:
 
@@ -157,6 +159,11 @@ Future versions may introduce additional authentication mechanisms if required.
 Version 0.1 contains a single administrator.
 
 All authenticated operations execute with administrator privileges.
+
+Authorization is enforced by default across the entire application:
+* ASP.NET Core `FallbackPolicy` requires an authenticated user for all endpoints and SignalR Hub connections.
+* Only explicitly designated initialization and authentication endpoints are annotated with `[AllowAnonymous]`.
+* Direct controller actions and SignalR groups are protected from unauthenticated access.
 
 Future versions may introduce:
 
@@ -279,7 +286,7 @@ The application generates a self-signed certificate on first launch.
 
 Suitable for localhost and quick-start usage.
 
-For the browser to trust it without warnings, the certificate (or its issuing CA) must be installed in the local machine's trusted store. On the Server's own machine this follows the behavior of `dotnet dev-certs`.
+For the browser to trust it without warnings, the certificate (or its issuing CA) must be installed in the local machine's trusted store. On the Server's own machine this follows the behavior of `dotnet dev-certs` (see [CertificateTrustGuide.md](CertificateTrustGuide.md)).
 
 ## Operator-supplied Certificates & Deployment Options (Version 0.2+)
 
@@ -485,6 +492,10 @@ To protect host operating systems from unbounded filesystem traversals, accident
 ## Dual-Layer Enforcement
 - **Frontend Validation**: Instant in-memory check against patterns fetched from `GET /api/v1/filesystem/forbidden-paths`, blocking navigation/selection and triggering user toast warnings.
 - **Backend Validation**: `ISystemPathValidator` verifies all workspace creation and browsing operations, returning `400 Bad Request` upon violation.
+- **Workspace Boundary Containment**: All file read operations (e.g. preview rendering), file writes (diff acceptance), and snapshot rollbacks verify that canonical target paths strictly reside within the designated workspace root directory (`Path.GetFullPath`), preventing arbitrary path traversal.
+
+## Frontend Content Sanitization (XSS Prevention)
+- All Markdown and ANSI terminal outputs rendered in the web UI are sanitized using `DOMPurify` before insertion into the DOM via `dangerouslySetInnerHTML`, neutralizing script injection, event handlers, and malicious iframe/object embeddings.
 
 ---
 

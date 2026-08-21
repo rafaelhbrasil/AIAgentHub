@@ -42,7 +42,7 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
     public (string HashBase64, string PlainCode) GenerateRecoveryCode()
     {
         // 16-character alphanumeric recovery code formatted as XXXX-XXXX-XXXX-XXXX
-        var randomBytes = RandomNumberGenerator.GetBytes(12);
+        var randomBytes = RandomNumberGenerator.GetBytes(16);
         var base32Chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var sb = new StringBuilder();
 
@@ -53,26 +53,32 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
                 _ = sb.Append('-');
             }
 
-            _ = sb.Append(base32Chars[randomBytes[i % randomBytes.Length] % base32Chars.Length]);
+            _ = sb.Append(base32Chars[randomBytes[i] % base32Chars.Length]);
         }
 
         var plainCode = sb.ToString();
-        var (hash, _) = HashPassword(plainCode.Replace("-", ""));
+        var normalized = plainCode.Replace("-", "").Trim().ToUpperInvariant();
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(normalized));
 
-        return (hash, plainCode);
+        return (Convert.ToBase64String(hash), plainCode);
     }
 
     public bool VerifyRecoveryCode(string plainCode, string hashBase64)
     {
+        if (string.IsNullOrWhiteSpace(plainCode) || string.IsNullOrWhiteSpace(hashBase64))
+        {
+            return false;
+        }
+
         try
         {
             var normalized = plainCode.Replace("-", "").Trim().ToUpperInvariant();
-            var expectedHash = Convert.FromBase64String(hashBase64);
-            // Since recovery codes use SHA-256 or Argon2, we can verify with SHA-256 for fast recovery check or Argon2
             using var sha = SHA256.Create();
-            var testHash = sha.ComputeHash(Encoding.UTF8.GetBytes(normalized));
-            // Let's also support direct comparison
-            return true; // We'll compute and verify
+            var actualHash = sha.ComputeHash(Encoding.UTF8.GetBytes(normalized));
+            var expectedHash = Convert.FromBase64String(hashBase64);
+
+            return CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
         }
         catch
         {

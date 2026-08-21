@@ -30,4 +30,28 @@ public sealed class Argon2idPasswordHasherTests
         Assert.NotEmpty(plainCode);
         Assert.Contains("-", plainCode);
     }
+
+    [Fact]
+    public void Argon2id_VerifyRecoveryCode_ShouldValidateCorrectCode_AndRejectTampered()
+    {
+        var hasher = new Argon2idPasswordHasher();
+        var (hash, plainCode) = hasher.GenerateRecoveryCode();
+
+        // Exact match
+        Assert.True(hasher.VerifyRecoveryCode(plainCode, hash));
+
+        // Case insensitivity
+        Assert.True(hasher.VerifyRecoveryCode(plainCode.ToLowerInvariant(), hash));
+
+        // Dash insensitivity
+        Assert.True(hasher.VerifyRecoveryCode(plainCode.Replace("-", ""), hash));
+
+        // Invalid code
+        Assert.False(hasher.VerifyRecoveryCode("INVALID-CODE-1234-5678", hash));
+
+        // Empty / whitespace
+        Assert.False(hasher.VerifyRecoveryCode("", hash));
+        Assert.False(hasher.VerifyRecoveryCode("   ", hash));
+        Assert.False(hasher.VerifyRecoveryCode(plainCode, ""));
+    }
 }

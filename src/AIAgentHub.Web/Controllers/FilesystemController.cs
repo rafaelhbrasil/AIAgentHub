@@ -1,11 +1,13 @@
 using AIAgentHub.Application.Filesystem;
 using AIAgentHub.Application.Workspaces;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentHub.Web.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/filesystem")]
 public sealed class FilesystemController(
     IFilesystemService filesystemService,
