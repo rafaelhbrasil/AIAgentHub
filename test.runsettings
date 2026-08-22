@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <!-- Exclude Integration tests by default when running Visual Studio "Run All Tests" -->
+    <TestCaseFilter>Category!=Integration</TestCaseFilter>
+  </RunConfiguration>
+</RunSettings>

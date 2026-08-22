@@ -267,13 +267,17 @@ npm run dev
 4. **Open the live application:**
 Navigate to **`http://localhost:5173`** in your browser. The Vite dev server automatically proxies API (`/api`) and SignalR (`/hubs`) requests to `https://localhost:5432`.
 
-### Frontend Scripts (npm Workspaces)
-You can run all frontend scripts directly from the repository root:
+### NPM Workspace & Testing Scripts
+You can run all development and testing scripts directly from the repository root:
 
 - **`npm install`** — Installs all workspace dependencies (run once after cloning)
 - **`npm run dev`** — Starts the Vite dev server with Hot Module Reloading
 - **`npm run build`** — Compiles TypeScript and builds production assets into `src/AIAgentHub.Web/wwwroot/assets/`
-- **`npm test`** — Runs frontend unit tests with Vitest
+- **`npm test`** — Runs all fast unit tests (Frontend Vitest + .NET Unit Tests)
+- **`npm run test:frontend`** — Runs only Frontend unit tests with Vitest
+- **`npm run test:unit`** — Runs only Backend .NET unit tests (`tests/AgentHub.UnitTests`)
+- **`npm run test:integration`** — Runs Backend integration and API tests (`tests/AgentHub.IntegrationTests`)
+- **`npm run test:all`** — Runs the complete suite (Frontend + Unit + Integration)
 - **`npm run deploy`** — Publishes the web project using the publish profile (kills any active instance locking the folder)
 - **`npm run deploy:run`** — Publishes and starts the application on `http://localhost:5001`
 

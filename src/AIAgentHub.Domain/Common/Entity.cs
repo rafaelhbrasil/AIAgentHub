@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace AIAgentHub.Domain.Common;
 
 public abstract class Entity
 {
-    public Guid Id { get; protected set; } = Guid.NewGuid();
+    [JsonInclude]
+    public Guid Id { get; set; } = Guid.NewGuid();
 }
 
 public abstract class AggregateRoot : Entity
