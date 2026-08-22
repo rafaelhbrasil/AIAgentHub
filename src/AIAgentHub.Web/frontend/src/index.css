@@ -2261,5 +2261,24 @@ select option, .form-select option {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* Compact Spinner Utility */
+.spinner-sm {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent-primary, #6366f1);
+  border-radius: 50%;
+  animation: spinnerRotate 0.75s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
 
 

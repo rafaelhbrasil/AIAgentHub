@@ -274,6 +274,38 @@ You can run all frontend scripts directly from the repository root:
 - **`npm run dev`** — Starts the Vite dev server with Hot Module Reloading
 - **`npm run build`** — Compiles TypeScript and builds production assets into `src/AIAgentHub.Web/wwwroot/assets/`
 - **`npm test`** — Runs frontend unit tests with Vitest
+- **`npm run deploy`** — Publishes the web project using the publish profile (kills any active instance locking the folder)
+- **`npm run deploy:run`** — Publishes and starts the application on `http://localhost:5001`
+
+---
+
+## Deploy & Publish
+
+AI Agent Hub can be published as a self-contained, single-file bundle using the configured publish profile ([`FolderProfile.pubxml`](src/AIAgentHub.Web/Properties/PublishProfiles/FolderProfile.pubxml)).
+
+### Option 1: Automated Deployment Script (Recommended)
+Run the cross-platform deployment script from the repository root:
+
+```bash
+# Publish using FolderProfile (releases any file locks from running instances)
+npm run deploy
+
+# Publish and immediately run the app on http://localhost:5001
+npm run deploy:run
+
+# Publish and run on a custom port
+npm run deploy -- --run --port 5050
+```
+
+### Option 2: .NET CLI
+Deploy manually with the `dotnet` CLI:
+
+```bash
+dotnet publish src/AIAgentHub.Web/AIAgentHub.Web.csproj /p:PublishProfile=FolderProfile
+```
+
+### Option 3: Visual Studio
+Open `AIAgentHub.slnx` in Visual Studio, right-click the **`AIAgentHub.Web`** project in Solution Explorer, select **Publish...**, and click **Publish** with `FolderProfile`.
 
 ---
 

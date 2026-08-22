@@ -69,10 +69,10 @@ public class ProvidersTests : IAsyncLifetime
         // Click refresh all
         await _page.ClickAsync("#refreshProvBtn");
 
-        // Check for loading overlay (may be brief)
-        var overlayCount = await _page.Locator(".loading-overlay:not(.hidden)").CountAsync();
+        // Check for refresh modal or provider status
+        var modalCount = await _page.Locator("#providerRefreshModalContainer").CountAsync();
         var statusCount = await _page.Locator("[id^=\"provider-status-\"]").CountAsync();
-        Assert.True(overlayCount > 0 || statusCount > 0);
+        Assert.True(modalCount > 0 || statusCount > 0);
     }
 
     private async Task LoginIfRequired()

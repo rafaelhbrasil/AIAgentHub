@@ -19,6 +19,7 @@ public sealed class ProviderInfo
     public bool IsAuthenticated { get; set; }
     public ProviderStatus Status { get; set; } = ProviderStatus.NotInstalled;
     public string? Message { get; set; }
+    public DateTimeOffset? QuotaResetsAt { get; set; }
     public string? Version { get; set; }
     public string? ExecutablePath { get; set; }
     public ProviderCapability Capabilities { get; set; } = ProviderCapability.None;

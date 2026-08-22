@@ -3,44 +3,50 @@ import { apiFetch } from '../../services/apiClient';
 import { ProviderDto, ModelInfo } from '../../types/provider';
 import { sortProviders } from '../../utils/providerSort';
 import { ProviderSkeletons } from '../common/Skeletons';
-import { LoadingOverlay } from '../common/LoadingOverlay';
 import { ProviderCard } from './ProviderCard';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { ProviderModelsModal } from './ProviderModelsModal';
 import { InstallInstructionsModal } from './InstallInstructionsModal';
 import { ExternalLinkDisclaimerModal } from './ExternalLinkDisclaimerModal';
+import { ProviderRefreshModal } from './ProviderRefreshModal';
 
 export const ProvidersView: React.FC = () => {
   const { showModal, hideModal } = useModal();
   const { showToast } = useToast();
   const [providers, setProviders] = useState<ProviderDto[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshingAll, setIsRefreshingAll] = useState<boolean>(false);
 
-  const fetchProviders = async (refresh: boolean = false) => {
-    if (refresh) setIsRefreshingAll(true);
-    else setIsLoading(true);
-
+  const fetchProviders = async () => {
+    setIsLoading(true);
     try {
-      const res = await apiFetch<ProviderDto[]>(`/api/v1/providers${refresh ? '?refresh=true' : ''}`);
+      const res = await apiFetch<ProviderDto[]>('/api/v1/providers');
       if (res.ok && res.data) {
         setProviders(res.data);
-        if (refresh) {
-          showToast('All providers refreshed.', 'success');
-        }
       } else {
         showToast('Failed to load providers.', 'error');
       }
     } finally {
       setIsLoading(false);
-      setIsRefreshingAll(false);
     }
   };
 
   useEffect(() => {
-    fetchProviders(false);
+    fetchProviders();
   }, []);
+
+  const handleOpenRefreshAllModal = () => {
+    showModal(
+      '🔄 Refreshing AI Providers',
+      <ProviderRefreshModal
+        onComplete={(updatedProviders) => {
+          setProviders(updatedProviders);
+          showToast('All providers refreshed successfully.', 'success');
+        }}
+        onClose={hideModal}
+      />
+    );
+  };
 
   const handleOpenModelsModal = (provider: ProviderDto) => {
     showModal(
@@ -53,7 +59,7 @@ export const ProvidersView: React.FC = () => {
             prev.map((p) => (p.id === provider.id ? { ...p, supportedModels: updatedModels } : p))
           );
           hideModal();
-          await fetchProviders(false);
+          await fetchProviders();
         }}
         onCancel={hideModal}
       />
@@ -97,7 +103,6 @@ export const ProvidersView: React.FC = () => {
 
   return (
     <div>
-      <LoadingOverlay isVisible={isRefreshingAll} text="Refreshing all providers..." />
       <div
         style={{
           display: 'flex',
@@ -111,10 +116,9 @@ export const ProvidersView: React.FC = () => {
           type="button"
           className="btn btn-secondary"
           id="refreshProvBtn"
-          onClick={() => fetchProviders(true)}
-          disabled={isRefreshingAll}
+          onClick={handleOpenRefreshAllModal}
         >
-          {isRefreshingAll ? 'Refreshing...' : '🔄 Refresh All Providers'}
+          🔄 Refresh All Providers
         </button>
       </div>
 

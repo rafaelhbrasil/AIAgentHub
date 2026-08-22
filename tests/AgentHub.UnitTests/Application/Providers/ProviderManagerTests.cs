@@ -179,4 +179,38 @@ public sealed class ProviderManagerTests
         _ = await provider.Received(1).GetModelsAsync(Arg.Any<CancellationToken>());
         await modelSettingRepo.Received(1).ReconcileAsync("testprov", Arg.Any<IReadOnlyList<ModelInfo>>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task GetModelsAsync_WhenForceRefreshFalseAndNoSettingsInDbButDetectionCached_ShouldReturnDefaultModelWithoutCallingProvider()
+    {
+        var provider = Substitute.For<IProvider>();
+        _ = provider.Id.Returns("testprov");
+        _ = provider.DisplayName.Returns("Test Provider");
+
+        var modelSettingRepo = Substitute.For<IProviderModelSettingRepository>();
+        _ = modelSettingRepo.GetByProviderIdAsync("testprov", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<ProviderModelSetting>>([]));
+
+        var detectionRepo = Substitute.For<IProviderDetectionRecordRepository>();
+        _ = detectionRepo.GetByProviderIdAsync("testprov", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ProviderDetectionRecord?>(new ProviderDetectionRecord
+            {
+                ProviderId = "testprov",
+                IsInstalled = true,
+                IsAuthenticated = true,
+                Status = ProviderStatus.Ready,
+                DetectedAtUtc = DateTimeOffset.UtcNow
+            }));
+
+        var manager = new ProviderManager(
+            [provider],
+            () => modelSettingRepo,
+            () => detectionRepo);
+
+        var models = await manager.GetModelsAsync("testprov", forceRefresh: false);
+
+        Assert.NotEmpty(models);
+        Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
+        _ = await provider.DidNotReceive().GetModelsAsync(Arg.Any<CancellationToken>());
+    }
 }

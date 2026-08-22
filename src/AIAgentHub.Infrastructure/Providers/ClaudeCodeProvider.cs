@@ -92,7 +92,7 @@ public sealed class ClaudeCodeProvider(
         try
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
 
             var result = await RunCommandAsync(exePath, "-p /model", null, timeoutCts.Token, "Claude Code — List Models");
             if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Output))

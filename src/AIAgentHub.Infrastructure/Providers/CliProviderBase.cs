@@ -54,6 +54,8 @@ public abstract class CliProviderBase(
 
     protected CliExecutionOptions GetExecutionOptions() => _options.Value;
 
+    public virtual bool IsInstalledFastCheck() => !string.IsNullOrEmpty(FindExecutable(ExecutableName));
+
     public virtual async Task<ProviderInfo> DetectAsync(CancellationToken cancellationToken = default)
     {
         var exePath = FindExecutable(ExecutableName);
@@ -453,13 +455,43 @@ public abstract class CliProviderBase(
 
     public static string? FindExecutable(string name)
     {
-        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
         var extensions = OperatingSystem.IsWindows()
             ? (Environment.GetEnvironmentVariable("PATHEXT") ?? ".EXE;.CMD;.BAT").Split(';')
             : [""];
 
-        var paths = pathEnv.Split(Path.PathSeparator);
-        foreach (var p in paths)
+        var searchDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Process PATH
+        var processPath = Environment.GetEnvironmentVariable("PATH") ?? "";
+        foreach (var p in processPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            _ = searchDirectories.Add(p);
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            // 2. User & Machine PATH from Windows Registry (handles cases where Process PATH did not inherit user environment)
+            try
+            {
+                var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+                foreach (var p in userPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    _ = searchDirectories.Add(p);
+                }
+
+                var machinePath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+                foreach (var p in machinePath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    _ = searchDirectories.Add(p);
+                }
+            }
+            catch
+            {
+                // Fallback if registry access is restricted
+            }
+        }
+
+        foreach (var p in searchDirectories)
         {
             if (string.IsNullOrWhiteSpace(p) || !Directory.Exists(p))
             {

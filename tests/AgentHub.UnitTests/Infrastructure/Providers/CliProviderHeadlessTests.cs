@@ -139,4 +139,15 @@ public sealed class CliProviderHeadlessTests
         Assert.Equal(0, result.ExitCode);
         Assert.NotEmpty(result.Output.Trim());
     }
+
+    [Fact]
+    public void FindExecutable_ResolvesCommonSystemAndToolExecutables()
+    {
+        var dotnetExe = CliProviderBase.FindExecutable("dotnet");
+        Assert.NotNull(dotnetExe);
+        Assert.True(File.Exists(dotnetExe));
+
+        var missing = CliProviderBase.FindExecutable("non_existent_binary_12345");
+        Assert.Null(missing);
+    }
 }

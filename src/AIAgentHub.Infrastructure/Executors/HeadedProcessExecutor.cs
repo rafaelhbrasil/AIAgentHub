@@ -56,7 +56,8 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions>? options = null
                 arguments: psArguments,
                 workingDirectory: workingDirectory ?? "",
                 useShellExecute: true,
-                createNoWindow: false);
+                createNoWindow: false,
+                windowStyle: ProcessWindowStyle.Normal);
 
             _ = process.Start();
             await process.WaitForExitAsync(cancellationToken);
@@ -125,7 +126,8 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions>? options = null
                 arguments: psArguments,
                 workingDirectory: context.WorkspacePath,
                 useShellExecute: true,
-                createNoWindow: false);
+                createNoWindow: false,
+                windowStyle: ProcessWindowStyle.Normal);
 
             LogPrompt(
                 promptLogger,

@@ -1,10 +1,19 @@
 import { ProviderDto, ProviderStatus } from '../types/provider';
 
-export const isDiscontinuedStatus = (status: unknown): boolean => status === ProviderStatus.Discontinued;
-export const isReadyStatus = (status: unknown): boolean => status === ProviderStatus.Ready;
-export const isUnauthenticatedStatus = (status: unknown): boolean => status === ProviderStatus.Unauthenticated;
-export const isNotInstalledStatus = (status: unknown): boolean => status === ProviderStatus.NotInstalled;
-export const isQuotaExceededStatus = (status: unknown): boolean => status === ProviderStatus.QuotaExceeded;
+export const isDiscontinuedStatus = (status: unknown): boolean =>
+  status === ProviderStatus.Discontinued || status === 99 || status === 'Discontinued';
+
+export const isReadyStatus = (status: unknown): boolean =>
+  status === ProviderStatus.Ready || status === 2 || status === 'Ready';
+
+export const isUnauthenticatedStatus = (status: unknown): boolean =>
+  status === ProviderStatus.Unauthenticated || status === 1 || status === 'Unauthenticated';
+
+export const isNotInstalledStatus = (status: unknown): boolean =>
+  status === ProviderStatus.NotInstalled || status === 0 || status === 'NotInstalled';
+
+export const isQuotaExceededStatus = (status: unknown): boolean =>
+  status === ProviderStatus.QuotaExceeded || status === 5 || status === 'QuotaExceeded';
 
 export function isProviderOperational(p: ProviderDto): boolean {
   return isReadyStatus(p.status) && !isDiscontinuedStatus(p.status);

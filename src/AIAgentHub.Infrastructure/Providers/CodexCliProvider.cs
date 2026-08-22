@@ -260,7 +260,7 @@ public sealed class CodexCliProvider(
         try
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
 
             var result = await RunCommandAsync(exePath, "debug models", null, timeoutCts.Token, "OpenAI Codex — List Models");
             if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Output))

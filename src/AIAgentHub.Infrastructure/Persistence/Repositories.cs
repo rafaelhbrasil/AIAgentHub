@@ -467,7 +467,12 @@ public sealed class ProviderModelSettingRepository(AgentHubDbContext context) : 
             .ToList();
         var currentModelIds = new HashSet<string>(validModels.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
 
-        var obsolete = existingSettings.Where(s => !currentModelIds.Contains(s.ModelId)).ToList();
+        // Only prune obsolete models if a non-empty set of valid models is provided.
+        // If the provider returned only the default placeholder or empty list, preserve existing cached settings.
+        var obsolete = validModels.Count > 0
+            ? existingSettings.Where(s => !currentModelIds.Contains(s.ModelId)).ToList()
+            : [];
+
         if (obsolete.Count > 0)
         {
             _context.ProviderModelSettings.RemoveRange(obsolete);

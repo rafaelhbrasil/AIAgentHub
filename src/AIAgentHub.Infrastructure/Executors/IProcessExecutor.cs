@@ -109,7 +109,8 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         string arguments,
         string workingDirectory,
         bool useShellExecute,
-        bool createNoWindow)
+        bool createNoWindow,
+        ProcessWindowStyle windowStyle = ProcessWindowStyle.Hidden)
     {
         return new ProcessStartInfo
         {
@@ -117,7 +118,8 @@ public abstract class ProcessExecutorBase : IProcessExecutor
             Arguments = arguments,
             WorkingDirectory = workingDirectory,
             UseShellExecute = useShellExecute,
-            CreateNoWindow = createNoWindow
+            CreateNoWindow = createNoWindow,
+            WindowStyle = windowStyle
         };
     }
 

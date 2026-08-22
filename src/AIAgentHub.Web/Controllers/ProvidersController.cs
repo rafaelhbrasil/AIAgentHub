@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Providers;
 
@@ -10,6 +12,28 @@ namespace AIAgentHub.Web.Controllers;
 public sealed class ProvidersController(IProviderManager providerManager) : ApiControllerBase
 {
     private readonly IProviderManager _providerManager = providerManager;
+
+    [HttpGet("refresh-stream")]
+    public async Task RefreshStream(CancellationToken cancellationToken)
+    {
+        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.Headers.Append("Cache-Control", "no-cache, no-transform");
+        Response.Headers.Append("Connection", "keep-alive");
+
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
+        await foreach (var evt in _providerManager.StreamRefreshAllAsync(cancellationToken))
+        {
+            var json = JsonSerializer.Serialize((object)evt, evt.GetType(), jsonOptions);
+            var message = $"event: {evt.Type}\ndata: {json}\n\n";
+            await Response.WriteAsync(message, cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool refresh = false, CancellationToken cancellationToken = default)

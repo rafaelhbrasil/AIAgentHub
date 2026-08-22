@@ -25,6 +25,9 @@ public sealed class AntigravityProvider(
     public override ProviderCapability Capabilities =>
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.Skills | ProviderCapability.Mcp | ProviderCapability.FileEditing | ProviderCapability.Vision | ProviderCapability.ModelSelection;
 
+    public override bool IsInstalledFastCheck() =>
+        !string.IsNullOrEmpty(FindExecutable(ExecutableName)) || !string.IsNullOrEmpty(FindExecutable("antigravity"));
+
     public override async Task<ProviderInfo> DetectAsync(CancellationToken cancellationToken = default)
     {
         var info = await base.DetectAsync(cancellationToken);

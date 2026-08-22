@@ -175,10 +175,17 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
         <button
           type="button"
           className="btn btn-secondary"
+          id={`refresh-btn-${currentProvider.id}`}
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
-          🔄 Refresh
+          {isRefreshing ? (
+            <>
+              <span className="spinner-sm" style={{ marginRight: '6px' }} /> Checking...
+            </>
+          ) : (
+            '🔄 Refresh'
+          )}
         </button>
         {currentProvider.documentationUrl && (
           <button

@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 using AIAgentHub.Domain.Providers;
 using AIAgentHub.Domain.Repositories;
 
@@ -60,7 +62,20 @@ public sealed class ProviderManager(
             else
             {
                 // No DB cache yet (initial boot), run initial detection and seed DB
-                info = await provider.DetectAsync(cancellationToken);
+                var detectedInfo = await provider.DetectAsync(cancellationToken);
+                info = detectedInfo ?? new ProviderInfo
+                {
+                    Id = provider.Id,
+                    DisplayName = provider.DisplayName,
+                    Description = provider.Description,
+                    Status = ProviderStatus.NotInstalled,
+                    Capabilities = provider.Capabilities,
+                    InstallInstructions = provider.InstallInstructions,
+                    InstallCommand = provider.InstallCommand,
+                    AuthCommand = provider.AuthCommand,
+                    DocumentationUrl = provider.DocumentationUrl
+                };
+
                 if (string.IsNullOrEmpty(info.Message))
                 {
                     info.Message = info.Status == ProviderStatus.Ready ? "Provider is operational and ready to use." : "Provider is not installed.";
@@ -101,6 +116,131 @@ public sealed class ProviderManager(
 
         var results = await Task.WhenAll(tasks);
         return SortProviders([.. results]);
+    }
+
+    public async IAsyncEnumerable<ProviderRefreshEvent> StreamRefreshAllAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var installedProviders = new List<IProvider>();
+        var uninstalledProviders = new List<IProvider>();
+
+        foreach (var provider in _providers)
+        {
+            if (provider.IsInstalledFastCheck())
+            {
+                installedProviders.Add(provider);
+            }
+            else
+            {
+                uninstalledProviders.Add(provider);
+            }
+        }
+
+        // Immediately record uninstalled providers in DB without running child processes
+        foreach (var uninstalled in uninstalledProviders)
+        {
+            var notInstalledInfo = new ProviderInfo
+            {
+                Id = uninstalled.Id,
+                DisplayName = uninstalled.DisplayName,
+                Description = uninstalled.Description,
+                IsInstalled = false,
+                IsAuthenticated = false,
+                Status = ProviderStatus.NotInstalled,
+                Message = $"{uninstalled.DisplayName} is not installed.",
+                Capabilities = uninstalled.Capabilities,
+                SupportedModels = [],
+                InstallInstructions = uninstalled.InstallInstructions,
+                InstallCommand = uninstalled.InstallCommand,
+                AuthCommand = uninstalled.AuthCommand,
+                DocumentationUrl = uninstalled.DocumentationUrl
+            };
+            await PersistDetectionResultAsync(uninstalled.Id, notInstalledInfo, cancellationToken);
+        }
+
+        var totalInstalled = installedProviders.Count;
+        var headers = installedProviders.Select(p => new ProviderHeader(p.Id, p.DisplayName)).ToList();
+
+        yield return new ProviderRefreshInitEvent(totalInstalled, headers);
+
+        if (totalInstalled == 0)
+        {
+            var allCached = await GetAllAsync(cancellationToken);
+            yield return new ProviderRefreshCompletedEvent(allCached);
+            yield break;
+        }
+
+        var completedChannel = Channel.CreateUnbounded<(ProviderInfo Info, int CompletedCount)>();
+        var completedCounter = 0;
+
+        var tasks = installedProviders.Select(async provider =>
+        {
+            ProviderInfo info;
+            try
+            {
+                var detailed = await provider.DetectDetailedAsync(cancellationToken);
+                await PersistDetailedResultAsync(provider.Id, detailed, cancellationToken);
+
+                var models = detailed.Status == ProviderStatus.Ready
+                    ? await GetModelsAsync(provider.Id, forceRefresh: true, cancellationToken)
+                    : await GetModelsAsync(provider.Id, forceRefresh: false, cancellationToken);
+
+                info = new ProviderInfo
+                {
+                    Id = provider.Id,
+                    DisplayName = provider.DisplayName,
+                    Description = provider.Description,
+                    IsInstalled = detailed.Status != ProviderStatus.NotInstalled,
+                    IsAuthenticated = detailed.Status == ProviderStatus.Ready,
+                    Status = detailed.Status,
+                    Message = detailed.Message,
+                    QuotaResetsAt = detailed.QuotaResetsAt,
+                    Capabilities = provider.Capabilities,
+                    SupportedModels = [.. models],
+                    InstallInstructions = provider.InstallInstructions,
+                    InstallCommand = provider.InstallCommand,
+                    AuthCommand = provider.AuthCommand,
+                    DocumentationUrl = provider.DocumentationUrl
+                };
+                await PersistDetectionResultAsync(provider.Id, info, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                info = new ProviderInfo
+                {
+                    Id = provider.Id,
+                    DisplayName = provider.DisplayName,
+                    Description = provider.Description,
+                    IsInstalled = true,
+                    IsAuthenticated = false,
+                    Status = ProviderStatus.Error,
+                    Message = $"Detection failed: {ex.Message}",
+                    Capabilities = provider.Capabilities,
+                    SupportedModels = [],
+                    InstallInstructions = provider.InstallInstructions,
+                    InstallCommand = provider.InstallCommand,
+                    AuthCommand = provider.AuthCommand,
+                    DocumentationUrl = provider.DocumentationUrl
+                };
+                await PersistDetectionResultAsync(provider.Id, info, cancellationToken);
+            }
+
+            var count = Interlocked.Increment(ref completedCounter);
+            await completedChannel.Writer.WriteAsync((info, count), cancellationToken);
+        });
+
+        _ = Task.WhenAll(tasks).ContinueWith(_ => completedChannel.Writer.Complete(), cancellationToken);
+
+        while (await completedChannel.Reader.WaitToReadAsync(cancellationToken))
+        {
+            while (completedChannel.Reader.TryRead(out var item))
+            {
+                var percentage = (int)Math.Round((double)item.CompletedCount / totalInstalled * 100.0);
+                yield return new ProviderRefreshProgressEvent(item.Info, item.CompletedCount, totalInstalled, percentage);
+            }
+        }
+
+        var allFinal = await GetAllAsync(cancellationToken);
+        yield return new ProviderRefreshCompletedEvent(allFinal);
     }
 
     private static List<ProviderInfo> SortProviders(List<ProviderInfo> list) => [.. list.OrderBy(GetProviderSortPriority).ThenBy(p => p.DisplayName)];
@@ -180,6 +320,28 @@ public sealed class ProviderManager(
                     IsDefault = m.IsDefault,
                     IsDisplayed = m.IsDisplayed
                 }).ToList();
+            }
+
+            if (_detectionRecordFactory != null)
+            {
+                var detectionRepo = _detectionRecordFactory();
+                var dbRecord = await detectionRepo.GetByProviderIdAsync(providerId, cancellationToken);
+                if (dbRecord != null)
+                {
+                    // Detection was already performed and cached; return default delegation model from memory without spawning CLI subprocess
+                    return
+                    [
+                        new()
+                        {
+                            Id = "default",
+                            DisplayName = "Default",
+                            Description = "Default model. The model will not be enforced, and whatever was set or used last directly in the provider CLI will remain active without being overridden.",
+                            ContextWindow = null,
+                            IsDefault = true,
+                            IsDisplayed = true
+                        }
+                    ];
+                }
             }
         }
 

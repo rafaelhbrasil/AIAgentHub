@@ -132,5 +132,40 @@ public sealed class WebControllerTests : IClassFixture<CustomWebApplicationFacto
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
     }
 
+    [Fact]
+    public async Task Providers_GetAll_WhenCached_ReturnsFastWithoutTimeout()
+    {
+        var client = _factory.CreateClient();
+
+        // 1. Initialize user or login if already initialized
+        var initRes = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+        {
+            username = "admin",
+            password = "SecurePassword123!",
+            confirmPassword = "SecurePassword123!"
+        });
+        if (!initRes.IsSuccessStatusCode)
+        {
+            var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
+            {
+                username = "admin",
+                password = "SecurePassword123!"
+            });
+            Assert.Equal(HttpStatusCode.OK, loginRes.StatusCode);
+        }
+
+        // 2. First call seeds or returns cached detection
+        var firstRes = await client.GetAsync("/api/v1/providers");
+        Assert.Equal(HttpStatusCode.OK, firstRes.StatusCode);
+
+        // 3. Second call must be fast and read from cache
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var secondRes = await client.GetAsync("/api/v1/providers");
+        sw.Stop();
+
+        Assert.Equal(HttpStatusCode.OK, secondRes.StatusCode);
+        Assert.True(sw.ElapsedMilliseconds < 2000, $"Expected cached providers call to be fast, but took {sw.ElapsedMilliseconds} ms");
+    }
+
     private sealed record SetupStatusResponse(bool IsSetupCompleted, bool IsRecoveryModeEnabled, bool IsLocalRequest, bool CanResetWithoutCode);
 }

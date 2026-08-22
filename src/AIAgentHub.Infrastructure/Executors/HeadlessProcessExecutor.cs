@@ -27,7 +27,8 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
             arguments,
             context.WorkspacePath,
             useShellExecute: false,
-            createNoWindow: true);
+            createNoWindow: true,
+            windowStyle: ProcessWindowStyle.Hidden);
 
         startInfo.RedirectStandardInput = true;
         startInfo.RedirectStandardOutput = true;
@@ -96,7 +97,8 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
             arguments: arguments,
             workingDirectory: workingDirectory ?? "",
             useShellExecute: false,
-            createNoWindow: true);
+            createNoWindow: true,
+            windowStyle: ProcessWindowStyle.Hidden);
 
         startInfo.RedirectStandardInput = true;
         startInfo.RedirectStandardOutput = true;

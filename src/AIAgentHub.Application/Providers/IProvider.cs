@@ -32,6 +32,7 @@ public interface IProvider
     public string? AuthCommand { get; }
     public string? DocumentationUrl { get; }
     public Task<ProviderInfo> DetectAsync(CancellationToken cancellationToken = default);
+    public bool IsInstalledFastCheck();
     public Task<ProviderDetectionResult> DetectDetailedAsync(CancellationToken cancellationToken = default);
     public Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default);
     public Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default);
@@ -47,6 +48,7 @@ public interface IProviderManager
     public IProvider GetProvider(string id);
     public Task<IReadOnlyList<ProviderInfo>> GetAllAsync(CancellationToken cancellationToken = default);
     public Task<IReadOnlyList<ProviderInfo>> RefreshAllAsync(CancellationToken cancellationToken = default);
+    public IAsyncEnumerable<ProviderRefreshEvent> StreamRefreshAllAsync(CancellationToken cancellationToken = default);
     public Task<ProviderInfo?> GetProviderInfoAsync(string id, CancellationToken cancellationToken = default);
     public Task<IReadOnlyList<ModelInfo>> GetModelsAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default);
     public Task<ProviderDetectionResult> DetectProviderDetailedAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default);
