@@ -41,7 +41,7 @@ REST continues to handle request/response operations. SignalR handles streaming 
 
 - **Abstraction over transport.** Code targets hubs, not raw sockets; the same app logic works over WebSocket with automatic fallback (Server-Sent Events, Long Polling) through company-environment proxies without application changes.
 - **Faster development.** Grouping, connection ID, typed clients (`IHubContext`) and client-server method invocation are built in — no custom message framing/parsing code.
-- **Automatic reconnection.** SignalR restores state after network drops; essential for long-running streaming and agent execution.
+- **Automatic reconnection.** SignalR restores state after network drops; essential for long-running streaming and agent execution. The client utilizes an infinite reconnection and retry policy (capped backoff) so that unauthenticated denials or temporary connection drops retry continuously until authentication succeeds or the browser tab closes.
 - **Streaming support.** Built-in streaming (stream responses as they arrive) maps directly to AI response streaming.
 - **Scaling and groups.** SignalR scalable/backplane support leaves room for future multi-user/Server groups (v0.2/v0.3+) without redesign.
 - **Strong typing.** Typed hub interfaces reduce both client and server errors and are easy to contract-test.

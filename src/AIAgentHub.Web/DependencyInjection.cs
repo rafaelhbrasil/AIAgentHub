@@ -139,7 +139,21 @@ public static class DependencyInjection
                 options.SlidingExpiration = true;
                 options.Events.OnRedirectToLogin = context =>
                 {
-                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    var path = context.Request.Path;
+                    var accept = context.Request.Headers.Accept.ToString();
+
+                    var isApiOrHub = path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs");
+                    var isHtmlPage = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
+
+                    if (isApiOrHub || !isHtmlPage)
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    }
+                    else
+                    {
+                        context.Response.Redirect("/");
+                    }
+
                     return Task.CompletedTask;
                 };
             });

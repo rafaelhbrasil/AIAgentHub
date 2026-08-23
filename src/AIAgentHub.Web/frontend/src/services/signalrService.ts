@@ -17,9 +17,17 @@ export interface NotificationPayload {
   level: 'info' | 'error' | 'success' | 'warning';
 }
 
+const infiniteRetryPolicy: signalR.IRetryPolicy = {
+  nextRetryDelayInMilliseconds: (retryContext: signalR.RetryContext) => {
+    // Retry indefinitely with capped backoff up to 5000ms
+    return Math.min(1000 * Math.pow(1.5, retryContext.previousRetryCount), 5000);
+  },
+};
+
 export class SignalRService {
   private connection: signalR.HubConnection | null = null;
   private currentConversationId: string | null = null;
+  private retryTimeoutId: any = null;
 
   public onStreamChunk?: (payload: StreamChunkPayload) => void;
   public onConversationEvent?: (payload: ConversationEventPayload) => void;
@@ -33,7 +41,7 @@ export class SignalRService {
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl('/hubs/agent')
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .withAutomaticReconnect(infiniteRetryPolicy)
       .build();
 
     this.connection.onreconnected(() => {
@@ -71,14 +79,24 @@ export class SignalRService {
       });
     });
 
-    this.connection
-      .start()
-      .then(() => {
-        if (this.currentConversationId) {
-          this.joinConversation(this.currentConversationId);
-        }
-      })
-      .catch((err) => console.log('SignalR connection error:', err));
+    const connectWithRetry = () => {
+      if (!this.connection) return;
+
+      this.connection
+        .start()
+        .then(() => {
+          if (this.currentConversationId) {
+            this.joinConversation(this.currentConversationId);
+          }
+        })
+        .catch((err) => {
+          if (!this.connection) return;
+          console.warn('SignalR connection failed, retrying in 5s...', err);
+          this.retryTimeoutId = setTimeout(connectWithRetry, 5000);
+        });
+    };
+
+    connectWithRetry();
   }
 
   public joinConversation(conversationId: string): void {
@@ -89,6 +107,10 @@ export class SignalRService {
   }
 
   public stop(): void {
+    if (this.retryTimeoutId) {
+      clearTimeout(this.retryTimeoutId);
+      this.retryTimeoutId = null;
+    }
     if (this.connection) {
       this.connection.stop().catch(() => {});
       this.connection = null;

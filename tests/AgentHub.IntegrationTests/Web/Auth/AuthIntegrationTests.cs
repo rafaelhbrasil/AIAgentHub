@@ -43,6 +43,25 @@ public sealed class AuthIntegrationTests : IClassFixture<CustomWebApplicationFac
 
         var settingsRes = await client.GetAsync("/api/v1/settings");
         Assert.Equal(HttpStatusCode.Unauthorized, settingsRes.StatusCode);
+
+        var hubRes = await client.GetAsync("/hubs/agent");
+        Assert.Equal(HttpStatusCode.Unauthorized, hubRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task ProtectedPageRoutes_WhenUnauthenticatedHtmlRequest_ShouldRedirectToRoot()
+    {
+        var noRedirectClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/providers");
+        request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+
+        var response = await noRedirectClient.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/", response.Headers.Location?.OriginalString);
     }
 
     [Fact]
