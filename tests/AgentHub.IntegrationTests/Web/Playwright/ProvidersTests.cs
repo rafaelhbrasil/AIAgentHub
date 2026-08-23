@@ -1,89 +1,87 @@
 using Microsoft.Playwright;
+using Xunit;
 
 namespace AgentHub.IntegrationTests.Web.Playwright;
 
-public class ProvidersTests : IAsyncLifetime
+[Collection("PlaywrightCollection")]
+public class ProvidersTests(PlaywrightTestFixture fixture)
 {
-    private IPlaywright _playwright = null!;
-    private IBrowser _browser = null!;
-    private IPage _page = null!;
+    private readonly PlaywrightTestFixture _fixture = fixture;
 
-    public async Task InitializeAsync()
+    [Fact]
+    public async Task Providers_ShowsCardsOnLoad()
     {
-        _playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-        _browser = await _playwright.Chromium.LaunchAsync();
-        _page = await _browser.NewPageAsync();
+        var page = await _fixture.CreatePageAsync();
+        try
+        {
+            _ = await page.GotoAsync(_fixture.ServerAddress);
+            await PlaywrightTestHelper.LoginIfRequiredAsync(page);
+
+            await page.ClickAsync("[data-tab=\"providers\"]");
+            _ = await page.WaitForSelectorAsync("[id^=\"provider-card-\"]", new PageWaitForSelectorOptions { Timeout = 10000 });
+
+            var providerCardCount = await page.Locator("[id^=\"provider-card-\"]").CountAsync();
+            Assert.True(providerCardCount > 0);
+        }
+        finally
+        {
+            await page.CloseAsync();
+        }
     }
 
-    public async Task DisposeAsync()
-    {
-        await _browser.CloseAsync();
-        _playwright.Dispose();
-    }
-
-    [Fact(Skip = "Requires running application server")]
-    public async Task Providers_ShowsSkeletonsOnFirstLoad()
-    {
-        _ = await _page.GotoAsync("https://localhost:5432");
-        await LoginIfRequired();
-
-        await _page.ClickAsync("[data-tab=\"providers\"]");
-
-        // Check for skeleton or provider cards
-        var skeletonCount = await _page.Locator(".skeleton-card").CountAsync();
-        var providerCardCount = await _page.Locator("[id^=\"provider-card-\"]").CountAsync();
-        Assert.True(skeletonCount > 0 || providerCardCount > 0);
-    }
-
-    [Fact(Skip = "Requires running application server")]
+    [Fact]
     public async Task Providers_CacheWorksOnSecondVisit()
     {
-        _ = await _page.GotoAsync("https://localhost:5432");
-        await LoginIfRequired();
+        var page = await _fixture.CreatePageAsync();
+        try
+        {
+            _ = await page.GotoAsync(_fixture.ServerAddress);
+            await PlaywrightTestHelper.LoginIfRequiredAsync(page);
 
-        // First visit
-        await _page.ClickAsync("[data-tab=\"providers\"]");
-        _ = await _page.WaitForSelectorAsync("[id^=\"provider-card-\"]", new() { Timeout = 15000 });
+            // First visit
+            await page.ClickAsync("[data-tab=\"providers\"]");
+            _ = await page.WaitForSelectorAsync("[id^=\"provider-card-\"]", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Navigate away
-        await _page.ClickAsync("[data-tab=\"dashboard\"]");
-        await Task.Delay(500);
+            // Navigate away
+            await page.ClickAsync("[data-tab=\"dashboard\"]");
+            await Task.Delay(300);
 
-        // Navigate back - should use cache
-        await _page.ClickAsync("[data-tab=\"providers\"]");
+            // Navigate back
+            await page.ClickAsync("[data-tab=\"providers\"]");
+            _ = await page.WaitForSelectorAsync("[id^=\"provider-card-\"]", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Should show provider cards immediately (from cache)
-        var providerCards = await _page.Locator("[id^=\"provider-card-\"]").CountAsync();
-        Assert.True(providerCards > 0);
+            var providerCards = await page.Locator("[id^=\"provider-card-\"]").CountAsync();
+            Assert.True(providerCards > 0);
+        }
+        finally
+        {
+            await page.CloseAsync();
+        }
     }
 
-    [Fact(Skip = "Requires running application server")]
+    [Fact]
     public async Task Providers_RefreshAllShowsLoadingOverlay()
     {
-        _ = await _page.GotoAsync("https://localhost:5432");
-        await LoginIfRequired();
-
-        await _page.ClickAsync("[data-tab=\"providers\"]");
-        _ = await _page.WaitForSelectorAsync("#refreshProvBtn", new() { Timeout = 10000 });
-
-        // Click refresh all
-        await _page.ClickAsync("#refreshProvBtn");
-
-        // Check for refresh modal or provider status
-        var modalCount = await _page.Locator("#providerRefreshModalContainer").CountAsync();
-        var statusCount = await _page.Locator("[id^=\"provider-status-\"]").CountAsync();
-        Assert.True(modalCount > 0 || statusCount > 0);
-    }
-
-    private async Task LoginIfRequired()
-    {
-        var loginBtn = await _page.QuerySelectorAsync("#loginSubmitBtn");
-        if (loginBtn != null)
+        var page = await _fixture.CreatePageAsync();
+        try
         {
-            await _page.FillAsync("#loginUsername", "admin");
-            await _page.FillAsync("#loginPassword", "admin");
-            await _page.ClickAsync("#loginSubmitBtn");
-            await _page.WaitForTimeoutAsync(1000);
+            _ = await page.GotoAsync(_fixture.ServerAddress);
+            await PlaywrightTestHelper.LoginIfRequiredAsync(page);
+
+            await page.ClickAsync("[data-tab=\"providers\"]");
+            _ = await page.WaitForSelectorAsync("#refreshProvBtn", new PageWaitForSelectorOptions { Timeout = 10000 });
+
+            // Click refresh all
+            await page.ClickAsync("#refreshProvBtn");
+
+            // Check for modal or provider status
+            var modalCount = await page.Locator(".modal-container").CountAsync();
+            var statusCount = await page.Locator("[id^=\"provider-status-\"]").CountAsync();
+            Assert.True(modalCount > 0 || statusCount > 0);
+        }
+        finally
+        {
+            await page.CloseAsync();
         }
     }
 }

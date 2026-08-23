@@ -67,10 +67,11 @@ public sealed class OpenCodeProvider(
             using var doc = JsonDocument.Parse(output);
             if (doc.RootElement.ValueKind != JsonValueKind.Array) return null;
 
-            var normalizedWorkspace = Path.GetFullPath(workspacePath).TrimEnd('\\', '/');
+            var normalizedWorkspace = Path.GetFullPath(workspacePath).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant();
             var titleTarget = $"agenthub-{conversationId}";
 
-            string? fallbackWorkspaceSessionId = null;
+            string? mostRecentMatchingWorkspace = null;
+            string? mostRecentOverall = null;
 
             foreach (var item in doc.RootElement.EnumerateArray())
             {
@@ -85,16 +86,7 @@ public sealed class OpenCodeProvider(
                     continue;
                 }
 
-                var dir = item.TryGetProperty("directory", out var dirProp) ? dirProp.GetString() : null;
-                if (!string.IsNullOrEmpty(dir))
-                {
-                    var normalizedDir = Path.GetFullPath(dir).TrimEnd('\\', '/');
-                    if (!normalizedDir.Equals(normalizedWorkspace, StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Skip sessions belonging to other workspaces
-                        continue;
-                    }
-                }
+                mostRecentOverall ??= id;
 
                 var title = item.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
                 if (!string.IsNullOrEmpty(title) && title.Contains(titleTarget, StringComparison.OrdinalIgnoreCase))
@@ -102,11 +94,18 @@ public sealed class OpenCodeProvider(
                     return id;
                 }
 
-                // If no title match, preserve the most recent session from the SAME workspace directory
-                fallbackWorkspaceSessionId ??= id;
+                var dir = item.TryGetProperty("directory", out var dirProp) ? dirProp.GetString() : null;
+                if (!string.IsNullOrEmpty(dir))
+                {
+                    var normalizedDir = Path.GetFullPath(dir).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant();
+                    if (normalizedDir == normalizedWorkspace)
+                    {
+                        mostRecentMatchingWorkspace ??= id;
+                    }
+                }
             }
 
-            return fallbackWorkspaceSessionId;
+            return mostRecentMatchingWorkspace ?? mostRecentOverall;
         }
         catch { }
 

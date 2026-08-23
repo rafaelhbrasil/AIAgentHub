@@ -78,7 +78,7 @@ public sealed class ClaudeCodeProvider(
         var effortArg = !string.IsNullOrWhiteSpace(context.Effort)
             ? FormatFlag("--effort", context.Effort.ToLowerInvariant())
             : string.Empty;
-        return $"--output-format text --permission-mode acceptEdits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}";
+        return $"--output-format text --permission-mode acceptEdits{modelArg}{effortArg}{sessionArg} -p \"{escapedPrompt}\"";
     }
 
     public override async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
