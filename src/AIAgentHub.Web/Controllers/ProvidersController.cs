@@ -16,9 +16,8 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
     [HttpGet("refresh-stream")]
     public async Task RefreshStream(CancellationToken cancellationToken)
     {
-        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.ContentType = "text/event-stream";
         Response.Headers.Append("Cache-Control", "no-cache, no-transform");
-        Response.Headers.Append("Connection", "keep-alive");
 
         var jsonOptions = new JsonSerializerOptions
         {
