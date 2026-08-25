@@ -293,32 +293,20 @@ release/
 
 # Commit Messages
 
-Preferred style:
+Commit messages should be clear and descriptive, explaining what was changed and why.
 
-```
-feat:
+Guidelines:
 
-fix:
-
-docs:
-
-refactor:
-
-test:
-
-build:
-
-ci:
-```
+- State the purpose of the change clearly in the first line.
+- Provide additional context or reasoning in the description when helpful.
+- Avoid vague messages like `update`, `fix`, `wip`, or `changes`.
 
 Examples:
 
-```
-feat: add provider detection
-
-fix: resolve workspace synchronization bug
-
-docs: update Product documentation
+```text
+Add provider capability detection for Antigravity CLI
+Resolve workspace synchronization bug when switching projects
+Update product documentation for version 0.1 release
 ```
 
 ---

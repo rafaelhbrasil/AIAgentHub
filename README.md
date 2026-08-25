@@ -1,365 +1,178 @@
 # AI Agent Hub
 
-AI Agent Hub is a provider-agnostic platform for AI coding assistants.
+<p align="left">
+  <img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 10" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-6.0+-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square" alt="Apache 2.0 License" />
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome" />
+</p>
 
-Instead of replacing existing AI providers, AI Agent Hub discovers, installs, configures and orchestrates them through a unified interface, allowing developers to work with multiple providers using a consistent workflow.
+> **A provider-agnostic, self-hosted platform and web interface for orchestrating AI coding assistants.**
 
-The project is designed for local and self-hosted environments, providing a secure, extensible and maintainable foundation for AI-assisted software development.
+AI Agent Hub turns standalone command-line AI coding assistants into a centralized, self-hosted development hub.
 
----
+While some AI providers offer desktop or web GUIs, they often restrict power-user features, lack advanced CLI tooling, or fail to support the full range of authentication methods available in the terminal. Conversely, raw CLI tools lock you to a single terminal window on a single machine.
 
-# License
+AI Agent Hub bridges this gap: it orchestrates official provider CLIs natively under the hood—preserving their full capability, custom tool support, and native authentication flows—while wrapping them in a modern, responsive web interface accessible from any device on your local network.
 
-AI Agent Hub is open-source software licensed under the Apache License 2.0.
-
-The software is provided "AS IS" as described in the license.
-
-Users are responsible for evaluating the risks of running AI coding agents with access to their systems and for complying with the terms of any third-party providers they use.
-
-See the [LICENSE](LICENSE) file for details.
-
----
-
-# Goals
-
-* Provide a single interface for multiple AI coding providers.
-* Support provider-specific capabilities without reducing them to a lowest common denominator.
-* Enable secure local and remote access through a web interface.
-* Keep the architecture provider-agnostic and extensible.
-* Build a long-term maintainable platform rather than a provider-specific client.
+As an evolving platform, AI Agent Hub is continuously expanding its remote development features to bridge the gap between heavy server-side execution and frictionless client-side interaction.
 
 ---
 
-# Planned Provider Support
+## ✨ Key Features
 
-Examples of supported providers include:
-
-* OpenAI Codex CLI
-* Gemini CLI
-* Claude Code
-* OpenCode
-
-Additional providers may be added in future releases.
-
----
-
-# Planned Features
-
-## Version 0.1 (MVP)
-
-* Provider discovery
-* Guided provider installation
-* Guided authentication
-* Workspace management
-* Persistent conversations
-* AI-assisted code editing
-* Side-by-side and unified file diffs
-* File preview (Markdown, images and text files)
-* MCP support
-* Skills support
-* Remote browser access
-* HTTPS support
-* Single-user authentication
-
-## Future Versions
-
-* Multi-user support
-* Workspace synchronization
-* Git integration
-* Plugin system
-* Provider SDK
-* Mobile-friendly interface
-* Advanced administration
-
-See the documentation for the complete roadmap.
+- 🌐 **Remote CLI Execution & Multi-Device Access** — Host AI agents on your main workstation or home server and interact seamlessly from any browser, laptop, or tablet on your network without installing CLIs or dependencies on client machines.
+- 🔑 **Centralized Provider Access & Shared Quota** — Configure provider credentials, authentications, and subscription quotas once on the server, allowing multiple devices across your household or lab to leverage the same AI tools without duplicate setups.
+- ⚡ **Full Native CLI Power + Modern GUI** — Leverage the complete capabilities, custom tools, and advanced authentication methods of official CLIs that provider desktop apps often omit, with the convenience of a visual interface.
+- 🔌 **Provider-Agnostic Orchestration** — Seamlessly switch between Claude Code, Gemini CLI, OpenAI Codex CLI, OpenCode, and Antigravity CLI (`agy`) using a single consistent workflow.
+- 🔍 **Visual Side-by-Side & Unified Diffs** — Review, accept, or reject AI-generated modifications with syntax-highlighted diffs, instant rollback, and pre-execution snapshot tracking.
+- 📂 **Workspace & Session Isolation** — Manage multiple projects with independent conversation logs, execution tracking, and custom per-workspace provider/model configurations.
+- 🧩 **Native Capabilities & Tool Support** — Preserves provider-specific strengths including MCP (Model Context Protocol) servers, tool use, and custom Skills without reducing them to a lowest common denominator.
 
 ---
 
-# Architecture
+## 🔌 Supported Providers
 
-AI Agent Hub follows a layered architecture based on:
+AI Agent Hub integrates natively with the official CLIs of supported providers:
 
-* Domain-Driven Design (DDD)
-* Clean Architecture
-* API-First design
-* Server-centric execution
-* Provider Adapter Pattern
+| Provider | CLI Tool | Integration Status | Capabilities |
+|---|---|---|---|
+| **Antigravity CLI** | `agy` | Supported | Multi-agent orchestration, Skills, Tools |
+| **OpenAI Codex CLI** | `codex` | Supported | Code synthesis, Multi-model selection |
+| **Gemini CLI** | `gemini` | Supported | Multimodal reasoning, Context caching |
+| **Claude Code** | `claude` | Supported | Agentic file editing, Terminal execution |
+| **OpenCode** | `opencode` | Supported | Multi-model catalogs, Local & Remote LLMs |
 
-Business logic always executes on the Server.
-
-Both local and remote users interact with the same Web UI through the public REST and SignalR (WebSocket) APIs.
-
----
-
-# Repository Structure
-
-```text
-/
-├── docs/
-├── src/
-├── tests/
-├── plugins/
-├── tools/
-├── samples/
-├── .github/
-├── LICENSE
-├── NOTICE
-├── README.md
-└── AIAgentHub.sln
-```
-
-## Repository Overview
-
-### docs/
-
-Project documentation.
-
-Includes product documentation, technical documentation, architecture decision records (ADRs), AI assistant guidance and diagrams.
+*Additional providers can be integrated via the Provider Adapter pattern without altering the core platform.*
 
 ---
 
-### src/
+## 🚀 Getting Started
 
-Production source code.
+### Prerequisites
 
-Contains all application projects and libraries.
-
----
-
-### tests/
-
-Automated tests.
-
-Includes unit tests, integration tests and future end-to-end tests.
+* [.NET 10 SDK](https://dotnet.microsoft.com/download)
+* [Node.js 18+](https://nodejs.org/) & npm (required for frontend asset builds and live development)
+* [Git](https://git-scm.com/)
+* One or more supported AI provider CLIs installed and on your system `PATH`
 
 ---
 
-### plugins/
+### Quick Launch (Standard Execution)
 
-Reserved for future plugin development.
-
----
-
-### tools/
-
-Development utilities, helper scripts and maintenance tools.
-
----
-
-### samples/
-
-Sample projects, example configurations and demonstration assets.
-
----
-
-### .github/
-
-GitHub workflows, issue templates and pull request templates.
-
----
-
-# Documentation
-
-Project documentation is organized into four major areas.
-
-```text
-docs/
-
-├── product/
-│   ├── Product.md
-│   ├── Glossary.md
-│   ├── Roadmap.md
-│   ├── Changelog.md
-│   └── releases/
-│       ├── Release-v0.1.md
-│       └── Release-v0.2.md
-│
-├── technical/
-│   ├── Architecture.md
-│   ├── DomainModel.md
-│   ├── ApiDesign.md
-│   ├── SecurityArchitecture.md
-│   ├── DevelopmentStandards.md
-│   ├── RepositoryStructure.md
-│   ├── ContributingGuide.md
-│   └── adr/
-│       ├── ADR-001-ApiFirst.md
-│       ├── ADR-002-ServerCentricArchitecture.md
-│       ├── ADR-003-WebUiAsPrimaryClient.md
-│       ├── ADR-004-ProviderAdapterPattern.md
-│       ├── ADR-005-SingleExecutableArchitecture.md
-│       ├── ADR-006-WorkspaceAbstraction.md
-│       ├── ADR-007-AuthenticationModel.md
-│       ├── ADR-008-SecurityModel.md
-│       ├── ADR-009-PersistenceStrategy.md
-│       ├── ADR-010-SignalRRealtimeArchitecture.md
-│       └── ADR-011-CryptographyAndSecrets.md
-│
-├── assistant/
-│   ├── Context.md
-│   └── Workflow.md
-│
-├── reviews/        # implementation reviews
-│
-└── diagrams/
-```
-
-Refer to the documentation inside each folder for detailed information.
-
----
-
-# Getting Started
-
-## Requirements
-
-* .NET 10 SDK
-* Node.js 18+ & npm (for frontend development and asset builds)
-* Git
-* One or more supported AI provider CLIs
-
-Additional provider-specific requirements are documented separately.
-
----
-
-## Build
+The production React frontend is pre-built into `src/AIAgentHub.Web/wwwroot`. To run the full application:
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/<your-account>/AIAgentHub.git
-
 cd AIAgentHub
 
-dotnet restore
-
-dotnet build
-```
-
----
-
-## Run
-
-### Option 1: Standard / Self-Contained Execution
-The production React frontend bundle is pre-built into `src/AIAgentHub.Web/wwwroot`. You only need to run the .NET application:
-
-```bash
+# 2. Run the application
 dotnet run --project src/AIAgentHub.Web
 ```
 
-By default, the server automatically opens the system default browser to the primary listening endpoint (`https://localhost:5432`) and displays a startup banner in the console.
+By default, the server starts on **`https://localhost:5432`** and automatically launches your default browser.
 
-To disable auto-launching the browser:
-- Pass the `--no-browser` CLI argument: `dotnet run --project src/AIAgentHub.Web -- --no-browser`
-- Or set `"OpenBrowserAtStartup": false` under `"AgentHub"` in `appsettings.json`.
-
-### Option 2: Live Frontend Development (HMR)
-If you are developing or modifying the React + TypeScript frontend and want instant hot-module reloading:
-
-1. **Install frontend dependencies (first time only, from repository root):**
-```bash
-npm install
-```
-
-2. **Start the .NET backend:**
-```bash
-dotnet run --project src/AIAgentHub.Web
-```
-
-3. **Start the Vite development server (in a separate terminal):**
-```bash
-npm run dev
-```
-
-4. **Open the live application:**
-Navigate to **`http://localhost:5173`** in your browser. The Vite dev server automatically proxies API (`/api`) and SignalR (`/hubs`) requests to `https://localhost:5432`.
-
-### NPM Workspace & Testing Scripts
-You can run all development and testing scripts directly from the repository root:
-
-- **`npm install`** — Installs all workspace dependencies (run once after cloning)
-- **`npm run dev`** — Starts the Vite dev server with Hot Module Reloading
-- **`npm run build`** — Compiles TypeScript and builds production assets into `src/AIAgentHub.Web/wwwroot/assets/`
-- **`npm test`** — Runs all fast unit tests (Frontend Vitest + .NET Unit Tests)
-- **`npm run test:frontend`** — Runs only Frontend unit tests with Vitest
-- **`npm run test:unit`** — Runs only Backend .NET unit tests (`tests/AgentHub.UnitTests`)
-- **`npm run test:integration`** — Runs Backend integration and API tests (`tests/AgentHub.IntegrationTests`)
-- **`npm run test:all`** — Runs the complete suite (Frontend + Unit + Integration)
-- **`npm run deploy`** — Publishes the web project using the publish profile (kills any active instance locking the folder)
-- **`npm run deploy:run`** — Publishes and starts the application on `http://localhost:5001`
+> **Tips:**
+> - To start without opening the browser: `dotnet run --project src/AIAgentHub.Web -- --no-browser`
+> - To specify custom ports/URLs: `dotnet run --project src/AIAgentHub.Web -- --urls "https://localhost:5001"`
 
 ---
 
-## Deploy & Publish
+### Live Frontend Development (HMR)
 
-AI Agent Hub can be published as a self-contained, single-file bundle using the configured publish profile ([`FolderProfile.pubxml`](src/AIAgentHub.Web/Properties/PublishProfiles/FolderProfile.pubxml)).
+If you are developing or modifying the React + TypeScript frontend and want instant Hot Module Reloading (HMR):
 
-### Option 1: Automated Deployment Script (Recommended)
-Run the cross-platform deployment script from the repository root:
+1. **Install workspace dependencies (first time only):**
+   ```bash
+   npm install
+   ```
+
+2. **Start the backend server:**
+   ```bash
+   dotnet run --project src/AIAgentHub.Web
+   ```
+
+3. **Start the Vite development server in a separate terminal:**
+   ```bash
+   npm run dev
+   ```
+
+4. Open **`http://localhost:5173`** in your browser. Vite automatically proxies API requests (`/api`) and SignalR hubs (`/hubs`) to the .NET backend at `https://localhost:5432`.
+
+---
+
+## 🛠️ Workspace & Testing Scripts
+
+Common development, testing, and deployment commands can be run directly from the repository root:
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start Vite dev server with Hot Module Reloading (HMR) |
+| `npm run build` | Compile TypeScript and build production assets into `wwwroot/assets/` |
+| `npm test` | Run all fast unit tests (Frontend Vitest + .NET Unit Tests) |
+| `npm run test:frontend` | Run frontend unit tests with Vitest |
+| `npm run test:unit` | Run backend .NET unit tests (`tests/AgentHub.UnitTests`) |
+| `npm run test:integration` | Run backend integration and API tests (`tests/AgentHub.IntegrationTests`) |
+| `npm run test:all` | Run the complete test suite (Frontend + Unit + Integration) |
+| `npm run deploy` | Publish self-contained executable bundle using `FolderProfile` |
+| `npm run deploy:run` | Publish and immediately start the application on `http://localhost:5001` |
+
+---
+
+## 📦 Deployment & Publishing
+
+AI Agent Hub can be published as a self-contained, single-file bundle using the cross-platform deployment script or the .NET CLI.
+
+### Automated Deployment Script (Recommended)
 
 ```bash
-# Publish using FolderProfile (releases any file locks from running instances)
+# Publish using FolderProfile (releases any active file locks automatically)
 npm run deploy
 
-# Publish and immediately run the app on http://localhost:5001
+# Publish and run immediately on http://localhost:5001
 npm run deploy:run
 
-# Publish and create a zip archive with SHA512 checksum in bin/Release/archive/
+# Publish and generate a zipped distribution archive with SHA512 checksum
 npm run deploy -- --zip
-
-# Publish, zip, and run the app on custom port
-npm run deploy -- --zip --run --port 5050
 ```
 
-### Option 2: .NET CLI
-Deploy manually with the `dotnet` CLI:
+### Manual .NET CLI Publish
 
 ```bash
 dotnet publish src/AIAgentHub.Web/AIAgentHub.Web.csproj /p:PublishProfile=FolderProfile
 ```
 
-### Option 3: Visual Studio
-Open `AIAgentHub.slnx` in Visual Studio, right-click the **`AIAgentHub.Web`** project in Solution Explorer, select **Publish...**, and click **Publish** with `FolderProfile`.
+---
+
+## 📖 Documentation
+
+Comprehensive architecture, product specifications, and development guidelines are available in [`docs/`](docs/):
+
+| Area | Document | Description |
+|---|---|---|
+| **Architecture** | [Architecture Guide](docs/technical/Architecture.md) | Layered DDD & Clean Architecture, Server-centric execution, and Provider Adapters |
+| **Architecture** | [ADR Index](docs/technical/adr/) | Architecture Decision Records (ADR-001 through ADR-011) |
+| **Product** | [Product Specification](docs/product/Product.md) | Vision, problem statement, core concepts, and product scope |
+| **Product** | [Roadmap](docs/product/Roadmap.md) | Phased product evolution (v0.1 Foundation to Enterprise) |
+| **Product** | [Changelog](docs/product/Changelog.md) | Release history, version notes, and migration guidance |
+| **Security** | [Security Architecture](docs/technical/SecurityArchitecture.md) | Authentication model, credential encryption, and network security |
+| **API** | [API Design](docs/technical/ApiDesign.md) | REST API endpoints and SignalR real-time event schemas |
+| **Engineering** | [Development Standards](docs/technical/DevelopmentStandards.md) | Coding conventions, async rules, and engineering best practices |
+| **Engineering** | [Repository Structure](docs/technical/RepositoryStructure.md) | Solution layout, directory guidelines, and naming conventions |
 
 ---
 
-# Development
+## 🤝 Contributing
 
-Before contributing, please read:
-
-* Product documentation
-* Technical documentation
-* Architecture Decision Records (ADRs)
-
-Development standards and project conventions are documented under:
-
-```text
-docs/technical/
-```
-
-Guidance for AI assistants is available under:
-
-```text
-docs/assistant/
-```
+Contributions are welcome! Please check out [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on development standards, testing, and submitting pull requests.
 
 ---
 
-# Contributing
+## 📄 License
 
-Contributions are welcome.
+AI Agent Hub is open-source software licensed under the **[Apache License 2.0](LICENSE)**.
 
-Before opening a Pull Request:
-
-* Ensure the solution builds successfully.
-* Ensure tests pass.
-* Follow the project's development standards.
-* Update documentation when required.
-* Respect accepted Architecture Decision Records (ADRs).
-
----
-
-# Roadmap
-
-The current roadmap is maintained in:
-
-```text
-docs/product/Roadmap.md
-```
+The software is provided "AS IS". Users are responsible for evaluating the security and permissions of AI coding agents running on their systems and complying with the respective third-party provider terms of service.

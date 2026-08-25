@@ -117,38 +117,20 @@ docs/update-roadmap
 
 # Commit Messages
 
-Commit messages should follow Conventional Commits.
+Commit messages should be clear and descriptive, explaining what was changed and why.
+
+Guidelines:
+
+- Summarize the main change clearly in the first line.
+- Provide additional context or rationale in the commit description if the change is non-trivial.
+- Keep messages informative so contributors can easily understand the project history.
 
 Examples:
 
-```
-feat:
-
-fix:
-
-docs:
-
-refactor:
-
-perf:
-
-test:
-
-build:
-
-ci:
-
-chore:
-```
-
-Examples:
-
-```
-feat: add provider capability detection
-
-fix: resolve workspace loading issue
-
-docs: update Product documentation
+```text
+Add provider capability detection for Antigravity CLI
+Fix workspace loading issue when switching projects
+Update product documentation for version 0.1 release
 ```
 
 ---
