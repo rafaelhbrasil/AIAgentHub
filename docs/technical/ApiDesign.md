@@ -98,6 +98,7 @@ Version changes should avoid breaking existing clients whenever practical.
 # Authentication
 
 Authentication is required for every endpoint except those explicitly documented as anonymous.
+Unauthenticated requests to API (`/api/*`) and real-time (`/hubs/*`) endpoints are rejected with `401 Unauthorized`. Direct browser requests to protected page routes redirect to `/`.
 
 Future authentication mechanisms may include:
 

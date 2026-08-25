@@ -164,6 +164,9 @@ Authorization is enforced by default across the entire application:
 * ASP.NET Core `FallbackPolicy` requires an authenticated user for all endpoints and SignalR Hub connections.
 * Only explicitly designated initialization and authentication endpoints are annotated with `[AllowAnonymous]`.
 * Direct controller actions and SignalR groups are protected from unauthenticated access.
+* **Unauthenticated Request Handling**:
+  * **Browser Navigation (Page Requests)**: Direct browser GET requests for UI routes (accepting `text/html` outside of `/api/` and `/hubs/`) redirect (`HTTP 302`) to the root page (`/`) where the Sign In view or Setup Wizard is rendered.
+  * **Non-Page Requests (API & Real-Time)**: All API endpoints (`/api/*`), SignalR hub connections (`/hubs/*`), and non-HTML requests are rejected immediately with `HTTP 401 Unauthorized` without redirecting, allowing API clients and SignalR connection handlers to detect authentication state.
 
 Future versions may introduce:
 

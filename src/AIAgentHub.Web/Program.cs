@@ -6,6 +6,7 @@ using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Web;
+using AIAgentHub.Web.Startup;
 
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
@@ -172,6 +173,11 @@ _ = !string.IsNullOrEmpty(resolvedWebRoot) && File.Exists(Path.Combine(resolvedW
         await context.Response.SendFileAsync(Path.Combine(resolvedWebRoot, "index.html"));
     })
     : app.MapFallbackToFile("index.html");
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    StartupLifecycleHelper.OnApplicationStarted(app.Services, args, builder.Configuration, app.Environment);
+});
 
 app.Run();
 

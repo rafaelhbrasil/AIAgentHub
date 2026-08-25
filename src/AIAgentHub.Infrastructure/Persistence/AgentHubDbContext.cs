@@ -10,6 +10,7 @@ using AIAgentHub.Domain.Skills;
 using AIAgentHub.Domain.Workspaces;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace AIAgentHub.Infrastructure.Persistence;
 
@@ -33,6 +34,16 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
     {
         base.OnModelCreating(modelBuilder);
 
+        var stringListComparer = new ValueComparer<List<string>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList());
+
+        var stringDictComparer = new ValueComparer<Dictionary<string, string>>(
+            (d1, d2) => (d1 == null && d2 == null) || (d1 != null && d2 != null && d1.Count == d2.Count && !d1.Except(d2).Any()),
+            d => d.Aggregate(0, (a, p) => HashCode.Combine(a, p.Key.GetHashCode(), p.Value.GetHashCode())),
+            d => new Dictionary<string, string>(d));
+
         // Workspace
         _ = modelBuilder.Entity<Workspace>(b =>
         {
@@ -48,7 +59,8 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
                 _ = sb.Property(s => s.IgnoredFiles)
                     .HasConversion(
                         v => string.Join(';', v),
-                        v => v.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList());
+                        v => v.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList(),
+                        stringListComparer);
             });
 
             _ = b.HasMany(w => w.Conversations)
@@ -129,7 +141,8 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
             _ = b.Property(s => s.SelectedInterfaces)
                 .HasConversion(
                     v => string.Join(';', v),
-                    v => v.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList());
+                    v => v.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList(),
+                    stringListComparer);
         });
 
         // EncryptedSecret
@@ -159,7 +172,8 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
             _ = b.Property(m => m.EnvironmentVariables)
                 .HasConversion(
                     v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null) ?? new());
+                    v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null) ?? new(),
+                    stringDictComparer);
         });
 
         // PermissionRequest

@@ -11,17 +11,29 @@ const rootDir = path.resolve(__dirname, '..');
 
 const args = process.argv.slice(2);
 let run = false;
+let foreground = false;
 let port = '5001';
+let protocol = 'https';
 let profile = 'FolderProfile';
 
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === '-r' || arg === '--run') {
     run = true;
+  } else if (arg === '-f' || arg === '--foreground') {
+    foreground = true;
   } else if (arg === '-p' || arg === '--port') {
     port = args[++i] || '5001';
   } else if (arg.startsWith('--port=')) {
     port = arg.split('=')[1] || '5001';
+  } else if (arg === '--protocol') {
+    protocol = (args[++i] || 'https').toLowerCase();
+  } else if (arg.startsWith('--protocol=')) {
+    protocol = (arg.split('=')[1] || 'https').toLowerCase();
+  } else if (arg === '--http') {
+    protocol = 'http';
+  } else if (arg === '--https') {
+    protocol = 'https';
   } else if (arg === '--profile') {
     profile = args[++i] || 'FolderProfile';
   } else if (arg.startsWith('--profile=')) {
@@ -35,10 +47,14 @@ Usage:
   npm run deploy [-- [options]]
 
 Options:
-  -r, --run          Run the application after publishing
-  -p, --port <port>  Port to bind when running (default: 5001)
-  --profile <name>   Publish profile name (default: FolderProfile)
-  -h, --help         Show this help message
+  -r, --run                Run the application after publishing (detached background by default)
+  -f, --foreground         Run the application attached in foreground
+  -p, --port <port>        Port to bind when running (default: 5001)
+  --protocol <http|https>  Default protocol (default: https)
+  --http                   Shortcut for --protocol http
+  --https                  Shortcut for --protocol https
+  --profile <name>         Publish profile name (default: FolderProfile)
+  -h, --help               Show this help message
 `);
     process.exit(0);
   }
@@ -79,7 +95,7 @@ if (fs.existsSync(targetPublishDir)) {
       }
       console.log('✓ Terminated running application process to release file locks.');
       // Give OS brief moment to release locks
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
     } catch {
       // Process was not running, nothing to kill
     }
@@ -113,10 +129,6 @@ console.log(`\n✅ Publish succeeded -> ${targetPublishDir}`);
 
 // 4. Optionally run the published app
 if (run) {
-  const url = `http://localhost:${port}`;
-  console.log(`\n▶️  Starting application on ${url}...`);
-
-  let exePath = '';
   let cmd = '';
   let cmdArgs = [];
 
@@ -126,24 +138,69 @@ if (run) {
 
   if (process.platform === 'win32' && fs.existsSync(winExe)) {
     cmd = winExe;
-    cmdArgs = ['--urls', url];
   } else if (fs.existsSync(unixBin)) {
     cmd = unixBin;
-    cmdArgs = ['--urls', url];
   } else if (fs.existsSync(dllPath)) {
     cmd = 'dotnet';
-    cmdArgs = [dllPath, '--urls', url];
+    cmdArgs = [dllPath];
   } else {
     console.error('❌ Could not locate runnable binary in publish folder.');
     process.exit(1);
   }
 
-  const child = spawn(cmd, cmdArgs, {
-    stdio: 'inherit',
-    cwd: targetPublishDir,
-  });
+  if (protocol === 'http') {
+    cmdArgs = [...cmdArgs, '--urls', `http://0.0.0.0:${port}`];
+    console.log(`\n▶️  Starting application on HTTP http://0.0.0.0:${port}...`);
+  } else {
+    // Default HTTPS on port with HTTP fallback on port + 1
+    cmdArgs = [...cmdArgs, '--port', port];
+    const httpsUrl = `https://0.0.0.0:${port}`;
+    const httpUrl = `http://0.0.0.0:${Number(port) + 1}`;
+    console.log(`\n▶️  Starting application on ${httpsUrl} (HTTP fallback: ${httpUrl})...`);
+  }
 
-  child.on('exit', (code) => {
-    process.exit(code ?? 0);
-  });
+  if (foreground) {
+    const child = spawn(cmd, cmdArgs, {
+      stdio: 'inherit',
+      cwd: targetPublishDir,
+    });
+
+    child.on('exit', (code) => {
+      process.exit(code ?? 0);
+    });
+  } else {
+    const child = spawn(cmd, cmdArgs, {
+      detached: true,
+      stdio: 'ignore',
+      cwd: targetPublishDir,
+      windowsHide: true,
+    });
+
+    child.unref();
+
+    // Verify process is alive
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+
+    let isAlive = false;
+    try {
+      process.kill(child.pid, 0);
+      isAlive = true;
+    } catch {
+      isAlive = false;
+    }
+
+    if (isAlive) {
+      console.log(`\n✅ AI Agent Hub is running in the background (PID: ${child.pid})`);
+      if (protocol === 'http') {
+        console.log(`🌐 HTTP:  http://localhost:${port}`);
+      } else {
+        console.log(`🔒 HTTPS: https://localhost:${port} (Default)`);
+        console.log(`🌐 HTTP:  http://localhost:${Number(port) + 1}`);
+      }
+      process.exit(0);
+    } else {
+      console.error(`\n❌ Failed to start application process (PID: ${child.pid}).`);
+      process.exit(1);
+    }
+  }
 }

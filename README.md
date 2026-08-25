@@ -244,7 +244,11 @@ The production React frontend bundle is pre-built into `src/AIAgentHub.Web/wwwro
 dotnet run --project src/AIAgentHub.Web
 ```
 
-Open **`https://localhost:5432`** in your browser.
+By default, the server automatically opens the system default browser to the primary listening endpoint (`https://localhost:5432`) and displays a startup banner in the console.
+
+To disable auto-launching the browser:
+- Pass the `--no-browser` CLI argument: `dotnet run --project src/AIAgentHub.Web -- --no-browser`
+- Or set `"OpenBrowserAtStartup": false` under `"AgentHub"` in `appsettings.json`.
 
 ### Option 2: Live Frontend Development (HMR)
 If you are developing or modifying the React + TypeScript frontend and want instant hot-module reloading:

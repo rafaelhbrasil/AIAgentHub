@@ -142,7 +142,8 @@ public sealed class UserAccountRepository(AgentHubDbContext context) : IUserAcco
 {
     private readonly AgentHubDbContext _context = context;
 
-    public async Task<UserAccount?> GetAdminAsync(CancellationToken cancellationToken = default) => await _context.Users.FirstOrDefaultAsync(cancellationToken);
+    public async Task<UserAccount?> GetAdminAsync(CancellationToken cancellationToken = default) =>
+        await _context.Users.OrderBy(u => u.Id).FirstOrDefaultAsync(cancellationToken);
 
     public async Task AddAsync(UserAccount account, CancellationToken cancellationToken = default)
     {
@@ -169,7 +170,7 @@ public sealed class ServerSettingsRepository(AgentHubDbContext context) : IServe
 
     public async Task<ServerSettings> GetAsync(CancellationToken cancellationToken = default)
     {
-        var settings = await _context.ServerSettings.FirstOrDefaultAsync(cancellationToken);
+        var settings = await _context.ServerSettings.OrderBy(s => s.Id).FirstOrDefaultAsync(cancellationToken);
         if (settings == null)
         {
             settings = new ServerSettings

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../services/apiClient';
+import { apiFetch, setUnauthorizedHandler } from '../services/apiClient';
 import { SetupStatusResponse, AuthSessionResponse } from '../types/api';
+import { getSafeReturnUrl } from '../utils/urlRouting';
 
 interface AuthContextType {
   isSetupCompleted: boolean;
@@ -83,6 +84,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     await apiFetch('/api/v1/auth/logout', { method: 'POST' });
     setIsAuthenticated(false);
+    window.history.replaceState({}, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setIsAuthenticated(false);
+      const currentPath = window.location.pathname + window.location.search;
+      const safeUrl = getSafeReturnUrl(currentPath);
+      if (safeUrl && safeUrl !== '/' && !window.location.search.includes('returnUrl=')) {
+        window.history.replaceState({}, '', `/login?returnUrl=${encodeURIComponent(safeUrl)}`);
+      }
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   useEffect(() => {

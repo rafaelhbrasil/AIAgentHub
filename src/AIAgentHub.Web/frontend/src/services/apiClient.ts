@@ -2,6 +2,13 @@ import { ApiResponse } from '../types/api';
 
 export type ApiFetchOptions = Omit<RequestInit, 'body'> & { body?: any };
 
+type UnauthorizedHandler = () => void;
+let onUnauthorizedCallback: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  onUnauthorizedCallback = handler;
+}
+
 export async function apiFetch<T = any>(url: string, options: ApiFetchOptions = {}): Promise<ApiResponse<T>> {
   const fetchOptions: RequestInit = {
     ...options,
@@ -22,6 +29,9 @@ export async function apiFetch<T = any>(url: string, options: ApiFetchOptions = 
   try {
     const res = await fetch(url, fetchOptions);
     if (res.status === 401 && !url.includes('/auth/')) {
+      if (onUnauthorizedCallback) {
+        onUnauthorizedCallback();
+      }
       return { ok: false, status: 401, error: 'Unauthorized' };
     }
     const data = await res.json().catch(() => undefined);

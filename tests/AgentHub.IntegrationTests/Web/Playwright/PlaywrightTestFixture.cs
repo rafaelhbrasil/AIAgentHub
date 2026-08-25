@@ -179,7 +179,7 @@ public class PlaywrightTestFixture : IAsyncLifetime
             var setupService = scope.ServiceProvider.GetRequiredService<ISetupService>();
             if (!await setupService.IsSetupCompletedAsync())
             {
-                _ = await setupService.InitializeAdminAsync("admin", "123123123123", "123123123123");
+                _ = await setupService.InitializeAdminAsync("admin", "123456", "123456");
             }
         }
 
@@ -253,7 +253,7 @@ public static class PlaywrightTestHelper
             if (await loginInput.IsVisibleAsync())
             {
                 await page.FillAsync("#loginUsername", "admin");
-                await page.FillAsync("#loginPassword", "123123123123");
+                await page.FillAsync("#loginPassword", "123456");
                 await page.ClickAsync("#loginSubmitBtn");
                 _ = await page.WaitForSelectorAsync("[data-tab=\"dashboard\"]", new PageWaitForSelectorOptions { Timeout = 10000 });
                 return;
