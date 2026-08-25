@@ -68,15 +68,15 @@ To ensure users know where to access the application even when the logging confi
   ```text
   ==============================================================
     AI Agent Hub is running!
-    ➜ Local:    https://localhost:5432
-    ➜ Fallback: http://localhost:5433
+    -> Local:    https://localhost:5432
+    -> Fallback: http://localhost:5433
   ==============================================================
   ```
 - If only a single URL is active (e.g., HTTP only on port 5001):
   ```text
   ==============================================================
     AI Agent Hub is running!
-    ➜ Local:    http://localhost:5001
+    -> Local:    http://localhost:5001
   ==============================================================
   ```
 

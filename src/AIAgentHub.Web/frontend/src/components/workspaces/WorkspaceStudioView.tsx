@@ -335,7 +335,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         }}
       />,
       undefined,
-      'xl'
+      'full'
     );
   };
 

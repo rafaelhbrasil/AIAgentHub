@@ -89,14 +89,14 @@ public static class StartupLifecycleHelper
         var primary = SelectPrimaryBrowserUrl(urlList);
         if (primary != null)
         {
-            sb.AppendLine($"  ➜ Local:    {primary}");
+            sb.AppendLine($"  -> Local:    {primary}");
         }
 
         foreach (var url in urlList)
         {
             if (!string.Equals(url, primary, StringComparison.OrdinalIgnoreCase))
             {
-                sb.AppendLine($"  ➜ Fallback: {url}");
+                sb.AppendLine($"  -> Fallback: {url}");
             }
         }
 

@@ -1755,12 +1755,32 @@ select option, .form-select option {
     font-size: 0.78rem;
   }
 
+  .app-root {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px;
+  }
+
   .studio-root {
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - 74px);
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: hidden;
-    gap: 6px;
+    gap: 4px;
   }
 
   .studio-mobile-nav {
@@ -2182,10 +2202,40 @@ select option, .form-select option {
   text-decoration: underline;
 }
 
-/* Responsive Diff Comparison on Mobile & Tablet */
+/* Diff Word Wrap & Typography */
+.diff-wrap-enabled .diff-line {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  overflow-wrap: anywhere !important;
+}
+
+.diff-wrap-enabled .diff-line-text {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  overflow-wrap: anywhere !important;
+}
+
+.diff-nowrap .diff-line-text {
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-x: auto !important;
+}
+
+.diff-side-by-side.single-pane {
+  grid-template-columns: 1fr !important;
+}
+
+.diff-side-by-side.single-pane .diff-pane {
+  max-height: none !important;
+  height: 100% !important;
+  border-right: none !important;
+}
+
+/* Responsive Diff Comparison & Fullscreen Modal on Mobile & Tablet */
 @media (max-width: 768px) {
   .modal-overlay {
     padding: 0 !important;
+    margin: 0 !important;
     align-items: stretch !important;
     justify-content: stretch !important;
     overscroll-behavior: contain !important;
@@ -2197,17 +2247,25 @@ select option, .form-select option {
   .modal-box.modal-lg,
   .modal-box.modal-xl,
   .modal-box.modal-full {
+    position: fixed !important;
+    inset: 0 !important;
     width: 100vw !important;
-    max-width: 100vw !important;
-    min-height: 100dvh !important;
     height: 100dvh !important;
+    max-width: 100vw !important;
     max-height: 100dvh !important;
+    min-height: 100dvh !important;
     margin: 0 !important;
     border-radius: 0 !important;
     border: none !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
+    z-index: 9999 !important;
+  }
+
+  .modal-header {
+    flex-shrink: 0 !important;
+    padding: 8px 12px !important;
   }
 
   .modal-body {
@@ -2216,8 +2274,16 @@ select option, .form-select option {
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
     touch-action: pan-y !important;
-    max-height: calc(100dvh - 120px) !important;
-    padding: 12px 10px !important;
+    max-height: none !important;
+    padding: 8px 10px !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .modal-footer {
+    flex-shrink: 0 !important;
+    padding: 8px 12px !important;
   }
 
   .diff-modal-body {
@@ -2230,20 +2296,63 @@ select option, .form-select option {
 
   .diff-viewer-scroll-container {
     flex: 1 1 auto !important;
-    max-height: calc(100dvh - 200px) !important;
+    max-height: none !important;
+    height: 100% !important;
+    min-height: 0 !important;
     overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y pan-x !important;
+    margin-bottom: 8px !important;
   }
 
   .diff-side-by-side {
     grid-template-columns: 1fr !important;
-    gap: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    height: 100% !important;
+  }
+
+  .diff-side-by-side.single-pane .diff-pane {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+  }
+
+  .diff-side-by-side.mobile-sub-modified .diff-pane-original {
+    display: none !important;
+  }
+
+  .diff-side-by-side.mobile-sub-modified .diff-pane-modified {
+    display: block !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: none !important;
+    border: none !important;
+  }
+
+  .diff-side-by-side.mobile-sub-original .diff-pane-modified {
+    display: none !important;
+  }
+
+  .diff-side-by-side.mobile-sub-original .diff-pane-original {
+    display: block !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: none !important;
+    border: none !important;
+  }
+
+  .diff-side-by-side.mobile-sub-split .diff-pane {
+    flex: 1 1 50% !important;
+    max-height: 50% !important;
+    height: 50% !important;
   }
 
   .diff-pane {
     min-width: 100% !important;
-    max-height: 38dvh !important;
     border-right: none !important;
     border-bottom: 1px solid var(--border-color) !important;
     padding: 8px 6px !important;
