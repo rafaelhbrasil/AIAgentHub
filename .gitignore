@@ -366,3 +366,6 @@ FodyWeavers.xsd
 
 # Playwright MCP screenshots and logs
 .playwright-mcp/
+
+# Superpowers temporary brainstorm & planning artifacts
+docs/superpowers/

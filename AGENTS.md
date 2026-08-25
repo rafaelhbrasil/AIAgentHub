@@ -19,3 +19,7 @@
 - Never create git commits automatically after making changes unless:
   1. The user explicitly requests a commit (e.g., `/git-commit`, "commit this", etc.).
   2. The skill currently being executed contains an explicit commit step in its workflow.
+
+## Documentation & Superpowers Artifacts
+- The `docs/superpowers/` folder contains ephemeral session plans and brainstorming design specs.
+- It is strictly ignored via `.gitignore` and must NEVER be staged, tracked, or committed to Git.
