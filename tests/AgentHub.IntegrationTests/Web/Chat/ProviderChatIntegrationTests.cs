@@ -32,6 +32,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
     [InlineData("codex")]
     [InlineData("gemini")]
     [InlineData("opencode")]
+    [InlineData("copilot")]
     public async Task MultiTurnChat_PerProvider_MaintainsSessionContinuity(string providerId)
     {
         var client = await SetupAndAuthenticateClientAsync();

@@ -36,12 +36,13 @@ public sealed class ProvidersIntegrationTests : IClassFixture<CustomWebApplicati
         Assert.NotNull(providers);
         Assert.NotEmpty(providers);
 
-        // Verify all 5 providers exist
+        // Verify all 6 providers exist
         Assert.Contains(providers, p => p.Id == "antigravity");
         Assert.Contains(providers, p => p.Id == "claude");
         Assert.Contains(providers, p => p.Id == "codex");
         Assert.Contains(providers, p => p.Id == "gemini");
         Assert.Contains(providers, p => p.Id == "opencode");
+        Assert.Contains(providers, p => p.Id == "copilot");
 
         // 2. Second Call (must be fast and read from cache)
         var sw = System.Diagnostics.Stopwatch.StartNew();

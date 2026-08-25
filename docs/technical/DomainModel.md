@@ -139,6 +139,7 @@ Examples include:
 * OpenAI Codex CLI
 * Claude Code
 * OpenCode
+* GitHub Copilot CLI
 
 Providers are replaceable and isolated behind a common abstraction.
 

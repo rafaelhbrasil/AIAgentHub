@@ -924,6 +924,79 @@ body {
   color: var(--text-muted);
 }
 
+/* Markdown Content Rendering within Messages & Modals */
+.markdown-rendered {
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.markdown-rendered p {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-rendered p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-rendered ol,
+.markdown-rendered ul {
+  padding-left: 1.85rem;
+  margin: 0.5rem 0 0.75rem 0;
+}
+
+.markdown-rendered ol:last-child,
+.markdown-rendered ul:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-rendered li {
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+}
+
+.markdown-rendered ol {
+  list-style-type: decimal;
+}
+
+.markdown-rendered ul {
+  list-style-type: disc;
+}
+
+.markdown-rendered pre {
+  margin: 0.5rem 0;
+  border-radius: var(--radius-sm);
+}
+
+.markdown-rendered code {
+  font-family: var(--font-mono);
+}
+
+.markdown-rendered blockquote {
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 12px;
+  margin: 0.5rem 0;
+  color: var(--text-muted);
+}
+
+.markdown-rendered table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.markdown-rendered th,
+.markdown-rendered td {
+  border: 1px solid var(--border-color);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.markdown-rendered th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+}
+
 /* Chat Input Bar with Auto-growing Textarea & Round Send Button */
 .chat-input-bar {
   padding: 10px 12px;

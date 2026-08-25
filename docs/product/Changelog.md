@@ -57,6 +57,7 @@ Security-related improvements.
 
 ## Added
 
+- **GitHub Copilot Provider**: Added official GitHub Copilot CLI (`@github/copilot`, `copilot`) integration with dynamic CLI model discovery, authentication probe testing, and multi-turn session persistence.
 - **Reasoning Effort Control**: Added model reasoning effort / thinking level configuration (`low`, `medium`, `high`, `max`) mapped to provider CLI flags (`--effort` for Antigravity, `--variant` for OpenCode) and exposed via UI header dropdown.
 - **Dynamic CLI Model Discovery & Caching**: Added dynamic model listing from CLI (`opencode models`) with fallback catalogs, model caching, and forced refresh support (`GET /api/v1/providers/{id}/models?refresh=true`).
 - **Provider Status Monitoring**: Added real-time detailed provider status endpoint (`GET /api/v1/providers/{id}/status?refresh=true`) with enum status indicators (`Ready`, `NotInstalled`, `Unauthenticated`, `QuotaExceeded`, `Error`, `Running`).

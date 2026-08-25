@@ -36,6 +36,7 @@ public sealed class LiveProviderChatIntegrationTests : IClassFixture<LiveProvide
     [InlineData("codex")]
     [InlineData("gemini")]
     [InlineData("opencode")]
+    [InlineData("copilot")]
     public async Task LiveProvider_TwoTurnMemoryRecall_MaintainsSessionContinuity(string providerId)
     {
         // 1. Verify Provider Availability & Dynamic Skip if not installed or unauthenticated

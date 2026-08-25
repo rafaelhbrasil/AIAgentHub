@@ -39,7 +39,8 @@ IProvider
 ├── CodexProvider
 ├── GeminiProvider
 ├── ClaudeProvider
-└── OpenCodeProvider
+├── OpenCodeProvider
+└── GitHubCopilotProvider
 ```
 
 ---

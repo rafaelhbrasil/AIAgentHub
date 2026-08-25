@@ -102,6 +102,7 @@ public static class DependencyInjection
         _ = services.AddSingleton<IProvider, CodexCliProvider>();
         _ = services.AddSingleton<IProvider, ClaudeCodeProvider>();
         _ = services.AddSingleton<IProvider, OpenCodeProvider>();
+        _ = services.AddSingleton<IProvider, GitHubCopilotProvider>();
         _ = services.AddSingleton<IProviderManager>(sp => new ProviderManager(
             sp.GetServices<IProvider>(),
             () => sp.CreateScope().ServiceProvider.GetRequiredService<IProviderModelSettingRepository>(),

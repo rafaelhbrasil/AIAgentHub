@@ -142,6 +142,7 @@ Provider-specific CLI argument formatting:
 - **Claude Code**: `--output-format text --permission-mode acceptEdits -p "<prompt>"` with optional `--model`, `--effort`, `--session-id` (initial message) and `--resume` (subsequent messages).
 - **OpenAI Codex CLI**: `exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<prompt>"` (or `exec resume ... <session-id> "<prompt>"` on subsequent turns), with optional `--model` and `-c model_reasoning_effort=<effort>`.
 - **OpenCode**: `run --dir "<workspace>" --auto "<prompt>"` with optional `--model`, `--variant`, `--session`.
+- **GitHub Copilot**: `--output-format text --silent --allow-all-tools --add-dir "<workspace>"` with optional `--model`, `--session-id` (initial message) and `--resume` (subsequent messages).
 
 Examples:
 
@@ -150,12 +151,13 @@ Examples:
 - ClaudeProvider
 - OpenCodeProvider
 - AntigravityProvider
+- GitHubCopilotProvider
 
 The remainder of the application communicates only through abstractions.
 
 ---
 
-## Background Services
+# Background Services
 
 Responsible for long-running operations.
 
@@ -245,7 +247,8 @@ IProvider
 ├── CodexProvider
 ├── GeminiProvider
 ├── ClaudeProvider
-└── OpenCodeProvider
+├── OpenCodeProvider
+└── GitHubCopilotProvider
 ```
 
 The remainder of the application remains provider-independent.
