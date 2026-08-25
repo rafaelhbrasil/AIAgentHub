@@ -301,8 +301,11 @@ npm run deploy
 # Publish and immediately run the app on http://localhost:5001
 npm run deploy:run
 
-# Publish and run on a custom port
-npm run deploy -- --run --port 5050
+# Publish and create a zip archive with SHA512 checksum in bin/Release/archive/
+npm run deploy -- --zip
+
+# Publish, zip, and run the app on custom port
+npm run deploy -- --zip --run --port 5050
 ```
 
 ### Option 2: .NET CLI

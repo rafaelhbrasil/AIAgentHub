@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync, spawn, spawnSync } from 'node:child_process';
+import { ZipArchive } from 'archiver';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,9 @@ const rootDir = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
 let run = false;
 let foreground = false;
+let zip = false;
+let archiveDir = null;
+let zipName = 'AIAgentHub.zip';
 let port = '5001';
 let protocol = 'https';
 let profile = 'FolderProfile';
@@ -22,6 +26,16 @@ for (let i = 0; i < args.length; i++) {
     run = true;
   } else if (arg === '-f' || arg === '--foreground') {
     foreground = true;
+  } else if (arg === '-z' || arg === '--zip') {
+    zip = true;
+  } else if (arg === '--archive-dir') {
+    archiveDir = args[++i] || null;
+  } else if (arg.startsWith('--archive-dir=')) {
+    archiveDir = arg.split('=')[1] || null;
+  } else if (arg === '--zip-name') {
+    zipName = args[++i] || 'AIAgentHub.zip';
+  } else if (arg.startsWith('--zip-name=')) {
+    zipName = arg.split('=')[1] || 'AIAgentHub.zip';
   } else if (arg === '-p' || arg === '--port') {
     port = args[++i] || '5001';
   } else if (arg.startsWith('--port=')) {
@@ -49,6 +63,9 @@ Usage:
 Options:
   -r, --run                Run the application after publishing (detached background by default)
   -f, --foreground         Run the application attached in foreground
+  -z, --zip                Package published files into a zip archive and compute SHA512
+  --archive-dir <path>     Directory to save zip and checksum (default: <publishParent>/archive)
+  --zip-name <filename>    Custom zip filename (default: AIAgentHub.zip)
   -p, --port <port>        Port to bind when running (default: 5001)
   --protocol <http|https>  Default protocol (default: https)
   --http                   Shortcut for --protocol http
@@ -82,28 +99,62 @@ const targetPublishDir = path.isAbsolute(publishUrl)
 
 console.log(`📁 Target publish directory: ${targetPublishDir}`);
 
-// 2. Check if target directory has existing content and stop locking processes
+// 2. Clean target directory before publishing
 if (fs.existsSync(targetPublishDir)) {
-  const contents = fs.readdirSync(targetPublishDir);
-  if (contents.length > 0) {
-    console.log('🔍 Checking for running instances locking the publish directory...');
+  try {
+    fs.rmSync(targetPublishDir, { recursive: true, force: true });
+  } catch {
+    console.log('🔍 Releasing locking processes for publish directory...');
     try {
       if (process.platform === 'win32') {
-        execSync('taskkill /F /IM AIAgentHub.Web.exe /T', { stdio: 'ignore' });
+        execSync(`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'AIAgentHub.Web.exe'\\" | Where-Object { \\$_.ExecutablePath -like '*publish*' } | ForEach-Object { Stop-Process -Id \\$_.ProcessId -Force }"`, { stdio: 'ignore' });
       } else {
         execSync('pkill -f AIAgentHub.Web', { stdio: 'ignore' });
       }
-      console.log('✓ Terminated running application process to release file locks.');
-      // Give OS brief moment to release locks
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
-    } catch {
-      // Process was not running, nothing to kill
-    }
-
-    try {
       fs.rmSync(targetPublishDir, { recursive: true, force: true });
     } catch { }
   }
+}
+
+function createZipArchive(sourceDir, zipFilePath) {
+  const archiveDir = path.dirname(zipFilePath);
+  if (!fs.existsSync(archiveDir)) {
+    fs.mkdirSync(archiveDir, { recursive: true });
+  }
+
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipFilePath);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+
+    output.on('close', () => {
+      resolve();
+    });
+
+    archive.on('warning', (err) => {
+      if (err.code === 'ENOENT') {
+        console.warn('⚠️ Archiver warning:', err);
+      } else {
+        reject(err);
+      }
+    });
+
+    archive.on('error', (err) => {
+      reject(err);
+    });
+
+    archive.pipe(output);
+    archive.directory(sourceDir, false);
+    archive.finalize();
+  });
+}
+
+function generateSha512(filePath, checksumFilePath) {
+  const fileBuffer = fs.readFileSync(filePath);
+  const hash = crypto.createHash('sha512').update(fileBuffer).digest('hex');
+  const filename = path.basename(filePath);
+  fs.writeFileSync(checksumFilePath, `${hash}  ${filename}\n`, 'utf-8');
+  return hash;
 }
 
 // 3. Run dotnet publish with the publish profile
@@ -127,7 +178,28 @@ if (publishResult.status !== 0) {
 
 console.log(`\n✅ Publish succeeded -> ${targetPublishDir}`);
 
-// 4. Optionally run the published app
+// 4. Optionally package published files into a zip archive with SHA512
+if (zip) {
+  console.log(`\n📦 Creating deployment archive...`);
+  const defaultArchiveDir = path.join(path.dirname(targetPublishDir), 'archive');
+  const resolvedArchiveDir = archiveDir
+    ? (path.isAbsolute(archiveDir) ? archiveDir : path.resolve(rootDir, archiveDir))
+    : defaultArchiveDir;
+  const resolvedZipPath = path.join(resolvedArchiveDir, zipName);
+  const resolvedChecksumPath = path.join(resolvedArchiveDir, 'SHA512.txt');
+
+  await createZipArchive(targetPublishDir, resolvedZipPath);
+
+  const stats = fs.statSync(resolvedZipPath);
+  const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
+  const sha512Hash = generateSha512(resolvedZipPath, resolvedChecksumPath);
+
+  console.log(`✅ Archive created: ${path.relative(rootDir, resolvedZipPath)} (${sizeMb} MB)`);
+  console.log(`🔒 Checksum saved: ${path.relative(rootDir, resolvedChecksumPath)}`);
+  console.log(`🔑 SHA512: ${sha512Hash}`);
+}
+
+// 5. Optionally run the published app
 if (run) {
   let cmd = '';
   let cmdArgs = [];

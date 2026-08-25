@@ -3,7 +3,7 @@ name: deploy
 description: "[Custom skill] Deploys and publishes the AI Agent Hub Web project using the publish profile, terminates locking processes, and starts/keeps the application running in the background."
 author: Rafael Brasil
 date_created: 2026-08-21
-last_updated: 2026-08-23
+last_updated: 2026-08-25
 ---
 
 # Deploy Web Project
@@ -16,6 +16,9 @@ Automates publishing and launching the AI Agent Hub Web project using the config
 - **Supported Options**:
   - `-r`, `--run`: Starts the application immediately after publishing as a persistent background daemon (default port `5001`, default protocol `HTTPS`).
   - `-f`, `--foreground`: Starts the application attached in the foreground.
+  - `-z`, `--zip`: Packages published files into a single `.zip` archive and generates `SHA512.txt` checksum in `bin/Release/archive/`.
+  - `--archive-dir <path>`: Custom destination directory for archive (default: `bin/Release/archive/`).
+  - `--zip-name <filename>`: Custom zip archive name (default: `AIAgentHub.zip`).
   - `-p <port>`, `--port <port>`: Binds the application to a specific port when running (default: `5001`).
   - `--protocol <http|https>`, `--http`, `--https`: Selects listening protocol (default: `https`).
 

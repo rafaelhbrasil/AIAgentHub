@@ -14,5 +14,9 @@
     "test:all": "npm run test && npm run test:integration",
     "deploy": "node scripts/deploy.mjs",
     "deploy:run": "node scripts/deploy.mjs --run"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "archiver": "^8.0.0"
   }
 }
