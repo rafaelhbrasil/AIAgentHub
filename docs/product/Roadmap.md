@@ -228,6 +228,12 @@ The following ideas are candidates for future releases. They are not yet assigne
 - Add a small copy button (icon only) to every message in the chat window
 - One-click copy without needing to select text
 
+## File & Image Attachments
+
+- Allow attaching external files and images directly to chat prompts (via paperclip button, file picker, drag-and-drop, or clipboard paste into the prompt area)
+- Display attachment chips and image thumbnails in the prompt input bar prior to submission
+- Pass attached file contents or image data to compatible multimodal AI providers and CLI orchestrations
+
 ## File Explorer
 
 - Allow the user to add new items to the folder structure (like VS Code explorer)
