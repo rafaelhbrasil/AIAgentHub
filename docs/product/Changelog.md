@@ -72,6 +72,9 @@ Security-related improvements.
 - **Auto-Growing Prompt Textbox & Circular Send Button**: Textarea dynamically expands up to 30% of screen height with a dedicated circular send button. On mobile devices, Enter inserts newlines while Shift+Enter/Enter behavior is preserved on desktop.
 - **User Cancellation Notice on Abort**: Explicitly records and broadcasts `*(AI response was cancelled by the user.)*` when an ongoing execution is cancelled, saving it to persistent message history.
 - **Single-Click Visual Folder Navigation**: Replaced double-click folder navigation with single-click directory traversal in the folder explorer modal, dynamically defaulting to the user's home profile directory.
+- **Synchronized Diff Scrolling & Mobile Stacked Split**: Implemented row-by-row synchronized diff alignment in side-by-side mode with single global horizontal scrolling on desktop, and real-time dual-scroll synchronized stacked panels (top/bottom) on mobile screens.
+- **Diff Hunk & File Navigation Controls**: Added `▲ Prev` and `▼ Next` arrow controls with keyboard shortcuts (`F7`/`Shift+F7`, `Alt+↑`/`Alt+↓`) to navigate through change hunks with smooth scrolling in both side-by-side and unified modes, file tabs navigation buttons (`◀`/`▶`), and automatic jump to the first diff upon loading or switching files.
+- **Full Screen Diff View**: Added a `⛶ Full Screen` toggle button in the diff toolbar that maximizes the code diff area to 100% of the screen, collapsing modal headers, tabs, and action bars into a minimalist navigation bar with quick `✕ Close` button and `Escape` key support.
 
 ## Fixed
 
@@ -80,6 +83,7 @@ Security-related improvements.
 - Fixed active model count not updating on provider cards after closing the model configuration modal by syncing provider state and fetching fresh DB model catalogs.
 - Fixed returning from conversation studio requiring two clicks on the Back button due to URL synchronization race condition.
 - Fixed options dropdown menu clipping behind the conversation message pane on mobile by correcting stacking context z-indexes.
+- Fixed mobile viewport canvas scrolling, dead space below prompt input dock, and keyboard resizing by locking mobile document viewport and applying safe-area insets.
 
 # [0.1.0] - Initial MVP
 
