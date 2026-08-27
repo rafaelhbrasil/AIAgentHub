@@ -19,7 +19,8 @@ public sealed record ProviderExecutionContext(
     Func<string, string, Task<bool>> RequestPermission,
     CancellationToken CancellationToken,
     Func<string, Task>? OnSessionCreated = null,
-    string? Effort = null);
+    string? Effort = null,
+    Func<string, int, Task>? OnHeartbeat = null);
 
 public interface IProvider
 {

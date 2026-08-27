@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { apiFetch } from '../../services/apiClient';
 
 export type NavTab = 'dashboard' | 'workspaces' | 'providers' | 'tools' | 'settings';
 
@@ -8,9 +9,36 @@ interface HeaderProps {
   onNavigate: (tab: NavTab) => void;
 }
 
+interface SystemVersionInfo {
+  version: string;
+  informationalVersion?: string;
+  isDevelopment?: boolean;
+  environment?: string;
+}
+
+const BASE_APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'v0.1.0';
+
 export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
   const { isAuthenticated, username, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [versionText, setVersionText] = useState<string>(BASE_APP_VERSION);
+  const [versionTooltip, setVersionTooltip] = useState<string>('AI Agent Hub');
+
+  useEffect(() => {
+    apiFetch<SystemVersionInfo>('/api/v1/system/version')
+      .then((res) => {
+        if (res.ok && res.data?.version) {
+          const v = res.data.version;
+          setVersionText(`v${v}`);
+          if (res.data.informationalVersion) {
+            setVersionTooltip(`Version ${res.data.informationalVersion} (${res.data.environment || 'Production'})`);
+          }
+        }
+      })
+      .catch(() => {
+        // Keep baseline version
+      });
+  }, []);
 
   const handleTabClick = (tab: NavTab) => {
     onNavigate(tab);
@@ -25,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
             <span className="logo-icon">⚡</span>
             <div className="logo-text">
               <span className="logo-title">AI Agent Hub</span>
-              <span className="logo-version">v0.1</span>
+              <span className="logo-version" title={versionTooltip}>{versionText}</span>
             </div>
           </div>
 

@@ -119,7 +119,15 @@ public static class DependencyInjection
         _ = services.AddScoped<ISetupService, SetupService>();
         _ = services.AddScoped<IAppAuthService, AuthenticationService>();
         _ = services.AddScoped<IPermissionService, PermissionService>();
-        _ = services.AddScoped<IExecutionOrchestrator, ExecutionOrchestrator>();
+        _ = services.AddScoped<IExecutionOrchestrator>(sp => new ExecutionOrchestrator(
+            sp.GetRequiredService<IConversationRepository>(),
+            sp.GetRequiredService<IWorkspaceRepository>(),
+            sp.GetRequiredService<IProviderManager>(),
+            sp.GetRequiredService<ISnapshotService>(),
+            sp.GetRequiredService<IAgentRealtimeBroadcaster>(),
+            sp.GetRequiredService<IPermissionService>(),
+            sp.GetService<Microsoft.Extensions.Options.IOptions<CliExecutionOptions>>()?.Value
+        ));
 
         // 9. Real-time (SignalR)
         _ = services.AddSignalR().AddJsonProtocol(options =>
@@ -152,7 +160,19 @@ public static class DependencyInjection
                     }
                     else
                     {
-                        context.Response.Redirect("/");
+                        var originalPath = path.Value ?? string.Empty;
+                        var queryString = context.Request.QueryString.Value ?? string.Empty;
+                        var fullTarget = originalPath + queryString;
+
+                        if (string.IsNullOrEmpty(fullTarget) || fullTarget == "/" || fullTarget.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+                        {
+                            context.Response.Redirect("/login");
+                        }
+                        else
+                        {
+                            var returnUrl = Uri.EscapeDataString(fullTarget);
+                            context.Response.Redirect($"/login?returnUrl={returnUrl}");
+                        }
                     }
 
                     return Task.CompletedTask;

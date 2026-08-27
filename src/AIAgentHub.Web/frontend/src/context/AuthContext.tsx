@@ -49,6 +49,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUsername(sessionRes.data.username || 'admin');
       } else {
         setIsAuthenticated(false);
+        const currentPath = window.location.pathname + window.location.search;
+        const safeUrl = getSafeReturnUrl(currentPath);
+        if (safeUrl && safeUrl !== '/' && safeUrl !== '/dashboard' && !window.location.search.includes('returnUrl=')) {
+          window.history.replaceState({}, '', `/login?returnUrl=${encodeURIComponent(safeUrl)}`);
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }
       }
     } finally {
       setIsLoading(false);
@@ -62,6 +68,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (res.ok && res.data) {
+      // Resolve returnUrl before updating authentication state
+      const searchParams = new URLSearchParams(window.location.search);
+      const queryReturnUrl = searchParams.get('returnUrl');
+      const fallbackUrl = window.location.pathname !== '/login' && window.location.pathname !== '/login/'
+        ? (window.location.pathname + window.location.search)
+        : null;
+      const targetUrl = getSafeReturnUrl(queryReturnUrl) || getSafeReturnUrl(fallbackUrl) || '/';
+
+      window.history.replaceState({}, '', targetUrl);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+
       setIsAuthenticated(true);
       setUsername(res.data.username || user);
       return { success: true };

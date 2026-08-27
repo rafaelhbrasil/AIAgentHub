@@ -212,6 +212,8 @@ POST /api/v1/workspaces
 
 GET /api/v1/workspaces/{id}
 
+GET /api/v1/workspaces/{id}/download
+
 DELETE /api/v1/workspaces/{id}
 ```
 
@@ -282,8 +284,18 @@ Examples:
 ```
 POST /api/v1/conversations/{id}/prompt
 
+POST /api/v1/conversations/{id}/abort
+
 POST /api/v1/execute
 ```
+
+Realtime Stream & Events (via `/hubs/agent`):
+- `streamChunk`: Delivers real-time response tokens.
+- `conversation.started`: Emitted when prompt execution begins.
+- `conversation.heartbeat`: Emitted periodically (default: 60s) during long-running execution turns with elapsed duration and progress description. Note: Heartbeat messages are ephemeral/client-only and never saved to the database.
+- `conversation.completed`: Emitted on successful completion of a prompt turn.
+- `conversation.aborted`: Emitted when execution is cancelled or times out.
+- Automatic resume continuation turns are provider-only and not persisted as additional user messages.
 
 ---
 
@@ -352,6 +364,23 @@ GET /api/v1/settings
 
 PUT /api/v1/settings
 ```
+
+---
+
+## System
+
+Examples:
+
+```
+GET /api/v1/system/version
+```
+
+The system version endpoint returns runtime assembly and build metadata:
+
+- `version`: Assembly version (e.g. `0.1.0` in Release or `0.1.0.082602` in Debug)
+- `informationalVersion`: Semantic version with optional build metadata (e.g. `0.1.0-debug+20260826022900`)
+- `isDevelopment`: Boolean flag indicating whether the host is running in Development mode
+- `environment`: Hosting environment name (`Development`, `Production`, etc.)
 
 ---
 

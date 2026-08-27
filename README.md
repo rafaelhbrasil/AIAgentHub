@@ -33,6 +33,16 @@ As an evolving platform, AI Agent Hub is continuously expanding its remote devel
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <a href="docs/product/desktopview1.png"><img src="docs/product/desktopview1.png" width="68%" alt="AI Agent Hub Desktop Studio" /></a>
+  &nbsp;
+  <a href="docs/product/mobileview1.png"><img src="docs/product/mobileview1.png" width="28%" alt="AI Agent Hub Mobile Interface" /></a>
+</p>
+
+---
+
 ## 🔌 Supported Providers
 
 AI Agent Hub integrates natively with the official CLIs of supported providers:
@@ -126,17 +136,17 @@ Common development, testing, and deployment commands can be run directly from th
 
 AI Agent Hub can be published as a self-contained, single-file bundle using the cross-platform deployment script or the .NET CLI.
 
-### Automated Deployment Script (Recommended)
+### Automated Deployment & Release Scripts (Recommended)
 
 ```bash
 # Publish using FolderProfile (releases any active file locks automatically)
 npm run deploy
 
-# Publish and run immediately on http://localhost:5001
+# Publish and run immediately on https://localhost:5001 (default HTTPS)
 npm run deploy:run
 
-# Publish and generate a zipped distribution archive with SHA512 checksum
-npm run deploy -- --zip
+# Package a versioned release archive with SHA-256 checksum
+npm run release 0.1.0
 ```
 
 ### Manual .NET CLI Publish

@@ -219,6 +219,96 @@ public sealed class FilesystemService : IFilesystemService
         await File.WriteAllBytesAsync(fullPath, content, cancellationToken);
     }
 
+    public async Task<ZipArchiveResult> WriteZipArchiveAsync(string directoryPath, Stream outputStream, IReadOnlyList<string>? ignoredPatterns = null, CancellationToken cancellationToken = default)
+    {
+        var rootDir = new DirectoryInfo(Path.GetFullPath(directoryPath));
+        if (!rootDir.Exists)
+        {
+            throw new DirectoryNotFoundException($"Directory not found: {directoryPath}");
+        }
+
+        var ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".git", ".vs", "bin", "obj", "node_modules", ".idea", ".vscode"
+        };
+
+        if (ignoredPatterns != null)
+        {
+            foreach (var p in ignoredPatterns)
+            {
+                _ = ignored.Add(p);
+            }
+        }
+
+        var failedFiles = new List<string>();
+        int totalFiles;
+
+        using (var archive = new System.IO.Compression.ZipArchive(outputStream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            totalFiles = await AddDirectoryToZipAsync(rootDir, rootDir.FullName, archive, ignored, failedFiles, cancellationToken);
+        }
+
+        return new ZipArchiveResult(totalFiles, failedFiles);
+    }
+
+    private static async Task<int> AddDirectoryToZipAsync(DirectoryInfo dir, string rootPath, System.IO.Compression.ZipArchive archive, HashSet<string> ignored, List<string> failedFiles, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var addedCount = 0;
+        FileInfo[] files;
+        DirectoryInfo[] subDirs;
+        try
+        {
+            files = dir.GetFiles();
+            subDirs = dir.GetDirectories();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            failedFiles.Add(Path.GetRelativePath(rootPath, dir.FullName).Replace('\\', '/'));
+            return 0;
+        }
+
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (ignored.Contains(file.Name))
+            {
+                continue;
+            }
+
+            var relPath = Path.GetRelativePath(rootPath, file.FullName).Replace('\\', '/');
+
+            try
+            {
+                var entry = archive.CreateEntry(relPath, System.IO.Compression.CompressionLevel.Optimal);
+                entry.LastWriteTime = file.LastWriteTimeUtc;
+
+                await using var entryStream = entry.Open();
+                await using var fileStream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                await fileStream.CopyToAsync(entryStream, cancellationToken);
+                addedCount++;
+            }
+            catch (Exception)
+            {
+                failedFiles.Add(relPath);
+            }
+        }
+
+        foreach (var subDir in subDirs)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (ignored.Contains(subDir.Name))
+            {
+                continue;
+            }
+
+            addedCount += await AddDirectoryToZipAsync(subDir, rootPath, archive, ignored, failedFiles, cancellationToken);
+        }
+
+        return addedCount;
+    }
+
     public bool FileExists(string fullPath) => File.Exists(fullPath);
 
     public bool DirectoryExists(string fullPath) => Directory.Exists(fullPath);

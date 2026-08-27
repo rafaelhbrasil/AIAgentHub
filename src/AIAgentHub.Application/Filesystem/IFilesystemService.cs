@@ -8,6 +8,8 @@ public sealed record DirectoryBrowseResult(string CurrentPath, string? ParentPat
 
 public sealed record TreeNodeItem(string Name, string RelativePath, string FullPath, bool IsDirectory, long? SizeBytes, List<TreeNodeItem>? Children = null);
 
+public sealed record ZipArchiveResult(int TotalFiles, IReadOnlyList<string> FailedFiles);
+
 public interface IFilesystemService
 {
     public Task<IReadOnlyList<DriveItem>> GetDrivesAsync(CancellationToken cancellationToken = default);
@@ -17,6 +19,7 @@ public interface IFilesystemService
     public Task<string> ReadFileTextAsync(string fullPath, CancellationToken cancellationToken = default);
     public Task WriteFileTextAsync(string fullPath, string content, CancellationToken cancellationToken = default);
     public Task WriteFileBytesAsync(string fullPath, byte[] content, CancellationToken cancellationToken = default);
+    public Task<ZipArchiveResult> WriteZipArchiveAsync(string directoryPath, Stream outputStream, IReadOnlyList<string>? ignoredPatterns = null, CancellationToken cancellationToken = default);
     public bool FileExists(string fullPath);
     public bool DirectoryExists(string fullPath);
     public string SuggestWorkspaceName(string path);

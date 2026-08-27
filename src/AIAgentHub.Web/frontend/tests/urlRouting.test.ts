@@ -50,6 +50,19 @@ describe('urlRouting parser', () => {
   it('falls back to dashboard for unknown routes', () => {
     expect(parseUrlPath('/unknown-path')).toEqual({ tab: 'dashboard', workspaceId: null, conversationId: null });
   });
+
+  it('strips query strings and hash fragments from parsed paths', () => {
+    expect(parseUrlPath('/workspaces/ws-1?foo=bar#section')).toEqual({
+      tab: 'workspaces',
+      workspaceId: 'ws-1',
+      conversationId: null,
+    });
+    expect(parseUrlPath('/settings?saved=true')).toEqual({
+      tab: 'settings',
+      workspaceId: null,
+      conversationId: null,
+    });
+  });
 });
 
 describe('getSafeReturnUrl sanitizer', () => {

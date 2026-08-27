@@ -1,5 +1,6 @@
 {
   "name": "aiagenthub",
+  "version": "0.1.0",
   "private": true,
   "workspaces": [
     "src/AIAgentHub.Web/frontend"
@@ -13,7 +14,8 @@
     "test:integration": "dotnet test tests/AgentHub.IntegrationTests/AgentHub.IntegrationTests.csproj",
     "test:all": "npm run test && npm run test:integration",
     "deploy": "node scripts/deploy.mjs",
-    "deploy:run": "node scripts/deploy.mjs --run"
+    "deploy:run": "node scripts/deploy.mjs --run",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@types/archiver": "^8.0.0",

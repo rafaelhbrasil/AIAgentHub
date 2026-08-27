@@ -19,10 +19,11 @@ public sealed class CodexCliProvider(
     public override string ExecutableName => "codex";
     public override string? InstallCommand => "npm install -g @openai/codex-cli";
 
-    protected override string DefaultDisplayName => "OpenAI Codex CLI";
+    protected override string DefaultDisplayName => "Codex CLI";
     protected override string DefaultDescription => "Orchestrates OpenAI Codex coding agent CLI.";
-    protected override string? DefaultInstallInstructions => "Install via npm or official OpenAI distribution.";
+    protected override string? DefaultInstallInstructions => "Install Codex CLI via official OpenAI distribution.";
     protected override string? DefaultAuthCommand => "auth login";
+    protected override string? DefaultDocumentationUrl => "https://learn.chatgpt.com/docs/codex/cli";
     public override ProviderCapability Capabilities =>
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.ModelSelection;
 

@@ -171,8 +171,8 @@ _ = !string.IsNullOrEmpty(resolvedWebRoot) && File.Exists(Path.Combine(resolvedW
     {
         context.Response.ContentType = "text/html; charset=utf-8";
         await context.Response.SendFileAsync(Path.Combine(resolvedWebRoot, "index.html"));
-    })
-    : app.MapFallbackToFile("index.html");
+    }).AllowAnonymous()
+    : app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Lifetime.ApplicationStarted.Register(() =>
 {

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
-import { getSafeReturnUrl } from '../../utils/urlRouting';
 import { SetupWizardModal } from './SetupWizardModal';
 import { RecoveryModal } from './RecoveryModal';
 
@@ -24,16 +23,7 @@ export const SignInPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       const result = await login(username, password);
-      if (result.success) {
-        // Resolve returnUrl from querystring or pathname
-        const searchParams = new URLSearchParams(window.location.search);
-        const queryReturnUrl = searchParams.get('returnUrl');
-        const fallbackUrl = window.location.pathname !== '/login' ? (window.location.pathname + window.location.search) : null;
-        const targetUrl = getSafeReturnUrl(queryReturnUrl) || getSafeReturnUrl(fallbackUrl) || '/';
-
-        window.history.replaceState({}, '', targetUrl);
-        window.dispatchEvent(new PopStateEvent('popstate'));
-      } else {
+      if (!result.success) {
         showToast(result.error || 'Login failed.', 'error');
       }
     } finally {

@@ -20,9 +20,10 @@ public sealed class OpenCodeProvider(
     public override string? InstallCommand => "cargo install opencode-cli";
 
     protected override string DefaultDisplayName => "OpenCode";
-    protected override string DefaultDescription => "Open-source provider-agnostic coding agent supporting local models (Ollama, vLLM, DeepSeek, Qwen).";
-    protected override string? DefaultInstallInstructions => "Install OpenCode via cargo, brew or binary release.";
+    protected override string DefaultDescription => "Open-source provider-agnostic coding agent supporting cloud and local models (Ollama, vLLM, DeepSeek, Qwen).";
+    protected override string? DefaultInstallInstructions => "Install OpenCode Terminal via official distribution.";
     protected override string? DefaultAuthCommand => "setup";
+    protected override string? DefaultDocumentationUrl => "https://opencode.ai/download";
     public override ProviderCapability Capabilities =>
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.Mcp | ProviderCapability.ModelSelection;
 

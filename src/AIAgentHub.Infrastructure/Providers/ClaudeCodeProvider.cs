@@ -20,8 +20,9 @@ public sealed class ClaudeCodeProvider(
 
     protected override string DefaultDisplayName => "Claude Code";
     protected override string DefaultDescription => "Anthropic Claude Code CLI assistant for deep repository exploration and refactoring.";
-    protected override string? DefaultInstallInstructions => "Install Claude Code CLI via npm or brew.";
+    protected override string? DefaultInstallInstructions => "Install Claude Code CLI from official Anthropic distribution.";
     protected override string? DefaultAuthCommand => "/login";
+    protected override string? DefaultDocumentationUrl => "https://code.claude.com/docs/en/quickstart";
     public override ProviderCapability Capabilities =>
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.Skills | ProviderCapability.ModelSelection;
 

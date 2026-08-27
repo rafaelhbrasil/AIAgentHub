@@ -361,11 +361,11 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
-# Fody - auto-generated XML schema
-FodyWeavers.xsd
-
 # Playwright MCP screenshots and logs
 .playwright-mcp/
 
 # Superpowers temporary brainstorm & planning artifacts
 docs/superpowers/
+
+# Release distribution archives
+archive/

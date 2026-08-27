@@ -36,6 +36,12 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         startInfo.StandardOutputEncoding = Encoding.UTF8;
         startInfo.StandardErrorEncoding = Encoding.UTF8;
 
+        var timeoutMinutes = options.TimeoutMinutes > 0 ? options.TimeoutMinutes : 10;
+        var timeoutMs = timeoutMinutes * 60 * 1000;
+        startInfo.EnvironmentVariables["API_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["REQUEST_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["TIMEOUT"] = (timeoutMs / 1000).ToString();
+
         LogPrompt(
             promptLogger,
             displayName,
@@ -73,13 +79,77 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
                 512);
         });
 
-        await processScope.WaitForExitAsync(context.CancellationToken);
+        var heartbeatIntervalSeconds = options.HeartbeatIntervalSeconds > 0 ? options.HeartbeatIntervalSeconds : 60;
+        using var heartbeatCts = new CancellationTokenSource();
+        var heartbeatTask = Task.Run(async () =>
+        {
+            var sw = Stopwatch.StartNew();
+            var step = 0;
+            while (!heartbeatCts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(heartbeatIntervalSeconds), heartbeatCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+
+                if (heartbeatCts.Token.IsCancellationRequested) break;
+
+                step++;
+                var elapsedSecs = (int)sw.Elapsed.TotalSeconds;
+                var msg = step switch
+                {
+                    1 => $"Still thinking... ({FormatElapsed(elapsedSecs)} elapsed)",
+                    2 => $"Still working on code and analysis... ({FormatElapsed(elapsedSecs)} elapsed)",
+                    3 => $"Thinking a little longer on complex task... ({FormatElapsed(elapsedSecs)} elapsed)",
+                    _ => $"Still running task... ({FormatElapsed(elapsedSecs)} elapsed)"
+                };
+
+                if (context.OnHeartbeat != null)
+                {
+                    try
+                    {
+                        await context.OnHeartbeat(msg, elapsedSecs);
+                    }
+                    catch { }
+                }
+            }
+        });
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(timeoutMinutes));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, timeoutCts.Token);
+
+        try
+        {
+            await processScope.WaitForExitAsync(linkedCts.Token);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !context.CancellationToken.IsCancellationRequested)
+        {
+            try { if (!processScope.HasExited) processScope.Kill(entireProcessTree: true); } catch { }
+            throw new TimeoutException($"Provider execution timed out after {timeoutMinutes} minutes.");
+        }
+        finally
+        {
+            heartbeatCts.Cancel();
+            try { await heartbeatTask; } catch { }
+        }
+
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
             _ = await Task.WhenAny(Task.WhenAll(readOutputTask, readErrorTask), Task.Delay(1000, cts.Token));
         }
         catch { }
+    }
+
+    private static string FormatElapsed(int totalSeconds)
+    {
+        var mins = totalSeconds / 60;
+        var secs = totalSeconds % 60;
+        return mins > 0 ? $"{mins}m {secs:D2}s" : $"{secs}s";
     }
 
     public override async Task<ProcessCommandResult> RunCommandAsync(

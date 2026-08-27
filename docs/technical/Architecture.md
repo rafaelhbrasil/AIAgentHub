@@ -129,6 +129,11 @@ Never the opposite.
 
 All CLI execution (live prompt streaming via `ExecuteAsync` and auxiliary CLI command executions such as `--version`, model listings, and auth status checks via `RunCommandAsync`) is handled exclusively through `IProcessExecutor`. The dependency injection container resolves the appropriate executor (`HeadlessProcessExecutor` or `HeadedProcessExecutor`) based on configuration (`AgentHub:CliExecution:Headless`), ensuring provider adapters remain decoupled from process execution modes.
 
+#### Execution Timeout & Keepalives
+- **Configurable Timeout**: `AgentHub:CliExecution:TimeoutMinutes` (default: `10` minutes) sets the maximum execution duration for an individual prompt turn. Standard timeout environment variables (`API_TIMEOUT_MS`, `REQUEST_TIMEOUT_MS`, `TIMEOUT`) are injected into child processes.
+- **Keepalive Heartbeat**: Periodic `conversation.heartbeat` SignalR events (every `HeartbeatIntervalSeconds`, default: 60s) provide live elapsed time and friendly progress feedback (`"Still working..."`, `"Analyzing codebase..."`) to the user interface during long thinking phases.
+- **Bounded Auto-Resumption**: If a provider turn times out and `AutoResumeOnTimeout` is enabled, `ExecutionOrchestrator` automatically triggers a continuation turn (`"Continue from where you left off."`) in the same session, bounded by `MaxAutoResumes` (default: 2) to prevent infinite loops.
+
 ---
 
 ## Provider Layer

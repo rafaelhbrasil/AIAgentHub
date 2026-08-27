@@ -20,8 +20,9 @@ public sealed class AntigravityProvider(
 
     protected override string DefaultDisplayName => "Antigravity CLI";
     protected override string DefaultDescription => "Google DeepMind Antigravity advanced agentic coding assistant and pair programmer CLI.";
-    protected override string? DefaultInstallInstructions => "Install Google DeepMind Antigravity CLI.";
+    protected override string? DefaultInstallInstructions => "Install Google DeepMind Antigravity CLI from official website.";
     protected override string? DefaultAuthCommand => "auth login";
+    protected override string? DefaultDocumentationUrl => "https://antigravity.google/download#antigravity-cli";
     public override ProviderCapability Capabilities =>
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.Skills | ProviderCapability.Mcp | ProviderCapability.FileEditing | ProviderCapability.Vision | ProviderCapability.ModelSelection;
 

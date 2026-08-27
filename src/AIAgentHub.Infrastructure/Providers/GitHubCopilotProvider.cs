@@ -19,8 +19,9 @@ public sealed class GitHubCopilotProvider(
 
     protected override string DefaultDisplayName => "GitHub Copilot";
     protected override string DefaultDescription => "GitHub Copilot CLI agent for pairing, codebase exploration, and autonomous task execution.";
-    protected override string? DefaultInstallInstructions => "Install GitHub Copilot CLI via npm: npm install -g @github/copilot";
+    protected override string? DefaultInstallInstructions => "Install GitHub Copilot CLI via official GitHub distribution.";
     protected override string? DefaultAuthCommand => "login";
+    protected override string? DefaultDocumentationUrl => "https://github.com/features/copilot/cli/";
     public override ProviderCapability Capabilities =>
         ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.Skills | ProviderCapability.Mcp | ProviderCapability.FileEditing | ProviderCapability.Vision | ProviderCapability.ModelSelection;
 

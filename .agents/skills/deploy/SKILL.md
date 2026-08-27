@@ -16,9 +16,6 @@ Automates publishing and launching the AI Agent Hub Web project using the config
 - **Supported Options**:
   - `-r`, `--run`: Starts the application immediately after publishing as a persistent background daemon (default port `5001`, default protocol `HTTPS`).
   - `-f`, `--foreground`: Starts the application attached in the foreground.
-  - `-z`, `--zip`: Packages published files into a single `.zip` archive and generates `SHA512.txt` checksum in `bin/Release/archive/`.
-  - `--archive-dir <path>`: Custom destination directory for archive (default: `bin/Release/archive/`).
-  - `--zip-name <filename>`: Custom zip archive name (default: `AIAgentHub.zip`).
   - `-p <port>`, `--port <port>`: Binds the application to a specific port when running (default: `5001`).
   - `--protocol <http|https>`, `--http`, `--https`: Selects listening protocol (default: `https`).
 

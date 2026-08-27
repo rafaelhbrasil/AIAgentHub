@@ -1095,6 +1095,7 @@ body {
 .diff-sbs-table {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-width: 100%;
   font-family: var(--font-mono);
   font-size: 0.82rem;
@@ -1102,18 +1103,15 @@ body {
   border-radius: var(--radius-sm);
 }
 
-.diff-nowrap .diff-sbs-table {
-  width: max-content;
-  min-width: 100%;
-}
-
+.diff-nowrap .diff-sbs-table,
 .diff-wrap-enabled .diff-sbs-table {
   width: 100%;
+  min-width: 100%;
 }
 
 .diff-sbs-header-row {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 4px;
   background: #080c14;
   border-bottom: 1px solid var(--border-color);
@@ -1132,6 +1130,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 2px 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .diff-sbs-body {
@@ -1142,7 +1142,7 @@ body {
 
 .diff-sbs-row {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 4px;
   width: 100%;
   border-bottom: 1px solid rgba(255, 255, 255, 0.02);
@@ -1228,6 +1228,14 @@ body {
   width: 100%;
 }
 
+.diff-modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
 /* Fullscreen Diff Modal Mode */
 .diff-modal-body.diff-modal-fullscreen {
   position: fixed !important;
@@ -1242,7 +1250,8 @@ body {
   max-height: 100dvh !important;
   z-index: 100000 !important;
   background: #060911 !important;
-  padding: 8px 10px !important;
+  padding: 8px 14px !important;
+  box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
   border-radius: 0 !important;
@@ -1267,6 +1276,46 @@ body {
 .diff-modal-body.diff-modal-fullscreen .diff-mobile-split-pane {
   height: 50% !important;
   max-height: 50% !important;
+  flex: 1 1 50% !important;
+}
+
+/* Desktop Side-by-Side Split Diff */
+.diff-desktop-side-by-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 300px;
+  overflow: hidden;
+}
+
+.diff-desktop-split-pane {
+  flex: 1 1 50%;
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #000;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  min-width: 0;
+}
+
+.diff-modal-body.diff-modal-fullscreen .diff-desktop-side-by-side {
+  height: calc(100dvh - 52px) !important;
+  max-height: calc(100dvh - 52px) !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+.diff-modal-body.diff-modal-fullscreen .diff-desktop-split-pane {
+  height: 100% !important;
+  max-height: 100% !important;
   flex: 1 1 50% !important;
 }
 
@@ -1295,6 +1344,7 @@ body {
   flex-direction: column;
   font-family: var(--font-mono);
   font-size: 0.82rem;
+  min-width: 0;
 }
 
 .diff-pane-sticky-header {
@@ -1599,10 +1649,24 @@ body {
 
 .diff-line {
   padding: 2px 8px;
-  white-space: pre;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   font-family: var(--font-mono);
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.diff-nowrap .diff-line,
+.diff-nowrap .diff-line .diff-line-text {
+  white-space: pre !important;
+  word-break: normal !important;
+}
+
+.diff-wrap-enabled .diff-line,
+.diff-wrap-enabled .diff-line .diff-line-text {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 .diff-line.added {
@@ -1657,13 +1721,33 @@ body {
 .modal-box.modal-xl {
   max-width: 1320px;
   width: 94vw;
-  max-height: 93vh;
+  height: 90vh;
+  height: 90dvh;
+  max-height: 94vh;
+  max-height: 94dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-box.modal-full {
   max-width: 98vw;
   width: 98vw;
+  height: 94vh;
+  height: 94dvh;
   max-height: 96vh;
+  max-height: 96dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-box.modal-xl .modal-body,
+.modal-box.modal-full .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px 18px;
 }
 
 .modal-header {

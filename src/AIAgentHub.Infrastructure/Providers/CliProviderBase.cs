@@ -29,6 +29,7 @@ public abstract class CliProviderBase(
     protected virtual string DefaultDescription => string.Empty;
     protected virtual string? DefaultInstallInstructions => null;
     protected virtual string? DefaultAuthCommand => null;
+    protected virtual string? DefaultDocumentationUrl => null;
 
     public virtual string DisplayName => GetConfig()?.DisplayName ?? DefaultDisplayName;
     public virtual string Description => GetConfig()?.Description ?? DefaultDescription;
@@ -40,12 +41,11 @@ public abstract class CliProviderBase(
     public virtual string? InstallInstructions => GetConfig()?.InstallInstructions ?? DefaultInstallInstructions;
     public virtual string? AuthCommand => GetConfig()?.AuthCommand ?? DefaultAuthCommand;
 
-    // DocumentationUrl has NO fallback in C# code. Returns null if missing or whitespace in appsettings.json.
     public virtual string? DocumentationUrl
     {
         get
         {
-            var url = GetConfig()?.DocumentationUrl;
+            var url = GetConfig()?.DocumentationUrl ?? DefaultDocumentationUrl;
             return string.IsNullOrWhiteSpace(url) ? null : url.Trim();
         }
     }

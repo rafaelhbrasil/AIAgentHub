@@ -360,6 +360,33 @@ When unavoidable:
 
 ---
 
+# Versioning & Release Management
+
+## Version Strategy
+The project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
+
+- Solution-wide versioning is centralized in root `Directory.Build.props` via `<BaseVersion>`.
+- In **Debug** configuration, MSBuild automatically appends dynamic build timestamp metadata (`$(BaseVersion).MMddHH`) for build diagnostics.
+- In **Release** configuration, strict semantic versions (`$(BaseVersion)`) are generated without build suffixes.
+- The Web frontend embeds `__APP_VERSION__` at build time from `package.json` for zero-latency initial rendering, and asynchronously queries `GET /api/v1/system/version` to display detailed build numbers in Debug mode.
+
+## Release Command
+Releases are prepared and packaged using the automated release workflow:
+
+```bash
+npm run release <version>
+# Example: npm run release 0.1.0
+```
+
+The script:
+1. Validates the semantic version format.
+2. Synchronizes version across `package.json`, `frontend/package.json`, `Directory.Build.props`, and `Changelog.md`.
+3. Runs full test suites (`dotnet test` and `npm test`).
+4. Publishes release binaries via `dotnet publish -c Release`.
+5. Creates a versioned distribution archive (`archive/AIAgentHub-v<version>.zip`) with an accompanying SHA-256 integrity checksum (`SHA256.txt`).
+
+---
+
 # Continuous Improvement
 
 These standards evolve with the project.

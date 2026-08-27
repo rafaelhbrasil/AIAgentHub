@@ -48,7 +48,8 @@ export function getSafeReturnUrl(rawUrl?: string | null): string | null {
 }
 
 export function parseUrlPath(pathname: string): RouteState {
-  const parts = pathname.split('/').filter(Boolean);
+  const cleanPath = pathname.split('?')[0].split('#')[0];
+  const parts = cleanPath.split('/').filter(Boolean);
 
   if (parts.length === 0 || parts[0] === 'dashboard' || parts[0] === 'login') {
     return { tab: 'dashboard', workspaceId: null, conversationId: null };
@@ -75,5 +76,13 @@ export function parseUrlRoute(): RouteState {
   if (typeof window === 'undefined') {
     return { tab: 'dashboard', workspaceId: null, conversationId: null };
   }
-  return parseUrlPath(window.location.pathname);
+  const pathname = window.location.pathname;
+  if (pathname === '/login' || pathname === '/login/') {
+    const searchParams = new URLSearchParams(window.location.search);
+    const returnUrl = getSafeReturnUrl(searchParams.get('returnUrl'));
+    if (returnUrl) {
+      return parseUrlPath(returnUrl);
+    }
+  }
+  return parseUrlPath(pathname);
 }

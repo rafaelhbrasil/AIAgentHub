@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { MessageDto, isUserRole } from '../../types/conversation';
-import { formatMessageContent } from '../../utils/markdown';
+import { formatMessageContent, escapeHtml } from '../../utils/markdown';
 import { formatTime } from '../../utils/formatting';
 
 interface ChatMessageListProps {
@@ -8,6 +8,7 @@ interface ChatMessageListProps {
   providerId: string;
   streamingContent?: string;
   isStreaming?: boolean;
+  heartbeatMessages?: string[];
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -15,6 +16,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   providerId,
   streamingContent,
   isStreaming,
+  heartbeatMessages,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -28,7 +30,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
   useLayoutEffect(() => {
     scrollToBottom('instant');
-  }, [messages, streamingContent, isStreaming, scrollToBottom]);
+  }, [messages, streamingContent, isStreaming, heartbeatMessages, scrollToBottom]);
 
   useEffect(() => {
     scrollToBottom('instant');
@@ -43,7 +45,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
       cancelAnimationFrame(rafId);
       clearTimeout(timerId);
     };
-  }, [messages, streamingContent, isStreaming, scrollToBottom]);
+  }, [messages, streamingContent, isStreaming, heartbeatMessages, scrollToBottom]);
 
   return (
     <div className="chat-messages" id="messageList" ref={listRef}>
@@ -78,7 +80,11 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             className="message-body markdown-rendered"
             id="streamingBody"
             dangerouslySetInnerHTML={{
-              __html: streamingContent ? formatMessageContent(streamingContent) : '<em>Thinking...</em>',
+              __html: streamingContent
+                ? formatMessageContent(streamingContent)
+                : heartbeatMessages && heartbeatMessages.length > 0
+                  ? heartbeatMessages.map((m) => `<div style="margin-bottom: 4px;"><em>⏳ ${escapeHtml(m)}</em></div>`).join('')
+                  : '<em>Thinking...</em>',
             }}
           />
         </div>

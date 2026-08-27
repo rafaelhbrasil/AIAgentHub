@@ -3,6 +3,7 @@ using System.Diagnostics;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Realtime;
+using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Domain.Permissions;
 using AIAgentHub.Domain.Repositories;
@@ -52,7 +53,8 @@ public sealed class ExecutionOrchestrator(
     IProviderManager providerManager,
     ISnapshotService snapshotService,
     IAgentRealtimeBroadcaster broadcaster,
-    IPermissionService permissionService) : IExecutionOrchestrator
+    IPermissionService permissionService,
+    CliExecutionOptions? options = null) : IExecutionOrchestrator
 {
     private readonly IConversationRepository _conversationRepository = conversationRepository;
     private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
@@ -60,6 +62,7 @@ public sealed class ExecutionOrchestrator(
     private readonly ISnapshotService _snapshotService = snapshotService;
     private readonly IAgentRealtimeBroadcaster _broadcaster = broadcaster;
     private readonly IPermissionService _permissionService = permissionService;
+    private readonly CliExecutionOptions? _options = options;
 
     public async Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default)
     {
@@ -67,7 +70,7 @@ public sealed class ExecutionOrchestrator(
 
         var workspace = await _workspaceRepository.GetByIdAsync(conversation.WorkspaceId, cancellationToken) ?? throw new KeyNotFoundException($"Workspace {conversation.WorkspaceId} not found.");
 
-        // 1. Add User Message
+        // 1. Add User Message (persisted once for the initiating user prompt)
         _ = conversation.AddMessage(MessageRole.User, prompt);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
         await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, cancellationToken);
@@ -130,32 +133,72 @@ public sealed class ExecutionOrchestrator(
                     await _conversationRepository.UpdateAsync(conversation, cancellationToken);
                 }
             },
-            conversation.Effort
+            conversation.Effort,
+            OnHeartbeat: async (msg, elapsedSecs) =>
+            {
+                await _broadcaster.SendConversationEventAsync("conversation.heartbeat", conversationId, new
+                {
+                    message = msg,
+                    elapsedSeconds = elapsedSecs
+                }, cancellationToken);
+            }
         );
 
-        // 4. Run Execution through Provider
+        // 4. Run Execution through Provider (with bounded auto-resumption on timeout)
         var isSuccess = true;
         string? error = null;
+        var maxAutoResumes = _options?.AutoResumeOnTimeout == true ? Math.Max(0, _options.MaxAutoResumes) : 0;
+        var resumeCount = 0;
 
-        try
+        while (true)
         {
-            await provider.ExecuteAsync(execContext);
+            try
+            {
+                await provider.ExecuteAsync(execContext);
+                isSuccess = true;
+                error = null;
+                break;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                isSuccess = false;
+                error = "AI response was cancelled by the user.";
+                break;
+            }
+            catch (TimeoutException tex)
+            {
+                if (resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
+                {
+                    resumeCount++;
+                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", cancellationToken);
+                    execContext = execContext with { Prompt = "Continue from where you left off." };
+                    continue;
+                }
+
+                isSuccess = false;
+                error = tex.Message;
+                break;
+            }
+            catch (Exception ex)
+            {
+                var isTimeout = ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) || assistantResponseBuilder.ToString().Contains("timeout waiting for response", StringComparison.OrdinalIgnoreCase);
+
+                if (isTimeout && resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
+                {
+                    resumeCount++;
+                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", cancellationToken);
+                    execContext = execContext with { Prompt = "Continue from where you left off." };
+                    continue;
+                }
+
+                isSuccess = false;
+                error = ex.Message;
+                await _broadcaster.SendNotificationAsync("error", "AI Execution Failed", ex.Message, cancellationToken);
+                break;
+            }
         }
-        catch (OperationCanceledException)
-        {
-            isSuccess = false;
-            error = "AI response was cancelled by the user.";
-        }
-        catch (Exception ex)
-        {
-            isSuccess = false;
-            error = ex.Message;
-            await _broadcaster.SendNotificationAsync("error", "AI Execution Failed", ex.Message, cancellationToken);
-        }
-        finally
-        {
-            stopwatch.Stop();
-        }
+
+        stopwatch.Stop();
 
         // 5. Post-execution Snapshot Comparison & Diff Generation
         var detectedChanges = await _snapshotService.DetectAndRecordChangesAsync(
