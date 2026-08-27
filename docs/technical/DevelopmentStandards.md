@@ -371,19 +371,24 @@ The project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 - The Web frontend embeds `__APP_VERSION__` at build time from `package.json` for zero-latency initial rendering, and asynchronously queries `GET /api/v1/system/version` to display detailed build numbers in Debug mode.
 
 ## Release Command
-Releases are prepared and packaged using the automated release workflow:
+Releases are prepared and packaged using the automated release workflow by specifying a target publish profile (`win64` or `portable`):
 
 ```bash
-npm run release <version>
-# Example: npm run release 0.1.0
+npm run release <profile> [version] [options]
+
+# Examples:
+npm run release win64 0.1.0
+npm run release portable 0.1.0
+npm run release win64 0.1.0 -- --create-tag
 ```
 
 The script:
-1. Validates the semantic version format.
-2. Synchronizes version across `package.json`, `frontend/package.json`, `Directory.Build.props`, and `Changelog.md`.
-3. Runs full test suites (`dotnet test` and `npm test`).
-4. Publishes release binaries via `dotnet publish -c Release`.
-5. Creates a versioned distribution archive (`archive/AIAgentHub-v<version>.zip`) with an accompanying SHA-256 integrity checksum (`SHA256.txt`).
+1. Resolves the publish profile from `src/AIAgentHub.Web/Properties/PublishProfiles/<profile>.pubxml` and dynamically reads the target destination path from its `<PublishUrl>` tag.
+2. Validates semantic version format (or auto-detects version from Git tag or `package.json` if omitted).
+3. Synchronizes version across `package.json`, `frontend/package.json`, `Directory.Build.props`, and `Changelog.md`.
+4. Runs full test suites (`dotnet test` and `npm test`).
+5. Publishes release binaries via `dotnet publish -c Release /p:PublishProfile=<profile>`.
+6. Creates a versioned distribution archive (`archive/AIAgentHub-v<version>_<profile>.zip`) with an accompanying SHA-256 integrity checksum (`archive/SHA256.txt`).
 
 ---
 

@@ -11,10 +11,10 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 const args = process.argv.slice(2);
+let profile = null;
 let targetVersion = null;
 let skipTests = false;
 let createTag = false;
-let profile = 'FolderProfile';
 
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
@@ -22,15 +22,15 @@ for (let i = 0; i < args.length; i++) {
     skipTests = true;
   } else if (arg === '--create-tag' || arg === '-t') {
     createTag = true;
-  } else if (arg === '--profile') {
-    profile = args[++i] || 'FolderProfile';
-  } else if (arg.startsWith('--profile=')) {
-    profile = arg.split('=')[1] || 'FolderProfile';
   } else if (arg === '-h' || arg === '--help') {
     printHelp();
     process.exit(0);
-  } else if (!arg.startsWith('-') && !targetVersion) {
-    targetVersion = arg.trim();
+  } else if (!arg.startsWith('-')) {
+    if (!profile) {
+      profile = arg.trim();
+    } else if (!targetVersion) {
+      targetVersion = arg.trim();
+    }
   }
 }
 
@@ -39,22 +39,78 @@ function printHelp() {
 AI Agent Hub - Release Packaging Script
 
 Usage:
-  npm run release [version] [options]
-  node scripts/release.mjs [version] [options]
+  npm run release <profile> [version] [options]
+  node scripts/release.mjs <profile> [version] [options]
+
+Supported Profiles:
+  win64                      Windows x64 single-file standalone package
+  portable                   Framework-dependent cross-platform package
 
 Examples:
-  npm run release                # Auto-detects version from Git tag or package.json
-  npm run release 0.1.0
-  npm run release 0.1.0 --create-tag
-  npm run release 0.2.0-beta.1
+  npm run release win64
+  npm run release win64 0.1.0
+  npm run release win64 0.1.0 -- --create-tag
+  npm run release portable 0.1.0
+  npm run release portable 0.2.0-beta.1 --skip-tests
 
 Options:
   --create-tag, -t         Create a local Git tag (e.g. v0.1.0) if it does not exist
   --skip-tests             Skip running test suites before publishing
-  --profile <name>         Publish profile name (default: FolderProfile)
   -h, --help               Show this help message
 `);
 }
+
+// 0. Validate required profile argument and resolve pubxml configuration
+if (!profile) {
+  console.error(`\n❌ Error: Missing required <profile> argument.\n`);
+  console.error(`Usage:`);
+  console.error(`  npm run release <profile> [version] [options]`);
+  console.error(`  node scripts/release.mjs <profile> [version] [options]\n`);
+  console.error(`Supported profiles (from src/AIAgentHub.Web/Properties/PublishProfiles):`);
+  console.error(`  - win64`);
+  console.error(`  - portable\n`);
+  console.error(`Examples:`);
+  console.error(`  npm run release win64 0.1.0`);
+  console.error(`  npm run release portable 0.1.0 --create-tag\n`);
+  process.exit(1);
+}
+
+const projectDir = path.join(rootDir, 'src', 'AIAgentHub.Web');
+const projectFile = path.join(projectDir, 'AIAgentHub.Web.csproj');
+const pubxmlFile = path.join(projectDir, 'Properties', 'PublishProfiles', `${profile}.pubxml`);
+
+if (!fs.existsSync(pubxmlFile)) {
+  console.error(`\n❌ Error: Publish profile '${profile}.pubxml' was not found.`);
+  console.error(`   Looked at: ${pubxmlFile}\n`);
+  console.error(`Available profiles in src/AIAgentHub.Web/Properties/PublishProfiles:`);
+  try {
+    const profilesDir = path.join(projectDir, 'Properties', 'PublishProfiles');
+    if (fs.existsSync(profilesDir)) {
+      const available = fs.readdirSync(profilesDir)
+        .filter(f => f.endsWith('.pubxml'))
+        .map(f => f.replace(/\.pubxml$/, ''));
+      available.forEach(p => console.error(`   - ${p}`));
+    }
+  } catch { }
+  console.error('');
+  process.exit(1);
+}
+
+let publishUrl = null;
+const pubxmlContent = fs.readFileSync(pubxmlFile, 'utf-8');
+const match = pubxmlContent.match(/<PublishUrl>(.*?)<\/PublishUrl>/i);
+if (match && match[1]?.trim()) {
+  publishUrl = match[1].trim();
+}
+
+if (!publishUrl) {
+  console.error(`\n❌ Error: <PublishUrl> tag is missing or empty in publish profile '${pubxmlFile}'.\n`);
+  process.exit(1);
+}
+
+const targetPublishDir = path.isAbsolute(publishUrl)
+  ? publishUrl
+  : path.resolve(projectDir, publishUrl);
 
 // Auto-detect version if omitted
 if (!targetVersion) {
@@ -87,7 +143,7 @@ if (!semverRegex.test(targetVersion)) {
   process.exit(1);
 }
 
-// 0. Validate Git tag vs HEAD state to guarantee reproducibility
+// Validate Git tag vs HEAD state to guarantee reproducibility
 try {
   const tagName = `v${targetVersion}`;
   const tagResolve = spawnSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tagName}^{commit}`], {
@@ -109,14 +165,14 @@ try {
       console.error(`   Current HEAD:   ${headCommit.slice(0, 8)}`);
       console.error(`\nTo build or verify release ${tagName}, please checkout the tag first:`);
       console.error(`  git checkout ${tagName}`);
-      console.error(`  npm run release\n`);
+      console.error(`  npm run release ${profile}\n`);
       process.exit(1);
     }
   }
 } catch { }
 
 console.log(`\n======================================================`);
-console.log(`🚀 Preparing AI Agent Hub Release: v${targetVersion}`);
+console.log(`🚀 Preparing AI Agent Hub Release: v${targetVersion} [Profile: ${profile}]`);
 console.log(`======================================================\n`);
 
 // 1. Synchronize version across project files (only if changed)
@@ -203,23 +259,6 @@ if (!skipTests) {
 }
 
 // 3. Publish Release Artifacts
-const projectDir = path.join(rootDir, 'src', 'AIAgentHub.Web');
-const projectFile = path.join(projectDir, 'AIAgentHub.Web.csproj');
-const pubxmlFile = path.join(projectDir, 'Properties', 'PublishProfiles', `${profile}.pubxml`);
-
-let publishUrl = path.join('bin', 'Release', 'publish');
-if (fs.existsSync(pubxmlFile)) {
-  const content = fs.readFileSync(pubxmlFile, 'utf-8');
-  const match = content.match(/<PublishUrl>(.*?)<\/PublishUrl>/i);
-  if (match && match[1]?.trim()) {
-    publishUrl = match[1].trim();
-  }
-}
-
-const targetPublishDir = path.isAbsolute(publishUrl)
-  ? publishUrl
-  : path.resolve(projectDir, publishUrl);
-
 console.log(`\n📦 Building & Publishing Release (Profile: ${profile})...`);
 console.log(`📁 Target publish directory: ${targetPublishDir}`);
 
@@ -371,13 +410,22 @@ function generateSha256(filePath, checksumFilePath) {
   const fileBuffer = fs.readFileSync(filePath);
   const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
   const filename = path.basename(filePath);
-  fs.writeFileSync(checksumFilePath, `${hash}  ${filename}\n`, 'utf-8');
+
+  let lines = [];
+  if (fs.existsSync(checksumFilePath)) {
+    lines = fs.readFileSync(checksumFilePath, 'utf-8')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0 && !l.endsWith(filename));
+  }
+  lines.push(`${hash}  ${filename}`);
+  fs.writeFileSync(checksumFilePath, lines.join('\n') + '\n', 'utf-8');
   return hash;
 }
 
 console.log(`\n📦 Creating release archive & checksum...`);
 const archiveDir = path.join(rootDir, 'archive');
-const zipFilename = `AIAgentHub-v${targetVersion}.zip`;
+const zipFilename = `AIAgentHub-v${targetVersion}_${profile}.zip`;
 const resolvedZipPath = path.join(archiveDir, zipFilename);
 const resolvedChecksumPath = path.join(archiveDir, 'SHA256.txt');
 
@@ -407,7 +455,7 @@ if (createTag) {
 }
 
 console.log(`\n======================================================`);
-console.log(`🎉 Release v${targetVersion} Created Successfully!`);
+console.log(`🎉 Release v${targetVersion} [${profile}] Created Successfully!`);
 console.log(`======================================================`);
 console.log(`📁 Archive:  ${path.relative(rootDir, resolvedZipPath)} (${sizeMb} MB)`);
 console.log(`🔒 Checksum: ${path.relative(rootDir, resolvedChecksumPath)}`);

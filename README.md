@@ -36,9 +36,9 @@ As an evolving platform, AI Agent Hub is continuously expanding its remote devel
 ## 📸 Screenshots
 
 <p align="center">
-  <a href="docs/product/desktopview1.png"><img src="docs/product/desktopview1.png" width="68%" alt="AI Agent Hub Desktop Studio" /></a>
-  &nbsp;
-  <a href="docs/product/mobileview1.png"><img src="docs/product/mobileview1.png" width="28%" alt="AI Agent Hub Mobile Interface" /></a>
+  <a href="docs/product/desktopview1.png"><img src="docs/product/desktopview1.png" height="400" alt="AI Agent Hub Desktop Studio" /></a>
+  &nbsp;&nbsp;
+  <a href="docs/product/mobileview1.png"><img src="docs/product/mobileview1.png" height="400" alt="AI Agent Hub Mobile Interface" /></a>
 </p>
 
 ---
@@ -76,7 +76,7 @@ The production React frontend is pre-built into `src/AIAgentHub.Web/wwwroot`. To
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/<your-account>/AIAgentHub.git
+git clone https://github.com/rafaelhbrasil/AIAgentHub.git
 cd AIAgentHub
 
 # 2. Run the application
@@ -145,8 +145,9 @@ npm run deploy
 # Publish and run immediately on https://localhost:5001 (default HTTPS)
 npm run deploy:run
 
-# Package a versioned release archive with SHA-256 checksum
-npm run release 0.1.0
+# Package a versioned release archive with SHA-256 checksum (e.g. win64 or portable)
+npm run release win64 0.1.0
+npm run release portable 0.1.0
 ```
 
 ### Manual .NET CLI Publish
