@@ -44,12 +44,27 @@ public sealed class LocalDiskSnapshotStore(
             ".git", "node_modules", "bin", "obj", ".vs", ".idea", ".vscode"
         };
 
-        // Query existing pending changes so we preserve the original pre-prompt baseline snapshot
         var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+
+        // Clean up any historical duplicate change records for the same path
+        var duplicateChanges = existingChanges
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
+            .ToList();
+
+        foreach (var dup in duplicateChanges)
+        {
+            await _fileChangeRepository.DeleteAsync(dup, cancellationToken);
+        }
+
+        var latestChangesByPath = existingChanges
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+
         var pendingPaths = new HashSet<string>(
-            existingChanges
-                .Where(c => c.Status == ReviewStatus.Pending)
-                .Select(c => c.RelativePath.Replace('\\', '/').TrimStart('/')),
+            latestChangesByPath
+                .Where(kv => kv.Value.Status == ReviewStatus.Pending)
+                .Select(kv => kv.Key),
             StringComparer.OrdinalIgnoreCase);
 
         var existingSnapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
@@ -59,9 +74,9 @@ public sealed class LocalDiskSnapshotStore(
 
         // Clean up snapshots for files that have been accepted as deleted
         var acceptedDeletedPaths = new HashSet<string>(
-            existingChanges
-                .Where(c => c.Status == ReviewStatus.Accepted && c.ChangeType == FileChangeType.Deleted)
-                .Select(c => c.RelativePath.Replace('\\', '/').TrimStart('/')),
+            latestChangesByPath
+                .Where(kv => kv.Value.Status == ReviewStatus.Accepted && kv.Value.ChangeType == FileChangeType.Deleted)
+                .Select(kv => kv.Key),
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var deletedRelPath in acceptedDeletedPaths)
@@ -142,27 +157,29 @@ public sealed class LocalDiskSnapshotStore(
 
         var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
 
-        // Clean up any historical duplicate pending changes for the same relative path
-        var duplicatePending = existingChanges
-            .Where(c => c.Status == ReviewStatus.Pending)
+        // Clean up any historical duplicate change records for the same relative path
+        var duplicateChanges = existingChanges
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
             .ToList();
 
-        foreach (var dup in duplicatePending)
+        foreach (var dup in duplicateChanges)
         {
             await _fileChangeRepository.DeleteAsync(dup, cancellationToken);
         }
 
-        var pendingChangesMap = existingChanges
-            .Where(c => c.Status == ReviewStatus.Pending)
+        var latestChangesByPath = existingChanges
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
 
+        var pendingChangesMap = latestChangesByPath
+            .Where(kv => kv.Value.Status == ReviewStatus.Pending)
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
         var acceptedDeletedPaths = new HashSet<string>(
-            existingChanges
-                .Where(c => c.Status == ReviewStatus.Accepted && c.ChangeType == FileChangeType.Deleted)
-                .Select(c => c.RelativePath.Replace('\\', '/').TrimStart('/')),
+            latestChangesByPath
+                .Where(kv => kv.Value.Status == ReviewStatus.Accepted && kv.Value.ChangeType == FileChangeType.Deleted)
+                .Select(kv => kv.Key),
             StringComparer.OrdinalIgnoreCase);
 
         var rootDir = new DirectoryInfo(Path.GetFullPath(workspacePath));

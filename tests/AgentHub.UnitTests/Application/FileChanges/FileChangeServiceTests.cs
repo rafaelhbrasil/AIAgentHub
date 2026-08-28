@@ -51,4 +51,26 @@ public sealed class FileChangeServiceTests
         var imgDiff = await service.GetDiffAsync(imgChange.Id, Path.GetTempPath());
         Assert.NotNull(imgDiff);
     }
+
+    [Fact]
+    public async Task AcceptAsync_PurgesOlderChanges_ForSamePath()
+    {
+        var changeRepo = Substitute.For<IFileChangeRepository>();
+        var snapshotSvc = Substitute.For<ISnapshotService>();
+        var diffEngine = Substitute.For<IDiffEngine>();
+
+        var service = new FileChangeService(changeRepo, snapshotSvc, diffEngine);
+
+        var convId = Guid.NewGuid();
+        var changeOld = FileChange.Create(convId, "src/Program.cs", FileChangeType.Modified);
+        var changeNew = FileChange.Create(convId, "src/Program.cs", FileChangeType.Modified);
+
+        _ = changeRepo.GetByIdAsync(changeNew.Id, Arg.Any<CancellationToken>()).Returns(changeNew);
+        _ = changeRepo.GetByConversationIdAsync(convId, Arg.Any<CancellationToken>()).Returns(new List<FileChange> { changeOld, changeNew });
+
+        await service.AcceptAsync(changeNew.Id);
+
+        Assert.Equal(ReviewStatus.Accepted, changeNew.Status);
+        await changeRepo.Received(1).DeleteAsync(changeOld, Arg.Any<CancellationToken>());
+    }
 }
