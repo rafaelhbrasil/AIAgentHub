@@ -129,14 +129,21 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
     );
   };
 
+  const handleConversationChanged = useCallback(
+    (convId: string | null) => {
+      if (currentWorkspace) {
+        onNavigateToWorkspace?.(currentWorkspace.id, convId);
+      }
+    },
+    [currentWorkspace, onNavigateToWorkspace]
+  );
+
   if (currentWorkspace) {
     return (
       <WorkspaceStudioView
         workspace={currentWorkspace}
         initialConversationId={initialConversationId}
-        onConversationChanged={(convId) => {
-          onNavigateToWorkspace?.(currentWorkspace.id, convId);
-        }}
+        onConversationChanged={handleConversationChanged}
         onBack={handleBack}
         onRemoveWorkspace={handleConfirmRemove}
       />

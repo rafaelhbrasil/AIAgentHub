@@ -34,6 +34,11 @@ public sealed class FileChangeService(
         var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken) ?? throw new KeyNotFoundException($"File change {fileChangeId} not found.");
         change.Accept();
         await _fileChangeRepository.UpdateAsync(change, cancellationToken);
+
+        if (change.ChangeType == FileChangeType.Deleted)
+        {
+            await _snapshotService.DeleteSnapshotAsync(change.ConversationId, change.RelativePath, cancellationToken);
+        }
     }
 
     public async Task RejectAsync(Guid fileChangeId, string workspacePath, CancellationToken cancellationToken = default)

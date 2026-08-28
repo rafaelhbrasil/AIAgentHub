@@ -1,18 +1,22 @@
 ---
 name: deploy
-description: "[Custom skill] Deploys and publishes the AI Agent Hub Web project using the publish profile, terminates locking processes, and starts/keeps the application running in the background."
+description: "[Custom skill] Deploys and publishes the AI Agent Hub Web project using the publish profile. Use ONLY when explicitly asked to deploy or publish a release."
 author: Rafael Brasil
 date_created: 2026-08-21
-last_updated: 2026-08-25
+last_updated: 2026-08-28
 ---
 
 # Deploy Web Project
 
 Automates publishing and launching the AI Agent Hub Web project using the configured publish profile (`FolderProfile.pubxml`).
 
+> [!IMPORTANT]
+> This skill is strictly for explicit deployment or publishing requests (e.g. `/deploy`, `publish release`).
+> When the user asks to run or test the app during normal development, do NOT deploy or publish; run `dotnet run --project src/AIAgentHub.Web` on default port `5432` instead.
+
 ## Parameters & Triggers
 
-- **Command Triggers**: `/deploy`, `deploy`, `publish app`, `deploy web project`, `deploy and run`
+- **Command Triggers**: `/deploy`, `deploy app`, `publish release`, `publish self-contained`
 - **Supported Options**:
   - `-r`, `--run`: Starts the application immediately after publishing as a persistent background daemon (default port `5001`, default protocol `HTTPS`).
   - `-f`, `--foreground`: Starts the application attached in the foreground.
@@ -21,9 +25,10 @@ Automates publishing and launching the AI Agent Hub Web project using the config
 
 ## Critical Execution Rules
 
-- **Default Protocol**: The application runs on **HTTPS** by default (`https://localhost:5001`, with HTTP fallback on `http://localhost:5002`), unless the user explicitly specifies a different protocol (e.g., `--http`).
+- **Strictly for Deployments**: Do NOT invoke deploy during test runs, development builds, or when the user simply asks to "run the app".
+- **Default Protocol**: When deploying with run enabled, the application runs on **HTTPS** by default (`https://localhost:5001`, with HTTP fallback on `http://localhost:5002`), unless the user explicitly specifies a different protocol.
 - **Persistent Background Execution**: When `--run` is active or requested, the application starts as a detached background daemon.
-- **NEVER Kill Deployed Application**: The AI assistant MUST NEVER terminate or kill the deployed `AIAgentHub.Web` process at the end of the turn. The general rule regarding process cleanup applies exclusively to temporary test instances spawned during automated test suites, NOT to user-requested deployments.
+- **NEVER Kill Deployed Application**: The AI assistant MUST NEVER terminate or kill the deployed `AIAgentHub.Web` process at the end of the turn.
 
 ## Execution Workflow
 
