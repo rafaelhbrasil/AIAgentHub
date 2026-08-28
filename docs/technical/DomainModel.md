@@ -87,10 +87,11 @@ A Conversation always belongs to exactly one Workspace.
 
 * Stores chat history.
 * Maintains message order.
-* Tracks the active provider.
-* Tracks the active model.
+* Tracks the active provider (`ActiveProviderId`).
+* Tracks the active model (`ActiveModelId`).
 * Tracks reasoning effort / thinking level setting (`Effort`).
-* Persists external CLI session mapping (`ProviderSessionId`).
+* Tracks conversation lifecycle status (e.g., `Active`, `SwitchingProvider`, `Locked`).
+* Associates multiple provider CLI sessions via `ConversationProviderSession`.
 * Records execution metadata.
 * Tracks user interaction recency (`LastUserInteractionAtUtc`) for workspace conversation ordering.
 
@@ -102,9 +103,23 @@ Workspace
 └── Conversation
 
         ├── Messages
-
-        └── File Changes
+        │
+        ├── File Changes
+        │
+        └── ConversationProviderSessions (N-to-N Provider Tracking)
 ```
+
+---
+
+## Conversation Provider Session
+
+A Conversation Provider Session represents the isolated state and sync checkpoint between a Conversation and a specific AI Provider.
+
+### Responsibilities
+
+* Persists external CLI session identifiers (`ProviderSessionId`) per provider.
+* Tracks synchronization checkpoints (`LastSharedMessageId`, `LastSharedSequenceIndex`) to enable differential context replay when switching between providers.
+* Records last active timestamp per provider (`LastActiveAtUtc`).
 
 ---
 
@@ -121,8 +136,9 @@ Messages may originate from:
 ### Responsibilities
 
 * Store message content.
-* Preserve chronological order.
+* Preserve chronological sequence order.
 * Store timestamps.
+* Track origin provider attribution (`OriginProviderId`, `OriginModelId`).
 * Reference generated artifacts.
 * Reference file changes.
 
@@ -152,7 +168,8 @@ Providers are replaceable and isolated behind a common abstraction.
 * Expose capabilities.
 * Request permissions.
 * Report operational lifecycle status (`NotInstalled`, `Unauthenticated`, `Ready`, `Error`, `Running`, `QuotaExceeded`, `Discontinued`).
-* Manage provider-specific configuration.
+* Track user visibility state (`IsHidden` toggle flag to hide from studio selectors and dashboard).
+* Manage provider-specific configuration and model defaults.
 
 ---
 
@@ -205,10 +222,12 @@ Skills are provider-independent whenever possible.
 
 ### Responsibilities
 
-* Provide reusable instructions.
+* Provide reusable instructions and system prompt extensions.
 * Encapsulate domain knowledge.
 * Improve task execution.
 * Be enabled or disabled per Workspace.
+* Support cross-provider distribution via filesystem symlinks and directory junctions.
+* Support chat prompt auto-completion via `/` slash trigger.
 
 ---
 

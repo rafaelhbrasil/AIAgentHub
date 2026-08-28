@@ -231,6 +231,8 @@ GET /api/v1/filesystem/browse?path={path}
 GET /api/v1/filesystem/tree?workspaceId={workspaceId}
 
 GET /api/v1/filesystem/forbidden-paths
+
+POST /api/v1/filesystem/mkdir
 ```
 
 ---
@@ -252,6 +254,10 @@ PATCH /api/v1/conversations/{id}
 
 PUT /api/v1/conversations/{id}/model
 
+POST /api/v1/conversations/{id}/switch-provider
+
+GET /api/v1/conversations/{id}/sessions
+
 DELETE /api/v1/conversations/{id}
 ```
 
@@ -271,6 +277,8 @@ GET /api/v1/providers/{id}/status?refresh=true
 GET /api/v1/providers/{id}/models?refresh=true
 
 PUT /api/v1/providers/{id}/models/settings
+
+PUT /api/v1/providers/{id}/settings
 
 POST /api/v1/providers/{id}/authenticate
 ```
@@ -351,6 +359,52 @@ Examples:
 GET /api/v1/skills
 
 POST /api/v1/skills/{id}/enable
+
+POST /api/v1/skills/sync-symlinks
+```
+
+---
+
+## Git Operations
+
+Examples:
+
+```
+GET /api/v1/git/status?workspaceId={workspaceId}
+
+GET /api/v1/git/branches?workspaceId={workspaceId}
+
+POST /api/v1/git/checkout
+
+POST /api/v1/git/branch
+
+POST /api/v1/git/commit
+
+POST /api/v1/git/push
+
+POST /api/v1/git/pull
+
+POST /api/v1/git/stash
+
+GET /api/v1/git/history?workspaceId={workspaceId}
+```
+
+---
+
+## Prompt Library
+
+Examples:
+
+```
+GET /api/v1/prompts
+
+POST /api/v1/prompts
+
+GET /api/v1/prompts/{id}
+
+PUT /api/v1/prompts/{id}
+
+DELETE /api/v1/prompts/{id}
 ```
 
 ---

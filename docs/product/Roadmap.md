@@ -16,6 +16,10 @@ Current planning documents:
 
 - `docs/product/releases/Release-v0.1.md`
 - `docs/product/releases/Release-v0.2.md`
+- `docs/product/releases/Release-v0.3.md`
+- `docs/product/releases/Release-v0.4.md`
+- `docs/product/releases/Release-v0.5.md`
+- `docs/product/releases/Release-v0.6.md`
 
 Future versions are intentionally described at a higher level since priorities may evolve over time.
 
@@ -23,9 +27,9 @@ Future versions are intentionally described at a higher level since priorities m
 
 # Product Evolution
 
-The development of AI Agent Hub is divided into several phases.
+The development of AI Agent Hub is divided into sequential minor releases.
 
-Each phase expands the platform while preserving the architectural principles defined in **Product.md**.
+Each release expands the platform while preserving the architectural principles defined in **Product.md**.
 
 ---
 
@@ -33,98 +37,137 @@ Each phase expands the platform while preserving the architectural principles de
 
 **Release:** Version 0.1
 
-Objective:
-
-Deliver a production-ready single-user experience capable of orchestrating multiple AI coding agents through a unified interface.
+Objective: Deliver a production-ready single-user experience capable of orchestrating multiple AI coding agents through a unified interface.
 
 Primary focus:
-
 - Provider abstraction
 - Workspace management
-- Conversations
-- AI execution
-- Diff viewer
-- File preview
+- Conversations & message history
+- AI execution engine
+- Side-by-side & unified diff viewer
+- File previews
 - Remote browser access
-- Security
+- HTTPS & security architecture
 - Server architecture
 
 See:
-
 > `docs/product/releases/Release-v0.1.md`
 
 ---
 
-# Phase 2 — Developer Experience
+# Phase 2 — Multi-Provider Flexibility & Chat DX
 
 **Release:** Version 0.2
 
-Objective:
-
-Improve day-to-day productivity without replacing a professional IDE.
+Objective: Deliver seamless multi-provider orchestration flexibility and chat developer experience.
 
 Primary focus:
-
-- Git integration
-- Embedded editor
-- File explorer
-- Prompt library
-- Provider comparison
-- Conversation improvements
-- Analytics
-- Better UI
+- In-conversation AI provider switching
+- Context migration & differential replay protocol
+- N-to-N session tracking (`ConversationProviderSession`)
+- Chat input autocomplete for Skills (`/`) and file/folder mentions (`@`)
+- Dedicated provider settings modal, model configuration & visibility controls
+- Folder creation directly within workspace navigator
+- Themes (Dark, Light, System)
 
 See:
-
 > `docs/product/releases/Release-v0.2.md`
 
 ---
 
-# Phase 3 — Collaboration
+# Phase 3 — Workspace Developer Tools & Git
 
-**Target:** Version 0.3
+**Release:** Version 0.3
 
-Primary goals:
+Objective: Expand AI Agent Hub into a self-sufficient developer workspace environment.
 
-- Multiple users
-- Roles
-- Permissions
-- Audit log
-- Workspace sharing
-- Snapshot mode
-- Synchronization mode
+Primary focus:
+- Native Git integration (status, branch switch, commit, push, pull, stash, history)
+- Git repository cloning directly into workspace
+- Studio file explorer (create, rename, delete files/folders, drag & drop)
+- Embedded lightweight code editor (syntax highlighting, quick edits, search, go-to-file)
+- Expanded file previews (PDF, HTML, CSV, LOG, INI, TOML)
 
-At this stage AI Agent Hub evolves from a personal assistant into a collaborative development platform.
+See:
+> `docs/product/releases/Release-v0.3.md`
 
 ---
 
-# Phase 4 — Extensibility
+# Phase 4 — Multi-Pane Studio & Productivity
+
+**Release:** Version 0.4
+
+Objective: Empower power users with advanced productivity layouts, parallel execution, and reusable prompt engineering.
+
+Primary focus:
+- Studio multi-pane split layouts (dual chats, chat + editor, chat + live diff)
+- Multi-provider parallel prompt execution and side-by-side comparison
+- Command Palette (`Ctrl+K`) and comprehensive keyboard shortcuts
+- Reusable Prompt Library (templates with `{{variables}}`, categories, import/export)
+
+See:
+> `docs/product/releases/Release-v0.4.md`
+
+---
+
+# Phase 5 — Ecosystem, Analytics & Server Operations
+
+**Release:** Version 0.5
+
+Objective: Expand tool ecosystem integration, local usage analytics, and server operations.
+
+Primary focus:
+- Cross-provider skill sharing via filesystem symlinks and directory junctions
+- Advanced MCP Server lifecycle management and startup options
+- 100% local usage analytics and cost estimation (zero external telemetry)
+- Operator-supplied HTTPS certificates (PFX, Windows cert store, ACME / Let's Encrypt)
+- Server backup, restore, and portability export
+- Application and CLI update checker
+
+See:
+> `docs/product/releases/Release-v0.5.md`
+
+---
+
+# Phase 6 — Collaboration & Multi-User
+
+**Release:** Version 0.6
+
+Objective: Transform AI Agent Hub into a collaborative, team development platform.
+
+Primary focus:
+- Multi-user authentication and Role-Based Access Control (RBAC)
+- Per-workspace permissions and provider access policies
+- Security audit logging and active session management
+- Remote Station workspace sharing (Snapshot and Synchronization modes)
+
+See:
+> `docs/product/releases/Release-v0.6.md`
+
+---
+
+# Phase 7 — Extensibility & Plugins
+
+**Target:** Version 0.7+
 
 Primary goals:
-
 - Plugin system
 - Provider SDK
 - Theme SDK
 - Preview extensions
 - Third-party integrations
 
-The objective is to make AI Agent Hub extensible without modifying the application core.
-
 ---
 
-# Phase 5 — Enterprise
+# Phase 8 — Enterprise & Stable Public Release
+
+**Target:** Version 1.0.0
 
 Potential features include:
-
-- Enterprise authentication
-- MFA
-- External identity providers
-- Advanced administration
-- Certificate management
-- Usage policies
-- Centralized configuration
-
-The exact scope remains intentionally undefined.
+- Enterprise authentication (SSO / OIDC / SAML)
+- Multi-factor authentication (MFA)
+- Enterprise audit compliance and retention policies
+- Distributed AI execution options
 
 ---
 
@@ -210,13 +253,16 @@ Major releases may introduce carefully planned architectural evolution.
 
 The following ideas are candidates for future releases. They are not yet assigned to a specific phase.
 
-## Desktop Integration
+## Desktop Integration & Hidden Console Mode
 
-- Run the app executable in a system tray icon
-- Tray menu options: open web interface, view logs, exit app
-- If technically possible, add a tray option to restart the backend service
-- Log to a file per day at `./logs/yyyy-mm-dd.log` (same folder where the app runs)
-- "View logs" option opens the log folder
+- **Hidden Console Daemon**: Run the application executable silently in the background on desktop launch without an open console window.
+- **System Tray Icon**: Persistent icon in the taskbar notification area.
+- **Tray Context Menu**:
+  - *Open Web Interface* (opens default browser to `https://localhost:5432` or configured port)
+  - *View Logs* (opens the daily logs folder)
+  - *Restart Backend Server* (gracefully restarts the server daemon)
+  - *Exit App* (terminates the background daemon cleanly)
+- **Daily Rolling File Logs**: Rolling log files stored per day at `./logs/yyyy-mm-dd.log` (in the application execution directory).
 
 ## Service Management
 
@@ -234,11 +280,6 @@ The following ideas are candidates for future releases. They are not yet assigne
 - Display attachment chips and image thumbnails in the prompt input bar prior to submission
 - Pass attached file contents or image data to compatible multimodal AI providers and CLI orchestrations
 
-## File Explorer
-
-- Allow the user to add new items to the folder structure (like VS Code explorer)
-- Operations: new folder, new file, rename file, delete file/folder, collapse all folders
-
 ## Conversation Switching
 
 - Allow swapping between two or more conversations without blocking the prompt text box
@@ -249,12 +290,6 @@ The following ideas are candidates for future releases. They are not yet assigne
 
 - Add a word-wrap toggle button when diffing a file
 
-## Mentions
-
-- Support `@<file>` or `@<folder>` mentions (similar to Aider and OpenCode)
-- While typing, filter any file/folder within the workspace scope
-- Once the user picks an item, replace `@<search>` with `$/path/to/file.ext`
-
 ---
 
 # Deferred Ideas
@@ -263,6 +298,7 @@ The following ideas remain intentionally outside the current roadmap.
 
 They may become future projects or optional modules.
 
+- Workspace Templates (predefined project scaffolding layouts)
 - Cloud-hosted Server
 - Marketplace
 - Collaborative editing
