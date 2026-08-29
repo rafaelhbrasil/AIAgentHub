@@ -54,4 +54,5 @@ public interface IProviderManager
     public Task<IReadOnlyList<ModelInfo>> GetModelsAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default);
     public Task<ProviderDetectionResult> DetectProviderDetailedAsync(string providerId, bool forceRefresh = false, CancellationToken cancellationToken = default);
     public Task UpdateModelSettingsAsync(string providerId, Dictionary<string, bool> modelStates, CancellationToken cancellationToken = default);
+    public Task UpdateProviderSettingsAsync(string providerId, bool? isHidden, string? defaultModelId, string? defaultEffort, Dictionary<string, bool>? modelStates = null, CancellationToken cancellationToken = default);
 }

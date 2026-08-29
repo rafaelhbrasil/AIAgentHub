@@ -43,6 +43,9 @@ public sealed class ProviderManager(
                     Description = provider.Description,
                     IsInstalled = dbRecord.IsInstalled,
                     IsAuthenticated = dbRecord.IsAuthenticated,
+                    IsHidden = dbRecord.IsHidden,
+                    DefaultModelId = dbRecord.DefaultModelId,
+                    DefaultEffort = dbRecord.DefaultEffort,
                     Status = dbRecord.Status,
                     Message = dbRecord.StatusDetails,
                     Version = dbRecord.Version,
@@ -280,6 +283,9 @@ public sealed class ProviderManager(
                     Description = provider.Description,
                     IsInstalled = dbRecord.IsInstalled,
                     IsAuthenticated = dbRecord.IsAuthenticated,
+                    IsHidden = dbRecord.IsHidden,
+                    DefaultModelId = dbRecord.DefaultModelId,
+                    DefaultEffort = dbRecord.DefaultEffort,
                     Status = dbRecord.Status,
                     Message = dbRecord.StatusDetails,
                     Version = dbRecord.Version,
@@ -422,6 +428,46 @@ public sealed class ProviderManager(
         return await repo.GetAllAsync(cancellationToken);
     }
 
+    public async Task UpdateProviderSettingsAsync(
+        string providerId,
+        bool? isHidden,
+        string? defaultModelId,
+        string? defaultEffort,
+        Dictionary<string, bool>? modelStates = null,
+        CancellationToken cancellationToken = default)
+    {
+        _ = GetProvider(providerId);
+
+        if (_detectionRecordFactory != null)
+        {
+            var repo = _detectionRecordFactory();
+            var record = await repo.GetByProviderIdAsync(providerId, cancellationToken);
+            if (record != null)
+            {
+                if (isHidden.HasValue)
+                {
+                    record.IsHidden = isHidden.Value;
+                }
+                if (defaultModelId != null)
+                {
+                    record.DefaultModelId = string.IsNullOrWhiteSpace(defaultModelId) || defaultModelId.Equals("default", StringComparison.OrdinalIgnoreCase) ? null : defaultModelId.Trim();
+                }
+                if (defaultEffort != null)
+                {
+                    record.DefaultEffort = string.IsNullOrWhiteSpace(defaultEffort) ? null : defaultEffort.Trim();
+                }
+                record.DetectedAtUtc = DateTimeOffset.UtcNow;
+                await repo.UpsertAsync(record, cancellationToken);
+            }
+        }
+
+        if (modelStates != null && modelStates.Count > 0)
+        {
+            await UpdateModelSettingsAsync(providerId, modelStates, cancellationToken);
+        }
+    }
+
+
     private async Task PersistDetectionResultAsync(string providerId, ProviderInfo info, CancellationToken cancellationToken)
     {
         if (_detectionRecordFactory == null)
@@ -430,17 +476,16 @@ public sealed class ProviderManager(
         }
 
         var repo = _detectionRecordFactory();
-        var record = new ProviderDetectionRecord
-        {
-            ProviderId = providerId,
-            Status = info.Status,
-            StatusDetails = info.Message,
-            Version = info.Version,
-            ExecutablePath = info.ExecutablePath,
-            IsInstalled = info.IsInstalled,
-            IsAuthenticated = info.IsAuthenticated,
-            DetectedAtUtc = DateTimeOffset.UtcNow
-        };
+        var existing = await repo.GetByProviderIdAsync(providerId, cancellationToken);
+
+        var record = existing ?? new ProviderDetectionRecord { ProviderId = providerId };
+        record.Status = info.Status;
+        record.StatusDetails = info.Message;
+        record.Version = info.Version;
+        record.ExecutablePath = info.ExecutablePath;
+        record.IsInstalled = info.IsInstalled;
+        record.IsAuthenticated = info.IsAuthenticated;
+        record.DetectedAtUtc = DateTimeOffset.UtcNow;
 
         await repo.UpsertAsync(record, cancellationToken);
     }

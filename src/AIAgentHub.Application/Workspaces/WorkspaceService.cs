@@ -1,4 +1,5 @@
 using AIAgentHub.Application.Filesystem;
+using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Workspaces;
 
@@ -7,11 +8,13 @@ namespace AIAgentHub.Application.Workspaces;
 public sealed class WorkspaceService(
     IWorkspaceRepository workspaceRepository,
     IFilesystemService filesystemService,
-    ISystemPathValidator systemPathValidator) : IWorkspaceService
+    ISystemPathValidator systemPathValidator,
+    IProviderManager? providerManager = null) : IWorkspaceService
 {
     private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
     private readonly IFilesystemService _filesystemService = filesystemService;
     private readonly ISystemPathValidator _systemPathValidator = systemPathValidator;
+    private readonly IProviderManager? _providerManager = providerManager;
 
     public async Task<IReadOnlyList<WorkspaceDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -51,13 +54,25 @@ public sealed class WorkspaceService(
             ? _filesystemService.SuggestWorkspaceName(fullPath)
             : request.Name.Trim();
 
+        string? defaultProviderId = null;
+        if (!string.IsNullOrWhiteSpace(request.DefaultProviderId))
+        {
+            defaultProviderId = request.DefaultProviderId.Trim();
+        }
+        else if (_providerManager != null)
+        {
+            var providers = await _providerManager.GetAllAsync(cancellationToken);
+            var firstReady = providers.FirstOrDefault(p => p.Status == Domain.Providers.ProviderStatus.Ready && !p.IsHidden);
+            defaultProviderId = firstReady?.Id;
+        }
+
         var settings = new WorkspaceSettings
         {
-            DefaultProviderId = request.DefaultProviderId ?? "gemini",
+            DefaultProviderId = defaultProviderId,
             DefaultModelId = request.DefaultModelId
         };
 
-        var workspace = Workspace.Create(name, fullPath, request.Origin, settings);
+        var workspace = Workspace.Create(name, fullPath, request.Origin, settings, request.IsFavorite);
         await _workspaceRepository.AddAsync(workspace, cancellationToken);
 
         return MapToDto(workspace);
@@ -69,6 +84,22 @@ public sealed class WorkspaceService(
         workspace.Rename(request.Name);
         workspace.UpdateSettings(request.Settings);
 
+        await _workspaceRepository.UpdateAsync(workspace, cancellationToken);
+        return MapToDto(workspace);
+    }
+
+    public async Task<WorkspaceDto> SetFavoriteAsync(Guid id, bool isFavorite, CancellationToken cancellationToken = default)
+    {
+        var workspace = await _workspaceRepository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException($"Workspace with ID {id} not found.");
+        workspace.SetFavorite(isFavorite);
+        await _workspaceRepository.UpdateAsync(workspace, cancellationToken);
+        return MapToDto(workspace);
+    }
+
+    public async Task<WorkspaceDto> SetArchivedAsync(Guid id, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var workspace = await _workspaceRepository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException($"Workspace with ID {id} not found.");
+        workspace.SetArchived(isArchived);
         await _workspaceRepository.UpdateAsync(workspace, cancellationToken);
         return MapToDto(workspace);
     }
@@ -95,7 +126,9 @@ public sealed class WorkspaceService(
             w.CreatedAtUtc,
             w.LastAccessedAtUtc,
             w.Settings,
-            w.Conversations.Count
+            w.Conversations.Count,
+            w.IsFavorite,
+            w.IsArchived
         );
     }
 }

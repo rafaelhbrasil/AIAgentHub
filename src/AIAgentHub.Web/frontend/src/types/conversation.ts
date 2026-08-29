@@ -5,6 +5,12 @@ export enum MessageRole {
   Tool = 'Tool',
 }
 
+export enum ConversationStatus {
+  Active = 0,
+  SwitchingProvider = 1,
+  Locked = 2,
+}
+
 export const isUserRole = (role?: MessageRole | string | null): boolean => role === MessageRole.User;
 
 export interface ExecutionMetadata {
@@ -22,6 +28,20 @@ export interface MessageDto {
   content: string;
   createdAtUtc: string;
   metadata?: ExecutionMetadata | null;
+  sequenceIndex?: number;
+  originProviderId?: string | null;
+  originModelId?: string | null;
+}
+
+export interface ConversationProviderSessionDto {
+  id: string;
+  conversationId: string;
+  providerId: string;
+  providerSessionId?: string | null;
+  lastSharedMessageId?: string | null;
+  lastSharedSequenceIndex: number;
+  createdAtUtc: string;
+  lastActiveAtUtc: string;
 }
 
 export interface ConversationDto {
@@ -36,6 +56,8 @@ export interface ConversationDto {
   lastUserInteractionAtUtc?: string;
   messageCount: number;
   fileChangeCount: number;
+  status?: ConversationStatus | number;
+  isPinned?: boolean;
 }
 
 export interface ConversationDetailDto {
@@ -48,5 +70,23 @@ export interface ConversationDetailDto {
   createdAtUtc: string;
   updatedAtUtc: string;
   lastUserInteractionAtUtc?: string;
+  status?: ConversationStatus | number;
+  isPinned?: boolean;
   messages: MessageDto[];
+  sessions?: ConversationProviderSessionDto[];
+}
+
+export interface SwitchProviderRequest {
+  targetProviderId: string;
+  targetModelId?: string | null;
+  historyScope?: string;
+  includeFileChanges?: boolean;
+}
+
+export interface SwitchProviderResult {
+  conversationId: string;
+  activeProviderId: string;
+  activeModelId?: string | null;
+  migratedMessageCount: number;
+  targetSessionId?: string | null;
 }

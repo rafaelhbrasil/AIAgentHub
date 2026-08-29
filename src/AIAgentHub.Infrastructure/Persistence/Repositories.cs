@@ -22,7 +22,10 @@ public sealed class WorkspaceRepository(AgentHubDbContext context) : IWorkspaceR
             .Include(w => w.Conversations)
             .ToListAsync(cancellationToken);
 
-        return list.OrderByDescending(w => w.LastAccessedAtUtc).ToList();
+        return list
+            .OrderByDescending(w => w.IsFavorite)
+            .ThenByDescending(w => w.LastAccessedAtUtc)
+            .ToList();
     }
 
     public async Task<Workspace?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -72,10 +75,14 @@ public sealed class ConversationRepository(AgentHubDbContext context) : IConvers
         var list = await _context.Conversations
             .Include(c => c.Messages)
             .Include(c => c.FileChanges)
+            .Include(c => c.ProviderSessions)
             .Where(c => c.WorkspaceId == workspaceId)
             .ToListAsync(cancellationToken);
 
-        return list.OrderByDescending(c => c.LastUserInteractionAtUtc).ToList();
+        return list
+            .OrderByDescending(c => c.IsPinned)
+            .ThenByDescending(c => c.LastUserInteractionAtUtc)
+            .ToList();
     }
 
     public async Task<Conversation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -83,6 +90,7 @@ public sealed class ConversationRepository(AgentHubDbContext context) : IConvers
         return await _context.Conversations
             .Include(c => c.Messages)
             .Include(c => c.FileChanges)
+            .Include(c => c.ProviderSessions)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
@@ -113,6 +121,19 @@ public sealed class ConversationRepository(AgentHubDbContext context) : IConvers
             if (entry.State is EntityState.Detached or EntityState.Modified)
             {
                 var exists = await _context.FileChanges.AnyAsync(fc => fc.Id == fileChange.Id, cancellationToken);
+                if (!exists)
+                {
+                    entry.State = EntityState.Added;
+                }
+            }
+        }
+
+        foreach (var session in conversation.ProviderSessions)
+        {
+            var entry = _context.Entry(session);
+            if (entry.State is EntityState.Detached or EntityState.Modified)
+            {
+                var exists = await _context.ConversationProviderSessions.AnyAsync(s => s.Id == session.Id, cancellationToken);
                 if (!exists)
                 {
                     entry.State = EntityState.Added;

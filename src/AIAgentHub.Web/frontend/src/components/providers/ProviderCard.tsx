@@ -14,6 +14,7 @@ import { useToast } from '../../context/ToastContext';
 interface ProviderCardProps {
   provider: ProviderDto;
   onOpenModelsModal: (provider: ProviderDto) => void;
+  onOpenSettingsModal?: (provider: ProviderDto) => void;
   onOpenInstallModal: (provider: ProviderDto) => void;
   onOpenExternalLink: (url: string) => void;
   onStatusUpdated?: (updatedProvider: ProviderDto) => void;
@@ -22,6 +23,7 @@ interface ProviderCardProps {
 export const ProviderCard: React.FC<ProviderCardProps> = ({
   provider,
   onOpenModelsModal,
+  onOpenSettingsModal,
   onOpenInstallModal,
   onOpenExternalLink,
   onStatusUpdated,
@@ -187,6 +189,17 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
             '🔄 Refresh'
           )}
         </button>
+        {onOpenSettingsModal && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            id={`settings-btn-${currentProvider.id}`}
+            onClick={() => onOpenSettingsModal(currentProvider)}
+            title="Provider parameters & model visibility"
+          >
+            ⚙️ Settings
+          </button>
+        )}
         {currentProvider.documentationUrl && (
           <button
             type="button"

@@ -550,12 +550,22 @@ Emergency reset and account recovery follow strict security boundaries:
 - Standard password reset requires the 16-character recovery code generated during initial setup.
 - Recovery modal explicitly includes help instructions regarding server startup options (`--recovery`).
 
-## Emergency Unassisted Recovery (`--recovery` CLI Flag)
+## Emergency Unassisted Recovery (`--recovery` CLI Flag) & Safe Client IP (`--safe-client <IP>`)
 - An unassisted reset option (resetting without a recovery code) is ONLY available when:
   1. The server process is launched with the command-line flag `--recovery`.
-  2. The HTTP request originates from the local host (loopback interface `127.0.0.1` / `::1`).
-- Connection attempts from remote IPs attempting unassisted recovery are strictly forbidden (`403 Forbidden`).
+  2. The HTTP request originates from either:
+     - The local host (loopback interface `127.0.0.1` / `::1`).
+     - A trusted Safe Client IP explicitly specified at startup via the `--safe-client <IP>` parameter (or aliases `--safeclient`, `-safe-client`, `/safe-client`, `--safe-ip`).
+- Connection attempts from unauthorized remote IPs attempting unassisted recovery are strictly forbidden (`403 Forbidden`).
 - When executed, unassisted recovery requires **double confirmation** from the user, explicitly warning that all database records (workspaces, user accounts, conversations, secrets, and settings) will be forcefully erased.
+
+## Safe Client IP Parameter (`--safe-client <IP>`)
+- The server CLI supports `--safe-client <IP>`:
+  - **Localhost-Only Bypass**: When network mode is set to Localhost-only (`NetworkMode.Localhost`), incoming connections originating from the configured Safe Client IP are permitted through `NetworkModeMiddleware`, exactly like loopback connections.
+  - **First-Access Setup Wizard**: If initial setup is pending, the Safe Client IP can run the setup wizard to create the initial administrator account.
+  - **Emergency Recovery Access**: When combined with `--recovery`, the Safe Client IP possesses the same administrative recovery rights as `localhost` to reset the administrator or wipe the database.
+  - **Without Parameter**: If started without `--safe-client`, only `localhost` (loopback) retains local-only permissions and recovery access.
+  - **LAN Mode Interaction**: If LAN connections are enabled (`NetworkMode.Lan`), all LAN devices can connect normally, while `localhost` and the designated `--safe-client` IP retain recovery privileges.
 
 ---
 

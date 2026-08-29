@@ -24,7 +24,35 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
   const [isLoadingFolders, setIsLoadingFolders] = useState<boolean>(false);
   const [isLoadingProviders, setIsLoadingProviders] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
+  const [newFolderName, setNewFolderName] = useState<string>('');
   const nativePickerRef = useRef<HTMLInputElement>(null);
+
+  const handleCreateFolder = async () => {
+    const trimmed = newFolderName.trim();
+    if (!trimmed || !currentPath) return;
+
+    const separator = currentPath.includes('\\') ? '\\' : '/';
+    const targetPath = `${currentPath.replace(/[/\\]+$/, '')}${separator}${trimmed}`;
+
+    try {
+      const res = await apiFetch<{ path: string }>('/api/v1/filesystem/mkdir', {
+        method: 'POST',
+        body: { path: targetPath },
+      });
+
+      if (res.ok && res.data) {
+        showToast(`Created folder "${trimmed}".`, 'success');
+        setNewFolderName('');
+        setIsCreatingFolder(false);
+        await loadDirectory(res.data.path);
+      } else {
+        showToast(res.error || (res.data as any)?.message || 'Failed to create folder.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Error creating folder.', 'error');
+    }
+  };
 
   const updateSuggestedName = (fullPath: string) => {
     if (!fullPath) return;
@@ -248,16 +276,74 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
                 );
               })}
             </div>
-            <button
-              type="button"
-              className="btn-refresh-icon"
-              onClick={() => loadDirectory(currentPath)}
-              disabled={isLoadingFolders}
-              title="Refresh folder"
-            >
-              <Spinner size={15} isSpinning={isLoadingFolders} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary compact-btn"
+                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                onClick={() => setIsCreatingFolder((prev) => !prev)}
+                title="Create a new subfolder in this directory"
+              >
+                ➕ New Folder
+              </button>
+              <button
+                type="button"
+                className="btn-refresh-icon"
+                onClick={() => loadDirectory(currentPath)}
+                disabled={isLoadingFolders}
+                title="Refresh folder"
+              >
+                <Spinner size={15} isSpinning={isLoadingFolders} />
+              </button>
+            </div>
           </div>
+
+          {isCreatingFolder && (
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                padding: '8px',
+                background: 'var(--bg-glass)',
+                borderBottom: '1px solid var(--border-color)',
+                alignItems: 'center',
+              }}
+            >
+              <input
+                type="text"
+                className="form-input compact-input"
+                style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem' }}
+                placeholder="Folder name..."
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder();
+                  if (e.key === 'Escape') setIsCreatingFolder(false);
+                }}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="btn btn-primary compact-btn"
+                style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim()}
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary compact-btn"
+                style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                onClick={() => {
+                  setIsCreatingFolder(false);
+                  setNewFolderName('');
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           <div className="explorer-folder-list">
             {isLoadingFolders ? (

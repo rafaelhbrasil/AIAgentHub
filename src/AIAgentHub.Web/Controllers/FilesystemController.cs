@@ -55,4 +55,41 @@ public sealed class FilesystemController(
         var tree = await _filesystemService.GetWorkspaceTreeAsync(ws.Path, ws.Settings.IgnoredFiles, cancellationToken);
         return Ok(tree);
     }
+
+    public sealed record CreateDirectoryRequest(string Path);
+
+    [HttpPost("mkdir")]
+    public IActionResult CreateDirectory([FromBody] CreateDirectoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Path))
+        {
+            return BadRequest(new { code = "invalid_path", message = "Path cannot be empty." });
+        }
+
+        var normalized = Path.GetFullPath(request.Path.Trim());
+        if (_systemPathValidator.IsForbiddenForBrowsing(normalized, out var reason))
+        {
+            return BadRequest(new { code = "forbidden_system_directory", message = reason });
+        }
+
+        try
+        {
+            if (!Directory.Exists(normalized))
+            {
+                _ = Directory.CreateDirectory(normalized);
+            }
+
+            var dirInfo = new DirectoryInfo(normalized);
+            return Ok(new
+            {
+                path = dirInfo.FullName,
+                name = dirInfo.Name,
+                isDirectory = true
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { code = "mkdir_failed", message = ex.Message });
+        }
+    }
 }

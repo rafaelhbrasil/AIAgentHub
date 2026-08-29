@@ -88,6 +88,7 @@ public static class DependencyInjection
         // 7. Provider Adapters & Manager (including Antigravity CLI / agy)
         _ = services.Configure<CliExecutionOptions>(configuration.GetSection("AgentHub:CliExecution"));
         _ = services.Configure<ProvidersOptions>(configuration.GetSection(ProvidersOptions.SectionName));
+        _ = services.Configure<ProviderSwitchOptions>(configuration.GetSection(ProviderSwitchOptions.SectionName));
         _ = services.AddSingleton<HeadlessProcessExecutor>();
         _ = services.AddSingleton<HeadedProcessExecutor>();
         _ = services.AddSingleton<IProcessExecutor>(sp =>
@@ -115,6 +116,7 @@ public static class DependencyInjection
         // 8. Application Services
         _ = services.AddScoped<IWorkspaceService, WorkspaceService>();
         _ = services.AddScoped<IConversationService, ConversationService>();
+        _ = services.AddScoped<IConversationSwitchService, ConversationSwitchService>();
         _ = services.AddScoped<IFileChangeService, FileChangeService>();
         _ = services.AddScoped<ISetupService, SetupService>();
         _ = services.AddScoped<IAppAuthService, AuthenticationService>();

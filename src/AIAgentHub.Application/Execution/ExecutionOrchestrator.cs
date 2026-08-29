@@ -71,7 +71,7 @@ public sealed class ExecutionOrchestrator(
         var workspace = await _workspaceRepository.GetByIdAsync(conversation.WorkspaceId, cancellationToken) ?? throw new KeyNotFoundException($"Workspace {conversation.WorkspaceId} not found.");
 
         // 1. Add User Message (persisted once for the initiating user prompt)
-        _ = conversation.AddMessage(MessageRole.User, prompt);
+        var userMsg = conversation.AddMessage(MessageRole.User, prompt, null, conversation.ProviderId, conversation.ModelId);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
         await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, cancellationToken);
 
@@ -88,22 +88,57 @@ public sealed class ExecutionOrchestrator(
         var stopwatch = Stopwatch.StartNew();
         var assistantResponseBuilder = new System.Text.StringBuilder();
 
-        // Start session if not already started
-        if (string.IsNullOrEmpty(conversation.ProviderSessionId))
+        // Retrieve existing session or start new session
+        var currentSession = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
+        var activeSessionId = currentSession?.ProviderSessionId ?? conversation.ProviderSessionId;
+
+        if (string.IsNullOrEmpty(activeSessionId))
         {
-            var sessionId = await provider.StartSessionAsync(conversation.Id, workspace.Path, conversation.ModelId, cancellationToken);
-            if (!string.IsNullOrEmpty(sessionId))
+            activeSessionId = await provider.StartSessionAsync(conversation.Id, workspace.Path, conversation.ModelId, cancellationToken);
+            if (!string.IsNullOrEmpty(activeSessionId))
             {
-                conversation.SetProviderSessionId(sessionId);
+                conversation.SetProviderSessionId(activeSessionId);
+                _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, activeSessionId, userMsg.Id, currentSession?.LastSharedSequenceIndex ?? 0);
                 await _conversationRepository.UpdateAsync(conversation, cancellationToken);
             }
+        }
+        else if (conversation.ProviderSessionId != activeSessionId)
+        {
+            conversation.SetProviderSessionId(activeSessionId);
+            await _conversationRepository.UpdateAsync(conversation, cancellationToken);
+        }
+
+        // 3b. Compile Context Handoff / Differential Replay for unshared history
+        var lastSharedIndex = currentSession?.LastSharedSequenceIndex ?? 0;
+        var unsharedMessages = conversation.Messages
+            .Where(m => m.Id != userMsg.Id && m.SequenceIndex > 0 && m.SequenceIndex > lastSharedIndex)
+            .OrderBy(m => m.SequenceIndex)
+            .ToList();
+
+        var effectivePrompt = prompt;
+        if (unsharedMessages.Count > 0)
+        {
+            var contextBuilder = new System.Text.StringBuilder();
+            contextBuilder.AppendLine("[AI Agent Hub — Conversation Context Handoff]");
+            contextBuilder.AppendLine("The user switched to you from another AI provider in this ongoing conversation.");
+            contextBuilder.AppendLine("Below is the preceding conversation history for context:\n");
+            contextBuilder.AppendLine("--- Prior Conversation History ---");
+            foreach (var msg in unsharedMessages)
+            {
+                var roleLabel = msg.Role == MessageRole.User ? "User" : $"Assistant ({msg.OriginProviderId ?? "AI"})";
+                contextBuilder.AppendLine($"{roleLabel}: {msg.Content}\n");
+            }
+            contextBuilder.AppendLine("--- End of Prior History ---\n");
+            contextBuilder.AppendLine("Current user message:");
+            contextBuilder.AppendLine(prompt);
+            effectivePrompt = contextBuilder.ToString();
         }
 
         var execContext = new ProviderExecutionContext(
             conversation.Id,
             workspace.Id,
             workspace.Path,
-            prompt,
+            effectivePrompt,
             conversation.ModelId,
             conversation.ProviderSessionId,
             workspace.Settings.IgnoredFiles,
@@ -130,6 +165,7 @@ public sealed class ExecutionOrchestrator(
                 if (!string.IsNullOrEmpty(newSessionId) && conversation.ProviderSessionId != newSessionId)
                 {
                     conversation.SetProviderSessionId(newSessionId);
+                    _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, newSessionId);
                     await _conversationRepository.UpdateAsync(conversation, cancellationToken);
                 }
             },
@@ -239,7 +275,8 @@ public sealed class ExecutionOrchestrator(
             finalAssistantText = $"Error: {error}";
         }
 
-        _ = conversation.AddMessage(MessageRole.Assistant, finalAssistantText, metadata);
+        var assistantMsg = conversation.AddMessage(MessageRole.Assistant, finalAssistantText, metadata, provider.Id, conversation.ModelId);
+        _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, conversation.ProviderSessionId, assistantMsg.Id, assistantMsg.SequenceIndex);
         await _conversationRepository.UpdateAsync(conversation, cancellationToken);
 
         await _broadcaster.SendConversationEventAsync("conversation.completed", conversationId, new

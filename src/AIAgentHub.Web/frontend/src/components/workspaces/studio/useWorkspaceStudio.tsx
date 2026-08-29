@@ -8,6 +8,8 @@ import { signalRService, StreamChunkPayload } from '../../../services/signalrSer
 import { useToast } from '../../../context/ToastContext';
 import { useModal } from '../../../context/ModalContext';
 import { CreateConversationModal } from '../../modals/CreateConversationModal';
+import { SwitchProviderModal } from '../../modals/SwitchProviderModal';
+import { AbortMigrationModal } from '../../modals/AbortMigrationModal';
 import { FilePreviewModal } from '../../modals/FilePreviewModal';
 import { DiffViewerModal } from '../../modals/DiffViewerModal';
 import { PermissionModal } from '../../modals/PermissionModal';
@@ -248,7 +250,7 @@ export const useWorkspaceStudio = ({
     showModal(
       'Start New Conversation',
       <CreateConversationModal
-        defaultProviderId={workspace.settings?.defaultProviderId || 'antigravity'}
+        defaultProviderId={workspace.settings?.defaultProviderId || ''}
         defaultModelId={workspace.settings?.defaultModelId}
         onSubmit={async (title, providerId, modelId) => {
           const res = await apiFetch<ConversationDto>('/api/v1/conversations', {
@@ -256,7 +258,7 @@ export const useWorkspaceStudio = ({
             body: {
               workspaceId: workspace.id,
               title: title.trim(),
-              providerId: providerId || workspace.settings?.defaultProviderId || 'antigravity',
+              providerId: providerId || workspace.settings?.defaultProviderId || undefined,
               modelId: modelId || undefined,
             },
           });
@@ -329,6 +331,67 @@ export const useWorkspaceStudio = ({
           Delete Conversation
         </button>
       </div>
+    );
+  };
+
+  const handleTogglePin = async (convId: string, isPinned: boolean) => {
+    const res = await apiFetch(`/api/v1/conversations/${convId}/pin`, {
+      method: 'PUT',
+      body: { isPinned },
+    });
+    if (res.ok) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, isPinned } : c))
+      );
+      if (activeConversation && activeConversation.id === convId) {
+        setActiveConversation((prev) => (prev ? { ...prev, isPinned } : prev));
+      }
+    } else {
+      showToast('Failed to update pin state.', 'error');
+    }
+  };
+
+  const handleOpenSwitchProvider = () => {
+    if (!activeConversation) return;
+
+    const isSwitching =
+      activeConversation.status === 1 ||
+      (activeConversation.status as any) === 'SwitchingProvider';
+
+    if (isSwitching) {
+      showModal(
+        'Provider Migration in Progress',
+        <AbortMigrationModal
+          conversation={activeConversation}
+          onSuccess={async (updatedConv) => {
+            hideModal();
+            if (updatedConv) {
+              setActiveConversation(updatedConv);
+            } else {
+              await selectConversationById(activeConversation.id);
+            }
+          }}
+          onClose={hideModal}
+        />,
+        undefined,
+        'md'
+      );
+      return;
+    }
+
+    showModal(
+      '🔄 Switch AI Provider & History Replay',
+      <SwitchProviderModal
+        conversation={activeConversation}
+        onSuccess={async (result) => {
+          hideModal();
+          await selectConversationById(result.conversationId);
+          fetchWorkspaceData();
+        }}
+        onCancel={hideModal}
+      />,
+      undefined,
+      'lg'
     );
   };
 
@@ -628,6 +691,8 @@ export const useWorkspaceStudio = ({
     fetchWorkspaceData,
     handleCreateConversation,
     handleDeleteConversation,
+    handleTogglePin,
+    handleOpenSwitchProvider,
     handlePreviewFile,
     handleOpenDiffs,
     handleAcceptAllChanges,

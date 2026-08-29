@@ -17,6 +17,7 @@ interface StudioSidebarProps {
   onCreateConversation: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string, title: string) => void;
+  onTogglePin?: (id: string, isPinned: boolean) => void;
 }
 
 export const StudioSidebar: React.FC<StudioSidebarProps> = ({
@@ -31,6 +32,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
   onCreateConversation,
   onSelectConversation,
   onDeleteConversation,
+  onTogglePin,
 }) => {
   return (
     <div className={`sidebar-panel glass ${mobileTab === 'chat' ? 'mobile-hidden' : ''}`}>
@@ -106,6 +108,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         activeConversationId={activeConversation?.id}
         onSelectConversation={onSelectConversation}
         onDeleteConversation={onDeleteConversation}
+        onTogglePin={onTogglePin}
       />
     </div>
   );

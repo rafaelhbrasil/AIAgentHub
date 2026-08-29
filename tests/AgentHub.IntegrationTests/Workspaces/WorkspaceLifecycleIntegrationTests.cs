@@ -188,16 +188,26 @@ public sealed class WorkspaceLifecycleIntegrationTests : IClassFixture<CustomWeb
             _ = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
             {
                 Username = "admin",
-                Password = "SecurePassword123!",
-                ConfirmPassword = "SecurePassword123!"
+                Password = "123456",
+                ConfirmPassword = "123456"
             });
         }
 
-        _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             Username = "admin",
-            Password = "SecurePassword123!"
+            Password = "123456"
         });
+
+        if (!loginRes.IsSuccessStatusCode)
+        {
+            _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
+            {
+                Username = "admin",
+                Password = "123123"
+            });
+        }
+
         return client;
     }
 

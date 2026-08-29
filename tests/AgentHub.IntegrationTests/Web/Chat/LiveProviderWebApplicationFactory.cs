@@ -56,6 +56,12 @@ public class LiveProviderWebApplicationFactory : WebApplicationFactory<Program>
         // LAN MODE DISABLED: Localhost only
         settings.NetworkMode = NetworkMode.Localhost;
         await settingsRepo.UpdateAsync(settings);
+
+        var setupService = scope.ServiceProvider.GetRequiredService<AIAgentHub.Application.Security.ISetupService>();
+        if (!await setupService.IsSetupCompletedAsync())
+        {
+            _ = await setupService.InitializeAdminAsync("admin", "123456", "123456");
+        }
     }
 
     protected override void Dispose(bool disposing)

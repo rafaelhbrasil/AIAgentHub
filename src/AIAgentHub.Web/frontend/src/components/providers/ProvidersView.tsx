@@ -7,6 +7,7 @@ import { ProviderCard } from './ProviderCard';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { ProviderModelsModal } from './ProviderModelsModal';
+import { ProviderSettingsModal } from '../modals/ProviderSettingsModal';
 import { InstallInstructionsModal } from './InstallInstructionsModal';
 import { ExternalLinkDisclaimerModal } from './ExternalLinkDisclaimerModal';
 import { ProviderRefreshModal } from './ProviderRefreshModal';
@@ -15,6 +16,7 @@ export const ProvidersView: React.FC = () => {
   const { showModal, hideModal } = useModal();
   const { showToast } = useToast();
   const [providers, setProviders] = useState<ProviderDto[]>([]);
+  const [showHidden, setShowHidden] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const fetchProviders = async () => {
@@ -44,6 +46,23 @@ export const ProvidersView: React.FC = () => {
           showToast('All providers refreshed successfully.', 'success');
         }}
         onClose={hideModal}
+      />
+    );
+  };
+
+  const handleOpenSettingsModal = (provider: ProviderDto) => {
+    showModal(
+      `⚙️ Provider Settings — ${provider.displayName}`,
+      <ProviderSettingsModal
+        provider={provider}
+        onSaved={async (updated: ProviderDto) => {
+          setProviders((prev) =>
+            prev.map((p) => (p.id === provider.id ? { ...p, ...updated } : p))
+          );
+          hideModal();
+          await fetchProviders();
+        }}
+        onCancel={hideModal}
       />
     );
   };
@@ -99,7 +118,9 @@ export const ProvidersView: React.FC = () => {
     return <ProviderSkeletons />;
   }
 
-  const sorted = sortProviders(providers);
+  const displayedProviders = showHidden ? providers : providers.filter((p) => !p.isHidden);
+  const sorted = sortProviders(displayedProviders);
+  const hiddenCount = providers.filter((p) => p.isHidden).length;
 
   return (
     <div>
@@ -109,9 +130,24 @@ export const ProvidersView: React.FC = () => {
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '12px',
         }}
       >
-        <h2>AI Providers</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h2>AI Providers</h2>
+          {hiddenCount > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={showHidden}
+                onChange={(e) => setShowHidden(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span>Show hidden ({hiddenCount})</span>
+            </label>
+          )}
+        </div>
         <button
           type="button"
           className="btn btn-secondary"
@@ -128,6 +164,7 @@ export const ProvidersView: React.FC = () => {
             key={p.id}
             provider={p}
             onOpenModelsModal={handleOpenModelsModal}
+            onOpenSettingsModal={handleOpenSettingsModal}
             onOpenInstallModal={handleOpenInstallModal}
             onOpenExternalLink={handleOpenExternalLink}
             onStatusUpdated={handleStatusUpdated}

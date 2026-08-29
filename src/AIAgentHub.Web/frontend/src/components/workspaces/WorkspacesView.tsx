@@ -23,6 +23,7 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
   const { showToast } = useToast();
   const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceDto | null>(null);
+  const [showArchived, setShowArchived] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const fetchWorkspaces = useCallback(async () => {
@@ -61,6 +62,28 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
   const handleBack = () => {
     setCurrentWorkspace(null);
     onBackToWorkspaces?.();
+  };
+
+  const handleToggleFavorite = async (ws: WorkspaceDto, isFavorite: boolean) => {
+    const res = await apiFetch<WorkspaceDto>(`/api/v1/workspaces/${ws.id}/favorite`, {
+      method: 'PUT',
+      body: { isFavorite },
+    });
+    if (res.ok && res.data) {
+      setWorkspaces((prev) => prev.map((w) => (w.id === ws.id ? res.data! : w)));
+      showToast(isFavorite ? `"${ws.name}" added to favorites.` : `"${ws.name}" removed from favorites.`, 'info');
+    }
+  };
+
+  const handleToggleArchive = async (ws: WorkspaceDto, isArchived: boolean) => {
+    const res = await apiFetch<WorkspaceDto>(`/api/v1/workspaces/${ws.id}/archive`, {
+      method: 'PUT',
+      body: { isArchived },
+    });
+    if (res.ok && res.data) {
+      setWorkspaces((prev) => prev.map((w) => (w.id === ws.id ? res.data! : w)));
+      showToast(isArchived ? `"${ws.name}" archived.` : `"${ws.name}" restored from archive.`, 'info');
+    }
   };
 
   const handleShowCreateModal = () => {
@@ -150,6 +173,88 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
     );
   }
 
+  const activeWorkspaces = workspaces
+    .filter((w) => !w.isArchived)
+    .sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  const archivedWorkspaces = workspaces.filter((w) => w.isArchived);
+
+  const renderCard = (w: WorkspaceDto) => (
+    <div key={w.id} className="card glass">
+      <div className="card-title">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn-icon-plain"
+            onClick={() => handleToggleFavorite(w, !w.isFavorite)}
+            title={w.isFavorite ? 'Remove from favorites' : 'Mark as favorite'}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              color: w.isFavorite ? '#f59e0b' : 'var(--text-muted)',
+              opacity: w.isFavorite ? 1 : 0.5,
+              transition: 'opacity 0.2s, color 0.2s',
+            }}
+          >
+            {w.isFavorite ? '⭐' : '☆'}
+          </button>
+          <span>{w.name}</span>
+        </div>
+        <span className="badge badge-provider">
+          {w.settings?.defaultProviderId || 'antigravity'}
+        </span>
+      </div>
+      <div className="card-subtitle" style={{ wordBreak: 'break-all' }}>
+        {w.path}
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '14px',
+        }}
+      >
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          {w.conversationCount} conversations
+        </span>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+            onClick={() => handleToggleArchive(w, !w.isArchived)}
+            title={w.isArchived ? 'Restore from archive' : 'Archive workspace'}
+          >
+            {w.isArchived ? '📂' : '📦'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger remove-ws-btn"
+            style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+            onClick={() => handleConfirmRemove(w)}
+            title="Remove workspace"
+          >
+            🗑️
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary open-ws-btn"
+            onClick={() => handleOpenStudio(w)}
+          >
+            Open Studio
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div
@@ -173,51 +278,42 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
 
       {isLoading ? (
         <div style={{ color: 'var(--text-muted)', padding: '20px' }}>Loading workspaces...</div>
+      ) : activeWorkspaces.length === 0 && archivedWorkspaces.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }}>
+          No workspaces yet. Click "+ Add Workspace" to get started.
+        </div>
       ) : (
-        <div className="grid-cols-3">
-          {workspaces.map((w) => (
-            <div key={w.id} className="card glass">
-              <div className="card-title">
-                <span>{w.name}</span>
-                <span className="badge badge-provider">
-                  {w.settings?.defaultProviderId || 'antigravity'}
-                </span>
-              </div>
-              <div className="card-subtitle" style={{ wordBreak: 'break-all' }}>
-                {w.path}
-              </div>
+        <>
+          <div className="grid-cols-3">
+            {activeWorkspaces.map(renderCard)}
+          </div>
+
+          {archivedWorkspaces.length > 0 && (
+            <div style={{ marginTop: '32px' }}>
               <div
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginTop: '14px',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  marginBottom: '12px',
                 }}
+                onClick={() => setShowArchived((prev) => !prev)}
               >
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  {w.conversationCount} conversations
-                </span>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button
-                    type="button"
-                    className="btn btn-danger remove-ws-btn"
-                    style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                    onClick={() => handleConfirmRemove(w)}
-                  >
-                    🗑️
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary open-ws-btn"
-                    onClick={() => handleOpenStudio(w)}
-                  >
-                    Open Studio
-                  </button>
-                </div>
+                <span>{showArchived ? '▼' : '▶'}</span>
+                <span>Archived Workspaces ({archivedWorkspaces.length})</span>
               </div>
+              {showArchived && (
+                <div className="grid-cols-3" style={{ opacity: 0.85 }}>
+                  {archivedWorkspaces.map(renderCard)}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

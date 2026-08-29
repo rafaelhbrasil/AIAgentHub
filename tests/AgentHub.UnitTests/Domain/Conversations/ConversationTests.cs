@@ -24,20 +24,19 @@ public sealed class ConversationTests
     }
 
     [Fact]
-    public void Conversation_Create_InvalidWorkspace_ShouldThrow() => _ = Assert.Throws<ArgumentException>(() => Conversation.Create(Guid.Empty, "Title"));
+    public void Conversation_Create_InvalidWorkspace_ShouldThrow() => _ = Assert.Throws<ArgumentException>(() => Conversation.Create(Guid.Empty, "Title", "antigravity"));
 
     [Fact]
-    public void Conversation_Create_DefaultTitleAndProvider_Fallback()
+    public void Conversation_Create_EmptyProvider_ShouldThrow()
     {
-        var conv = Conversation.Create(Guid.NewGuid(), "", "  ");
-        Assert.Equal("New Conversation", conv.Title);
-        Assert.Equal("gemini", conv.ProviderId);
+        _ = Assert.Throws<ArgumentException>(() => Conversation.Create(Guid.NewGuid(), "Title", ""));
+        _ = Assert.Throws<ArgumentException>(() => Conversation.Create(Guid.NewGuid(), "Title", "   "));
     }
 
     [Fact]
     public void Conversation_Rename_SetProviderModel_SetEffort_SetSessionId()
     {
-        var conv = Conversation.Create(Guid.NewGuid(), "Title");
+        var conv = Conversation.Create(Guid.NewGuid(), "Title", "antigravity");
 
         conv.Rename("Updated Title");
         Assert.Equal("Updated Title", conv.Title);
@@ -59,7 +58,7 @@ public sealed class ConversationTests
     [Fact]
     public void Conversation_AddFileChange_ShouldAppendAndTouch()
     {
-        var conv = Conversation.Create(Guid.NewGuid(), "Title");
+        var conv = Conversation.Create(Guid.NewGuid(), "Title", "antigravity");
         var change = FileChange.Create(conv.Id, "src/index.js", FileChangeType.Created);
 
         conv.AddFileChange(change);
@@ -70,7 +69,7 @@ public sealed class ConversationTests
     [Fact]
     public async Task Conversation_LastUserInteractionAtUtc_ShouldUpdateOnUserMessageOnly()
     {
-        var conv = Conversation.Create(Guid.NewGuid(), "Title");
+        var conv = Conversation.Create(Guid.NewGuid(), "Title", "antigravity");
         var initialInteraction = conv.LastUserInteractionAtUtc;
 
         await Task.Delay(10);

@@ -10,7 +10,7 @@ public enum WorkspaceOrigin
 
 public sealed class WorkspaceSettings
 {
-    public string? DefaultProviderId { get; set; } = "gemini";
+    public string? DefaultProviderId { get; set; }
     public string? DefaultModelId { get; set; }
     public List<string> IgnoredFiles { get; set; } = [".git", "node_modules", "bin", "obj", ".vs"];
     public bool AutoAcceptDiffs { get; set; }

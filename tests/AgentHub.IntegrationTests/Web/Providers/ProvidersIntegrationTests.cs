@@ -114,16 +114,24 @@ public sealed class ProvidersIntegrationTests : IClassFixture<CustomWebApplicati
         var initRes = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
         {
             username = "admin",
-            password = "SecurePassword123!",
-            confirmPassword = "SecurePassword123!"
+            password = "123456",
+            confirmPassword = "123456"
         });
         if (!initRes.IsSuccessStatusCode)
         {
-            _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
+            var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
             {
                 username = "admin",
-                password = "SecurePassword123!"
+                password = "123456"
             });
+            if (!loginRes.IsSuccessStatusCode)
+            {
+                _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
+                {
+                    username = "admin",
+                    password = "123123"
+                });
+            }
         }
         return client;
     }

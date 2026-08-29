@@ -10,6 +10,7 @@ interface StudioActionsDropdownProps {
   onNewConversation: () => void;
   onOpenDiffs: () => void;
   onDownloadZip: () => void;
+  onSwitchProvider?: () => void;
   onEffortChange: (effort: string) => void;
   onDeleteConversation: (id: string, title: string) => void;
 }
@@ -22,6 +23,7 @@ export const StudioActionsDropdown: React.FC<StudioActionsDropdownProps> = ({
   onNewConversation,
   onOpenDiffs,
   onDownloadZip,
+  onSwitchProvider,
   onEffortChange,
   onDeleteConversation,
 }) => {
@@ -44,6 +46,20 @@ export const StudioActionsDropdown: React.FC<StudioActionsDropdownProps> = ({
         >
           ➕ New Conversation
         </button>
+
+        {activeConversation && onSwitchProvider && (
+          <button
+            type="button"
+            className="dropdown-item"
+            id="switchProviderDropdownBtn"
+            onClick={() => {
+              onClose();
+              onSwitchProvider();
+            }}
+          >
+            🔄 Switch AI Provider...
+          </button>
+        )}
 
         <button
           type="button"

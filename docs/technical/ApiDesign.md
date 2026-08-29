@@ -258,6 +258,8 @@ POST /api/v1/conversations/{id}/switch-provider
 
 GET /api/v1/conversations/{id}/sessions
 
+PUT /api/v1/conversations/{id}/pin
+
 DELETE /api/v1/conversations/{id}
 ```
 

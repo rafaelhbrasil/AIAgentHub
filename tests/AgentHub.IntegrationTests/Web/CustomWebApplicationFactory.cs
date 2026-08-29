@@ -80,11 +80,55 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         });
     }
 
+    private readonly object _initLock = new();
+    private bool _initialized;
+
     public void InitializeDatabase()
     {
-        using var scope = Services.CreateScope();
-        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
-        initializer.InitializeAsync().GetAwaiter().GetResult();
+        lock (_initLock)
+        {
+            if (_initialized) return;
+
+            using var scope = Services.CreateScope();
+            var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+            initializer.InitializeAsync().GetAwaiter().GetResult();
+
+            var detectionRepo = scope.ServiceProvider.GetRequiredService<AIAgentHub.Domain.Repositories.IProviderDetectionRecordRepository>();
+            var readyProviders = new[] { "antigravity", "claude", "codex", "opencode", "copilot" };
+            foreach (var p in readyProviders)
+            {
+                detectionRepo.UpsertAsync(new AIAgentHub.Domain.Providers.ProviderDetectionRecord
+                {
+                    ProviderId = p,
+                    Status = AIAgentHub.Domain.Providers.ProviderStatus.Ready,
+                    StatusDetails = "Provider is operational and ready to use.",
+                    IsInstalled = true,
+                    IsAuthenticated = true,
+                    Version = "1.0.0",
+                    ExecutablePath = $"C:\\Tools\\{p}.exe",
+                    DetectedAtUtc = DateTimeOffset.UtcNow
+                }).GetAwaiter().GetResult();
+            }
+
+            detectionRepo.UpsertAsync(new AIAgentHub.Domain.Providers.ProviderDetectionRecord
+            {
+                ProviderId = "gemini",
+                Status = AIAgentHub.Domain.Providers.ProviderStatus.Discontinued,
+                StatusDetails = "Discontinued client.",
+                IsInstalled = true,
+                IsAuthenticated = true,
+                Version = "0.55.1",
+                DetectedAtUtc = DateTimeOffset.UtcNow
+            }).GetAwaiter().GetResult();
+
+            var setupService = scope.ServiceProvider.GetRequiredService<AIAgentHub.Application.Security.ISetupService>();
+            if (!setupService.IsSetupCompletedAsync().GetAwaiter().GetResult())
+            {
+                _ = setupService.InitializeAdminAsync("admin", "123456", "123456").GetAwaiter().GetResult();
+            }
+
+            _initialized = true;
+        }
     }
 
     protected override void Dispose(bool disposing)

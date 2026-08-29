@@ -348,7 +348,7 @@ Every change should consider:
 
 ---
 
-# Backward Compatibility
+# Backward Compatibility & Database Migrations
 
 Breaking changes should be avoided.
 
@@ -357,6 +357,20 @@ When unavoidable:
 - document them
 - justify them
 - include migration guidance
+
+## Database Migration Lifecycle & Parity Standards
+
+To prevent schema desynchronization, designer file corruptions, or upgrade failures across releases:
+
+1. **Model Parity Enforcement (`HasPendingModelChanges`):**
+   - The compiled EF Core `DbContext` model and `AgentHubDbContextModelSnapshot` must always be in 100% parity.
+   - An automated unit test verifies `context.Database.HasPendingModelChanges() == false` on every test run.
+2. **Step-by-Step Upgrade Verification:**
+   - Incremental version migrations (e.g. `v0.1.0` $\rightarrow$ `v0.2.0`) must be verified via automated migration tests using `IMigrator` to ensure existing databases upgrade cleanly without `NOT NULL` constraint violations or data loss.
+3. **Migration Naming & Squashing Protocol:**
+   - All migrations belonging to a minor release must include the version prefix in their class and migration identifier (e.g., `v0_2_0_AddVersion02MultiProviderTracking`).
+   - When squashing migrations for a baseline release, use official EF Core tooling (`dotnet ef migrations add`) to generate pristine `Designer.cs` and `ModelSnapshot.cs` files rather than manual snippet editing.
+   - Never define duplicate `OwnsOne` or scalar mappings for the same property.
 
 ---
 

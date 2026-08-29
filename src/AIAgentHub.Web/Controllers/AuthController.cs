@@ -29,15 +29,15 @@ public sealed class AuthController(
     {
         var isCompleted = await _setupService.IsSetupCompletedAsync(cancellationToken);
         var remoteIp = HttpContext.Connection.RemoteIpAddress;
-        var isLocalRequest = remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp);
+        var isLocalOrSafeClient = _recoveryOptions.IsSafeClientOrLoopback(remoteIp);
         var isRecoveryEnabled = _recoveryOptions.IsRecoveryModeEnabled;
-        var canResetWithoutCode = isRecoveryEnabled && isLocalRequest;
+        var canResetWithoutCode = isRecoveryEnabled && isLocalOrSafeClient;
 
         return Ok(new
         {
             isSetupCompleted = isCompleted,
             isRecoveryModeEnabled = isRecoveryEnabled,
-            isLocalRequest,
+            isLocalRequest = isLocalOrSafeClient,
             canResetWithoutCode
         });
     }
@@ -74,8 +74,8 @@ public sealed class AuthController(
         if (isCompleted)
         {
             var remoteIp = HttpContext.Connection.RemoteIpAddress;
-            var isLocalRequest = remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp);
-            if (!_recoveryOptions.IsRecoveryModeEnabled || !isLocalRequest)
+            var isLocalOrSafeClient = _recoveryOptions.IsSafeClientOrLoopback(remoteIp);
+            if (!_recoveryOptions.IsRecoveryModeEnabled || !isLocalOrSafeClient)
             {
                 return Forbid();
             }
@@ -162,9 +162,9 @@ public sealed class AuthController(
     public async Task<IActionResult> RecoverWipe(CancellationToken cancellationToken)
     {
         var remoteIp = HttpContext.Connection.RemoteIpAddress;
-        var isLocalRequest = remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp);
+        var isLocalOrSafeClient = _recoveryOptions.IsSafeClientOrLoopback(remoteIp);
 
-        if (!_recoveryOptions.IsRecoveryModeEnabled || !isLocalRequest)
+        if (!_recoveryOptions.IsRecoveryModeEnabled || !isLocalOrSafeClient)
         {
             return Forbid();
         }

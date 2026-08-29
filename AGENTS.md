@@ -15,6 +15,12 @@
   - Always run a watchdog mechanism (such as a scheduled timer, monitoring task, or companion agent) in parallel with the execution.
   - The watchdog must actively check progress, verify logs are moving, prevent unmonitored blocking/freezes, and alert or terminate the process if it hangs or exceeds reasonable execution time limits.
 
+## Database Migration Parity & Backward Compatibility
+- Whenever modifying the database schema or creating/merging EF Core migrations:
+  1. All new migrations must follow version prefix naming (e.g., `v0_2_0_...`).
+  2. The `AgentHubDbContextModelSnapshot` and designer files must never have duplicate navigations or schema mismatches.
+  3. Every migration change must be accompanied by running `DatabaseMigrationTests` to verify zero pending model changes (`HasPendingModelChanges() == false`) and clean step-by-step upgrade from previous versions.
+
 ## Git Commit Policy
 - Never create git commits automatically after making changes unless:
   1. The user explicitly requests a commit (e.g., `/git-commit`, "commit this", etc.).

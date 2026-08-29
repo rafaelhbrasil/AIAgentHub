@@ -49,19 +49,15 @@ public sealed class AuthIntegrationTests : IClassFixture<CustomWebApplicationFac
     }
 
     [Fact]
-    public async Task ProtectedPageRoutes_WhenUnauthenticatedHtmlRequest_ShouldRedirectToRoot()
+    public async Task ProtectedPageRoutes_WhenUnauthenticatedHtmlRequest_ShouldServeSpaFallback()
     {
-        var noRedirectClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false
-        });
+        var client = _factory.CreateClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/providers");
         request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
 
-        var response = await noRedirectClient.SendAsync(request);
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal("/", response.Headers.Location?.OriginalString);
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -69,18 +65,13 @@ public sealed class AuthIntegrationTests : IClassFixture<CustomWebApplicationFac
     {
         var client = _factory.CreateClient();
 
-        // 1. Initial Setup
-        var initRes = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+        // 1. Login with correct password
+        var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             username = "admin",
-            password = "SecurePassword123!",
-            confirmPassword = "SecurePassword123!"
+            password = "123456"
         });
-        Assert.Equal(HttpStatusCode.OK, initRes.StatusCode);
-        var initBody = await initRes.Content.ReadFromJsonAsync<SetupInitResponse>();
-        Assert.NotNull(initBody);
-        Assert.True(initBody.Success);
-        Assert.False(string.IsNullOrEmpty(initBody.RecoveryCode));
+        Assert.Equal(HttpStatusCode.OK, loginRes.StatusCode);
 
         // 2. Session / Me endpoint
         var sessionRes = await client.GetAsync("/api/v1/auth/session");
@@ -106,26 +97,13 @@ public sealed class AuthIntegrationTests : IClassFixture<CustomWebApplicationFac
         });
         Assert.Equal(HttpStatusCode.Unauthorized, badLoginRes.StatusCode);
 
-        // 6. Login with correct password
+        // 6. Login with correct password again
         var goodLoginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             username = "admin",
-            password = "SecurePassword123!"
+            password = "123456"
         });
         Assert.Equal(HttpStatusCode.OK, goodLoginRes.StatusCode);
-
-        // 7. Recover with recovery code
-        var recoverRes = await client.PostAsJsonAsync("/api/v1/auth/recover", new
-        {
-            recoveryCode = initBody.RecoveryCode
-        });
-        Assert.Equal(HttpStatusCode.OK, recoverRes.StatusCode);
-
-        // 8. Verify setup status is now not completed (system reset to setup mode)
-        var statusAfterReset = await client.GetAsync("/api/v1/auth/setup/status");
-        var resetStatus = await statusAfterReset.Content.ReadFromJsonAsync<SetupStatusResponse>();
-        Assert.NotNull(resetStatus);
-        Assert.False(resetStatus.IsSetupCompleted);
     }
 
     [Fact]

@@ -10,6 +10,8 @@ export interface WorkspaceDto {
   createdAtUtc: string;
   updatedAtUtc: string;
   conversationCount: number;
+  isFavorite?: boolean;
+  isArchived?: boolean;
   settings?: WorkspaceSettings;
 }
 

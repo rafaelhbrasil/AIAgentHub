@@ -1,7 +1,7 @@
 import { ProviderDto, ProviderStatus } from '../types/provider';
 
 export const isDiscontinuedStatus = (status: unknown): boolean =>
-  status === ProviderStatus.Discontinued || status === 99 || status === 'Discontinued';
+  status === ProviderStatus.Discontinued || status === 6 || status === 99 || status === 'Discontinued';
 
 export const isReadyStatus = (status: unknown): boolean =>
   status === ProviderStatus.Ready || status === 2 || status === 'Ready';
@@ -16,6 +16,7 @@ export const isQuotaExceededStatus = (status: unknown): boolean =>
   status === ProviderStatus.QuotaExceeded || status === 5 || status === 'QuotaExceeded';
 
 export function isProviderOperational(p: ProviderDto): boolean {
+  if (!p || p.isHidden) return false;
   return isReadyStatus(p.status) && !isDiscontinuedStatus(p.status);
 }
 

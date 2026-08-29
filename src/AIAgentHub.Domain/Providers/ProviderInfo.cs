@@ -17,6 +17,9 @@ public sealed class ProviderInfo
     public string Description { get; set; } = string.Empty;
     public bool IsInstalled { get; set; }
     public bool IsAuthenticated { get; set; }
+    public bool IsHidden { get; set; }
+    public string? DefaultModelId { get; set; }
+    public string? DefaultEffort { get; set; }
     public ProviderStatus Status { get; set; } = ProviderStatus.NotInstalled;
     public string? Message { get; set; }
     public DateTimeOffset? QuotaResetsAt { get; set; }

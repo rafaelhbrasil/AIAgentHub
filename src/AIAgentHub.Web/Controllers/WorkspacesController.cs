@@ -89,6 +89,37 @@ public sealed class WorkspacesController(IWorkspaceService workspaceService, ILo
         }
     }
 
+    public sealed record SetWorkspaceFavoriteRequest(bool IsFavorite);
+    public sealed record SetWorkspaceArchivedRequest(bool IsArchived);
+
+    [HttpPut("{id:guid}/favorite")]
+    public async Task<IActionResult> SetFavorite(Guid id, [FromBody] SetWorkspaceFavoriteRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await _workspaceService.SetFavoriteAsync(id, request.IsFavorite, cancellationToken);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.");
+        }
+    }
+
+    [HttpPut("{id:guid}/archive")]
+    public async Task<IActionResult> SetArchived(Guid id, [FromBody] SetWorkspaceArchivedRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await _workspaceService.SetArchivedAsync(id, request.IsArchived, cancellationToken);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.");
+        }
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {

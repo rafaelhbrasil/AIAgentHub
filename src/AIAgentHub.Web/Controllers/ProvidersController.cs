@@ -104,6 +104,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
     }
 
     public sealed record UpdateModelSettingsRequest(Dictionary<string, bool> ModelStates);
+    public sealed record UpdateProviderSettingsRequest(bool? IsHidden, string? DefaultModelId, string? DefaultEffort, Dictionary<string, bool>? ModelVisibility = null);
 
     [HttpPut("{id}/models/settings")]
     public async Task<IActionResult> UpdateModelSettings(string id, [FromBody] UpdateModelSettingsRequest request, CancellationToken cancellationToken = default)
@@ -112,6 +113,21 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
         {
             await _providerManager.UpdateModelSettingsAsync(id, request.ModelStates ?? [], cancellationToken);
             return Ok(new { success = true });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
+        }
+    }
+
+    [HttpPut("{id}/settings")]
+    public async Task<IActionResult> UpdateSettings(string id, [FromBody] UpdateProviderSettingsRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _providerManager.UpdateProviderSettingsAsync(id, request.IsHidden, request.DefaultModelId, request.DefaultEffort, request.ModelVisibility, cancellationToken);
+            var updated = await _providerManager.GetProviderInfoAsync(id, cancellationToken);
+            return Ok(updated);
         }
         catch (KeyNotFoundException)
         {

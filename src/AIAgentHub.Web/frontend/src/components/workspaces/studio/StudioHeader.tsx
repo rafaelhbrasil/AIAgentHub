@@ -1,6 +1,6 @@
 import React from 'react';
 import { WorkspaceDto } from '../../../types/workspace';
-import { ConversationDetailDto } from '../../../types/conversation';
+import { ConversationDetailDto, ConversationStatus } from '../../../types/conversation';
 import { ModelInfo } from '../../../types/provider';
 import { StudioActionsDropdown } from './StudioActionsDropdown';
 
@@ -16,6 +16,7 @@ interface StudioHeaderProps {
   onNewConversation: () => void;
   onOpenDiffs: () => void;
   onDownloadZip: () => void;
+  onSwitchProvider?: () => void;
   onEffortChange: (effort: string) => void;
   onDeleteConversation: (id: string, title: string) => void;
 }
@@ -32,6 +33,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onNewConversation,
   onOpenDiffs,
   onDownloadZip,
+  onSwitchProvider,
   onEffortChange,
   onDeleteConversation,
 }) => {
@@ -48,44 +50,83 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
           &larr; <span className="hide-on-mobile">Workspaces</span>
         </button>
 
-        <div className="studio-title-block">
-          <span className="studio-ws-badge" title={workspace.path}>
+        <div className="studio-crumbs">
+          <span className="studio-crumb-ws" title={workspace.path}>
             📁 {workspace.name}
           </span>
-          {activeConversation && (
-            <>
-              <span className="studio-crumb-sep">/</span>
-              <span
-                className="studio-conv-title"
-                title={`ID: ${activeConversation.id}\n${activeConversation.title}`}
-              >
-                {activeConversation.title}
-              </span>
-              <span className="badge badge-provider">{activeConversation.providerId}</span>
-            </>
-          )}
+          {activeConversation && (() => {
+            const isSwitching =
+              activeConversation.status === ConversationStatus.SwitchingProvider ||
+              (activeConversation.status as any) === 1;
+
+            return (
+              <>
+                <span className="studio-crumb-sep">/</span>
+                <span
+                  className="studio-conv-title"
+                  title={`ID: ${activeConversation.id}\n${activeConversation.title}`}
+                >
+                  {activeConversation.title}
+                </span>
+                <button
+                  type="button"
+                  className={`badge badge-provider ${isSwitching ? 'badge-provider-switching' : ''}`}
+                  onClick={onSwitchProvider}
+                  title={
+                    isSwitching
+                      ? 'Provider migration in progress. Click to view status or abort.'
+                      : `Active Provider: ${activeConversation.providerId}. Click to switch provider.`
+                  }
+                  style={{
+                    cursor: onSwitchProvider ? 'pointer' : 'default',
+                    border: isSwitching ? '1px solid rgba(234, 179, 8, 0.4)' : 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s',
+                    background: isSwitching ? 'rgba(234, 179, 8, 0.15)' : undefined,
+                    color: isSwitching ? '#fde047' : undefined,
+                  }}
+                >
+                  <span>{isSwitching ? '⏳ Migrating...' : `⚡ ${activeConversation.providerId}`}</span>
+                  {onSwitchProvider && (
+                    <span style={{ fontSize: '0.75rem', opacity: 0.75 }}>
+                      {isSwitching ? '⚠️' : '🔄'}
+                    </span>
+                  )}
+                </button>
+              </>
+            );
+          })()}
         </div>
       </div>
 
       <div className="studio-header-right">
-        {activeConversation && (
-          <select
-            id="convModelSelect"
-            className="form-select compact-select"
-            value={activeConversation.modelId || ''}
-            onChange={(e) => onModelChange(e.target.value)}
-            title="Active Model"
-          >
-            <option value="">Default Model</option>
-            {models
-              .filter((m) => m.id && m.id.toLowerCase() !== 'default')
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName || m.id}
-                </option>
-              ))}
-          </select>
-        )}
+        {activeConversation && (() => {
+          const isSwitching =
+            activeConversation.status === ConversationStatus.SwitchingProvider ||
+            (activeConversation.status as any) === 1;
+
+          return (
+            <select
+              id="convModelSelect"
+              className="form-select compact-select"
+              value={activeConversation.modelId || ''}
+              onChange={(e) => onModelChange(e.target.value)}
+              disabled={isSwitching}
+              title={isSwitching ? 'Cannot change model while provider migration is in progress' : 'Active Model'}
+            >
+              <option value="">Default Model</option>
+              {models
+                .filter((m) => m.id && m.id.toLowerCase() !== 'default')
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.displayName || m.id}
+                  </option>
+                ))}
+            </select>
+          );
+        })()}
 
         {/* Quick Actions Menu Trigger */}
         <div className="studio-actions-dropdown-wrap">
@@ -107,6 +148,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
             onNewConversation={onNewConversation}
             onOpenDiffs={onOpenDiffs}
             onDownloadZip={onDownloadZip}
+            onSwitchProvider={onSwitchProvider}
             onEffortChange={onEffortChange}
             onDeleteConversation={onDeleteConversation}
           />

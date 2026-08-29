@@ -2,30 +2,32 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
+using AIAgentHub.Application.Security;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Security;
 
 namespace AIAgentHub.Web.Middleware;
 
-public sealed class NetworkModeMiddleware(RequestDelegate next)
+public sealed class NetworkModeMiddleware(RequestDelegate next, RecoveryOptions recoveryOptions)
 {
     private readonly RequestDelegate _next = next;
+    private readonly RecoveryOptions _recoveryOptions = recoveryOptions;
 
     public async Task InvokeAsync(HttpContext context, IServerSettingsRepository settingsRepository)
     {
         var remoteIp = context.Connection.RemoteIpAddress;
 
-        // Loopback connections (127.0.0.1, ::1) are always allowed regardless of network mode
-        if (remoteIp == null || IPAddress.IsLoopback(remoteIp))
+        // Map IPv4-mapped IPv6 addresses (e.g. ::ffff:192.168.1.5) to standard IPv4
+        if (remoteIp != null && remoteIp.IsIPv4MappedToIPv6)
+        {
+            remoteIp = remoteIp.MapToIPv4();
+        }
+
+        // Loopback connections (127.0.0.1, ::1) and Safe Client IP are always allowed regardless of network mode
+        if (remoteIp == null || IPAddress.IsLoopback(remoteIp) || _recoveryOptions.IsSafeClient(remoteIp))
         {
             await _next(context);
             return;
-        }
-
-        // Map IPv4-mapped IPv6 addresses (e.g. ::ffff:192.168.1.5) to standard IPv4
-        if (remoteIp.IsIPv4MappedToIPv6)
-        {
-            remoteIp = remoteIp.MapToIPv4();
         }
 
         var settings = await settingsRepository.GetAsync(context.RequestAborted);

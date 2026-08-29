@@ -147,6 +147,126 @@ public sealed class LiveProviderChatIntegrationTests : IClassFixture<LiveProvide
         }
     }
 
+    [SkippableTheory]
+    [InlineData("opencode")]
+    [InlineData("codex")]
+    [InlineData("copilot")]
+    [InlineData("claude")]
+    public async Task LiveProvider_SwitchFromAntigravityToTargetProvider_RecallsContextAndMaintainsContinuity(string targetProviderId)
+    {
+        // 1. Verify Antigravity and target provider are available
+        var antigravityProvider = await CheckProviderAvailabilityOrSkipAsync("antigravity");
+        var targetProvider = await CheckProviderAvailabilityOrSkipAsync(targetProviderId);
+
+        var client = await SetupAndAuthenticateClientAsync();
+
+        var tempFolder = Path.Combine(Path.GetTempPath(), $"AgentHubLiveSwitch_{targetProviderId}_" + Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempFolder);
+
+        var conversationId = Guid.Empty;
+
+        try
+        {
+            var wsPayload = new CreateWorkspaceRequest(
+                Name: $"Live Switch WS {targetProviderId}",
+                Path: tempFolder,
+                Origin: WorkspaceOrigin.Server,
+                DefaultProviderId: "antigravity",
+                DefaultModelId: "default"
+            );
+            var wsRes = await client.PostAsJsonAsync("/api/v1/workspaces", wsPayload, JsonOpts);
+            Assert.Equal(HttpStatusCode.Created, wsRes.StatusCode);
+            var workspace = await wsRes.Content.ReadFromJsonAsync<WorkspaceDto>(JsonOpts);
+            Assert.NotNull(workspace);
+
+            var convPayload = new CreateConversationRequest(
+                WorkspaceId: workspace.Id,
+                Title: $"Live Switch Antigravity to {targetProviderId}",
+                ProviderId: "antigravity",
+                ModelId: "default"
+            );
+            var convRes = await client.PostAsJsonAsync("/api/v1/conversations", convPayload, JsonOpts);
+            Assert.Equal(HttpStatusCode.Created, convRes.StatusCode);
+            var conversation = await convRes.Content.ReadFromJsonAsync<ConversationDto>(JsonOpts);
+            Assert.NotNull(conversation);
+            conversationId = conversation.Id;
+
+            var secret = Random.Shared.Next(100000, 999999);
+
+            // Turn 1 (Antigravity)
+            var prompt1 = $"Remember the number {secret}. Reply with just the word 'ACKNOWLEDGED'.";
+            var prompt1Res = await client.PostAsJsonAsync($"/api/v1/conversations/{conversation.Id}/prompt", new { prompt = prompt1 });
+            Assert.True(prompt1Res.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK);
+
+            var state1 = await WaitForMessagesWithWatchdogAsync(client, antigravityProvider, conversation.Id, minimumMessageCount: 2, timeout: TimeSpan.FromSeconds(60));
+            if (state1 == null || state1.Messages.Count < 2)
+            {
+                Skip.If(true, "Antigravity did not produce a response within the 60s timeout window.");
+                return;
+            }
+
+            var turn1AssistantMsg = state1.Messages.FirstOrDefault(m => m.Role == MessageRole.Assistant);
+            Assert.NotNull(turn1AssistantMsg);
+
+            if (turn1AssistantMsg.Content.StartsWith("Error:", StringComparison.OrdinalIgnoreCase) ||
+                turn1AssistantMsg.Metadata?.IsSuccess == false)
+            {
+                Skip.If(true, $"Antigravity returned an API execution error: {turn1AssistantMsg.Content}");
+                return;
+            }
+
+            // Switch provider to targetProviderId
+            var switchPayload = new SwitchProviderRequest(
+                TargetProviderId: targetProviderId,
+                TargetModelId: "default",
+                HistoryScope: "all",
+                IncludeFileChanges: true
+            );
+            var switchRes = await client.PostAsJsonAsync($"/api/v1/conversations/{conversation.Id}/switch-provider", switchPayload, JsonOpts);
+            Assert.Equal(HttpStatusCode.OK, switchRes.StatusCode);
+            var switchResult = await switchRes.Content.ReadFromJsonAsync<SwitchProviderResult>(JsonOpts);
+            Assert.NotNull(switchResult);
+            Assert.Equal(targetProviderId, switchResult.ActiveProviderId);
+
+            // Turn 2 (Target Provider): Recall the secret number
+            var prompt2 = "Based on the prior conversation history above, what was the number I asked you to remember? Reply with only the number.";
+            var prompt2Res = await client.PostAsJsonAsync($"/api/v1/conversations/{conversation.Id}/prompt", new { prompt = prompt2 });
+            Assert.True(prompt2Res.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK);
+
+            var state2 = await WaitForMessagesWithWatchdogAsync(client, targetProvider, conversation.Id, minimumMessageCount: 4, timeout: TimeSpan.FromSeconds(60));
+            if (state2 == null || state2.Messages.Count < 4)
+            {
+                Skip.If(true, $"Target provider '{targetProviderId}' did not complete Turn 2 within the 60s timeout window.");
+                return;
+            }
+
+            var turn2AssistantMsg = state2.Messages.LastOrDefault(m => m.Role == MessageRole.Assistant);
+            Assert.NotNull(turn2AssistantMsg);
+
+            if (turn2AssistantMsg.Content.StartsWith("Error:", StringComparison.OrdinalIgnoreCase) ||
+                turn2AssistantMsg.Metadata?.IsSuccess == false)
+            {
+                Skip.If(true, $"Target provider '{targetProviderId}' returned an API execution error: {turn2AssistantMsg.Content}");
+                return;
+            }
+
+            // Assert target provider recalled secret via context handoff
+            Assert.Contains(secret.ToString(), turn2AssistantMsg.Content);
+        }
+        finally
+        {
+            if (conversationId != Guid.Empty)
+            {
+                try { await targetProvider.AbortAsync(conversationId); } catch { }
+            }
+
+            if (Directory.Exists(tempFolder))
+            {
+                try { Directory.Delete(tempFolder, true); } catch { }
+            }
+        }
+    }
+
     private async Task<IProvider> CheckProviderAvailabilityOrSkipAsync(string providerId)
     {
         using var scope = _factory.Services.CreateScope();
@@ -200,18 +320,23 @@ public sealed class LiveProviderChatIntegrationTests : IClassFixture<LiveProvide
     private async Task<HttpClient> SetupAndAuthenticateClientAsync()
     {
         var client = _factory.CreateClient();
-        var initRes = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+        var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             username = "admin",
-            password = "SecurePassword123!",
-            confirmPassword = "SecurePassword123!"
+            password = "123456"
         });
-        if (!initRes.IsSuccessStatusCode)
+        if (!loginRes.IsSuccessStatusCode)
         {
+            _ = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
+            {
+                username = "admin",
+                password = "123456",
+                confirmPassword = "123456"
+            });
             _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
             {
                 username = "admin",
-                password = "SecurePassword123!"
+                password = "123456"
             });
         }
         return client;

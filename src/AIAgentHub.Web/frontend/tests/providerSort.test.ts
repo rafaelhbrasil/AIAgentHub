@@ -63,5 +63,9 @@ describe('providerSort utils', () => {
     expect(isProviderOperational(unauthProv)).toBe(false);
     expect(isProviderOperational(notInstalledProv)).toBe(false);
     expect(isProviderOperational(discontinuedProv)).toBe(false);
+    expect(isProviderOperational({ ...readyProv, isHidden: true })).toBe(false);
+    expect(isProviderOperational({ ...readyProv, status: 6 as any })).toBe(false);
+    expect(isProviderOperational({ ...readyProv, status: ProviderStatus.Error })).toBe(false);
+    expect(isProviderOperational({ ...readyProv, status: 3 as any })).toBe(false);
   });
 });

@@ -31,6 +31,9 @@ export interface ProviderDto {
   installCommand?: string;
   installInstructions?: string;
   quotaResetsAt?: string;
+  isHidden?: boolean;
+  defaultModelId?: string | null;
+  defaultEffort?: string | null;
 }
 
 export interface ProviderStatusDto {

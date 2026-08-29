@@ -80,13 +80,48 @@ if (!builder.Environment.IsEnvironment("Testing"))
     }
 }
 
+// Parse --safe-client flag from command-line parameters
+var safeClientPrefixes = new[] { "--safe-client=", "-safe-client=", "/safe-client=", "--safeclient=", "-safeclient=", "/safeclient=", "--safe-ip=", "-safe-ip=", "/safe-ip=" };
+var safeClientFlagIndex = Array.FindIndex(args, a =>
+    string.Equals(a, "--safe-client", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "-safe-client", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "/safe-client", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "--safeclient", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "-safeclient", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "/safeclient", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "--safe-ip", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "-safe-ip", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(a, "/safe-ip", StringComparison.OrdinalIgnoreCase));
+
+string? safeClientIp = null;
+if (safeClientFlagIndex >= 0 && safeClientFlagIndex < args.Length - 1)
+{
+    safeClientIp = args[safeClientFlagIndex + 1]?.Trim();
+}
+else
+{
+    var inlineArg = args.FirstOrDefault(a => safeClientPrefixes.Any(p => a.StartsWith(p, StringComparison.OrdinalIgnoreCase)));
+    if (inlineArg != null)
+    {
+        var split = inlineArg.Split('=', 2);
+        if (split.Length == 2)
+        {
+            safeClientIp = split[1]?.Trim();
+        }
+    }
+}
+
 // Parse --recovery flag from command-line parameters
 var isRecoveryMode = args.Any(a =>
     string.Equals(a, "--recovery", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(a, "-recovery", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(a, "/recovery", StringComparison.OrdinalIgnoreCase));
 
-builder.Services.AddSingleton(new RecoveryOptions { IsRecoveryModeEnabled = isRecoveryMode });
+builder.Services.AddSingleton(new RecoveryOptions
+{
+    IsRecoveryModeEnabled = isRecoveryMode,
+    SafeClientIp = safeClientIp
+});
 
 // Configure services
 builder.Services.AddControllers()

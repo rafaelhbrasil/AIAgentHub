@@ -1,5 +1,5 @@
-import React from 'react';
-import { WorkspaceDto } from '../../types/workspace';
+import React, { useMemo } from 'react';
+import { WorkspaceDto, FileTreeNode } from '../../types/workspace';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputBar } from './ChatInputBar';
 import { ChangesOverviewBar } from './ChangesOverviewBar';
@@ -7,6 +7,7 @@ import { useWorkspaceStudio } from './studio/useWorkspaceStudio';
 import { StudioHeader } from './studio/StudioHeader';
 import { StudioSidebar } from './studio/StudioSidebar';
 import { StudioEmptyState } from './studio/StudioEmptyState';
+import { ConversationStatus } from '../../types/conversation';
 
 interface WorkspaceStudioViewProps {
   workspace: WorkspaceDto;
@@ -14,6 +15,23 @@ interface WorkspaceStudioViewProps {
   onConversationChanged?: (conversationId: string | null) => void;
   onBack: () => void;
   onRemoveWorkspace?: (workspace: WorkspaceDto) => void;
+}
+
+function extractFilePaths(node: FileTreeNode | null): string[] {
+  if (!node) return [];
+  const results: string[] = [];
+  const traverse = (current: FileTreeNode) => {
+    if (!current.isDirectory && current.relativePath) {
+      results.push(current.relativePath);
+    }
+    if (current.children) {
+      for (const child of current.children) {
+        traverse(child);
+      }
+    }
+  };
+  traverse(node);
+  return results;
 }
 
 export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
@@ -43,6 +61,8 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     selectConversationById,
     handleCreateConversation,
     handleDeleteConversation,
+    handleTogglePin,
+    handleOpenSwitchProvider,
     handlePreviewFile,
     handleOpenDiffs,
     handleAcceptAllChanges,
@@ -59,6 +79,9 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     onRemoveWorkspace,
   });
 
+  const workspaceFiles = useMemo(() => extractFilePaths(treeData), [treeData]);
+  const isSwitching = activeConversation?.status === ConversationStatus.SwitchingProvider || activeConversation?.status === 1;
+
   return (
     <div className="studio-root">
       {/* Consolidated Compact Header */}
@@ -74,6 +97,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         onNewConversation={handleCreateConversation}
         onOpenDiffs={() => handleOpenDiffs()}
         onDownloadZip={handleDownloadZip}
+        onSwitchProvider={handleOpenSwitchProvider}
         onEffortChange={handleEffortChange}
         onDeleteConversation={handleDeleteConversation}
       />
@@ -115,6 +139,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
             setMobileTab('chat');
           }}
           onDeleteConversation={handleDeleteConversation}
+          onTogglePin={handleTogglePin}
         />
 
         {/* Right Panel: Conversation Studio */}
@@ -132,6 +157,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
                 streamingContent={streamingContent}
                 isStreaming={isStreaming}
                 heartbeatMessages={heartbeatMessages}
+                status={activeConversation.status}
               />
 
               <div className="chat-bottom-dock">
@@ -147,9 +173,10 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
 
                 <ChatInputBar
                   onSend={handleSendPrompt}
-                  disabled={isStreaming}
+                  disabled={isStreaming || isSwitching}
                   isStreaming={isStreaming}
                   onAbort={handleAbort}
+                  workspaceFiles={workspaceFiles}
                 />
               </div>
             </>

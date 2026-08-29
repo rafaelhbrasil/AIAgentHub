@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -10,7 +11,7 @@ public partial class InitialCreate : Migration
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "FileSnapshots",
             columns: table => new
             {
@@ -25,10 +26,10 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_FileSnapshots", x => x.Id);
+                table.PrimaryKey("PK_FileSnapshots", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "McpServers",
             columns: table => new
             {
@@ -42,10 +43,10 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_McpServers", x => x.Id);
+                table.PrimaryKey("PK_McpServers", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "PermissionRequests",
             columns: table => new
             {
@@ -61,10 +62,49 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_PermissionRequests", x => x.Id);
+                table.PrimaryKey("PK_PermissionRequests", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
+            name: "ProviderDetectionRecords",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                ProviderId = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                Status = table.Column<int>(type: "INTEGER", nullable: false),
+                StatusDetails = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
+                Version = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
+                ExecutablePath = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
+                IsInstalled = table.Column<bool>(type: "INTEGER", nullable: false),
+                IsAuthenticated = table.Column<bool>(type: "INTEGER", nullable: false),
+                QuotaResetsAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                DetectedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_ProviderDetectionRecords", x => x.Id);
+            });
+
+        migrationBuilder.CreateTable(
+            name: "ProviderModelSettings",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                ProviderId = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                ModelId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
+                DisplayName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                Description = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
+                ContextWindow = table.Column<int>(type: "INTEGER", nullable: true),
+                IsDefault = table.Column<bool>(type: "INTEGER", nullable: false),
+                IsDisplayed = table.Column<bool>(type: "INTEGER", nullable: false),
+                UpdatedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_ProviderModelSettings", x => x.Id);
+            });
+
+        migrationBuilder.CreateTable(
             name: "Secrets",
             columns: table => new
             {
@@ -79,10 +119,10 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_Secrets", x => x.Id);
+                table.PrimaryKey("PK_Secrets", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "ServerSettings",
             columns: table => new
             {
@@ -98,10 +138,10 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_ServerSettings", x => x.Id);
+                table.PrimaryKey("PK_ServerSettings", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "Skills",
             columns: table => new
             {
@@ -117,10 +157,10 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_Skills", x => x.Id);
+                table.PrimaryKey("PK_Skills", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "Users",
             columns: table => new
             {
@@ -129,15 +169,17 @@ public partial class InitialCreate : Migration
                 PasswordHash = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
                 PasswordSalt = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
                 RecoveryCodeHash = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                FailedLoginAttempts = table.Column<int>(type: "INTEGER", nullable: false),
+                LockoutEndUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
                 CreatedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
                 LastLoginAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_Users", x => x.Id);
+                table.PrimaryKey("PK_Users", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "Workspaces",
             columns: table => new
             {
@@ -154,10 +196,10 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_Workspaces", x => x.Id);
+                table.PrimaryKey("PK_Workspaces", x => x.Id);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "Conversations",
             columns: table => new
             {
@@ -169,12 +211,13 @@ public partial class InitialCreate : Migration
                 Effort = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
                 ProviderSessionId = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                 CreatedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                UpdatedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
+                UpdatedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                LastUserInteractionAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_Conversations", x => x.Id);
-                _ = table.ForeignKey(
+                table.PrimaryKey("PK_Conversations", x => x.Id);
+                table.ForeignKey(
                     name: "FK_Conversations_Workspaces_WorkspaceId",
                     column: x => x.WorkspaceId,
                     principalTable: "Workspaces",
@@ -182,7 +225,7 @@ public partial class InitialCreate : Migration
                     onDelete: ReferentialAction.Cascade);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "FileChanges",
             columns: table => new
             {
@@ -197,8 +240,8 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_FileChanges", x => x.Id);
-                _ = table.ForeignKey(
+                table.PrimaryKey("PK_FileChanges", x => x.Id);
+                table.ForeignKey(
                     name: "FK_FileChanges_Conversations_ConversationId",
                     column: x => x.ConversationId,
                     principalTable: "Conversations",
@@ -206,7 +249,7 @@ public partial class InitialCreate : Migration
                     onDelete: ReferentialAction.Cascade);
             });
 
-        _ = migrationBuilder.CreateTable(
+        migrationBuilder.CreateTable(
             name: "Messages",
             columns: table => new
             {
@@ -219,8 +262,8 @@ public partial class InitialCreate : Migration
             },
             constraints: table =>
             {
-                _ = table.PrimaryKey("PK_Messages", x => x.Id);
-                _ = table.ForeignKey(
+                table.PrimaryKey("PK_Messages", x => x.Id);
+                table.ForeignKey(
                     name: "FK_Messages_Conversations_ConversationId",
                     column: x => x.ConversationId,
                     principalTable: "Conversations",
@@ -228,44 +271,56 @@ public partial class InitialCreate : Migration
                     onDelete: ReferentialAction.Cascade);
             });
 
-        _ = migrationBuilder.CreateIndex(
+        migrationBuilder.CreateIndex(
             name: "IX_Conversations_WorkspaceId",
             table: "Conversations",
             column: "WorkspaceId");
 
-        _ = migrationBuilder.CreateIndex(
+        migrationBuilder.CreateIndex(
             name: "IX_FileChanges_ConversationId",
             table: "FileChanges",
             column: "ConversationId");
 
-        _ = migrationBuilder.CreateIndex(
+        migrationBuilder.CreateIndex(
             name: "IX_FileSnapshots_WorkspaceId_RelativePath",
             table: "FileSnapshots",
-            columns: ["WorkspaceId", "RelativePath"]);
+            columns: new[] { "WorkspaceId", "RelativePath" });
 
-        _ = migrationBuilder.CreateIndex(
+        migrationBuilder.CreateIndex(
             name: "IX_Messages_ConversationId",
             table: "Messages",
             column: "ConversationId");
 
-        _ = migrationBuilder.CreateIndex(
+        migrationBuilder.CreateIndex(
             name: "IX_PermissionRequests_ConversationId",
             table: "PermissionRequests",
             column: "ConversationId");
 
-        _ = migrationBuilder.CreateIndex(
-            name: "IX_Secrets_ProviderId_KeyName",
-            table: "Secrets",
-            columns: ["ProviderId", "KeyName"],
+        migrationBuilder.CreateIndex(
+            name: "IX_ProviderDetectionRecords_ProviderId",
+            table: "ProviderDetectionRecords",
+            column: "ProviderId",
             unique: true);
 
-        _ = migrationBuilder.CreateIndex(
+        migrationBuilder.CreateIndex(
+            name: "IX_ProviderModelSettings_ProviderId_ModelId",
+            table: "ProviderModelSettings",
+            columns: new[] { "ProviderId", "ModelId" },
+            unique: true);
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Secrets_ProviderId_KeyName",
+            table: "Secrets",
+            columns: new[] { "ProviderId", "KeyName" },
+            unique: true);
+
+        migrationBuilder.CreateIndex(
             name: "IX_Users_Username",
             table: "Users",
             column: "Username",
             unique: true);
 
-        _ = migrationBuilder.CreateIndex(
+        migrationBuilder.CreateIndex(
             name: "IX_Workspaces_Path",
             table: "Workspaces",
             column: "Path",
@@ -275,37 +330,43 @@ public partial class InitialCreate : Migration
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "FileChanges");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "FileSnapshots");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "McpServers");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "Messages");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "PermissionRequests");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
+            name: "ProviderDetectionRecords");
+
+        migrationBuilder.DropTable(
+            name: "ProviderModelSettings");
+
+        migrationBuilder.DropTable(
             name: "Secrets");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "ServerSettings");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "Skills");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "Users");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "Conversations");
 
-        _ = migrationBuilder.DropTable(
+        migrationBuilder.DropTable(
             name: "Workspaces");
     }
 }

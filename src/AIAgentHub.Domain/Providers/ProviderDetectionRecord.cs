@@ -10,6 +10,9 @@ public sealed class ProviderDetectionRecord
     public string? ExecutablePath { get; set; }
     public bool IsInstalled { get; set; }
     public bool IsAuthenticated { get; set; }
+    public bool IsHidden { get; set; }
+    public string? DefaultModelId { get; set; }
+    public string? DefaultEffort { get; set; }
     public DateTimeOffset? QuotaResetsAt { get; set; }
     public DateTimeOffset DetectedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }

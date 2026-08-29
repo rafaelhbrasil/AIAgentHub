@@ -6,6 +6,7 @@ import { DashboardSkeletons } from '../common/Skeletons';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { FolderExplorerModal } from '../modals/FolderExplorerModal';
+import { isProviderOperational } from '../../utils/providerSort';
 
 interface DashboardViewProps {
   onOpenWorkspace: (workspaceId: string) => void;
@@ -101,7 +102,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenWorkspace })
     return <DashboardSkeletons />;
   }
 
-  const installedCount = providers.filter((p) => p.isInstalled).length;
+  const activeWorkspaces = workspaces
+    .filter((w) => !w.isArchived)
+    .sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  const operationalCount = providers.filter(isProviderOperational).length;
 
   return (
     <div>
@@ -111,15 +120,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenWorkspace })
             Managed Workspaces <span>📁</span>
           </div>
           <div className="card-subtitle">Active local projects</div>
-          <div className="stat-val">{workspaces.length}</div>
+          <div className="stat-val">{activeWorkspaces.length}</div>
         </div>
         <div className="card glass">
           <div className="card-title">
             Available Providers <span>⚡</span>
           </div>
-          <div className="card-subtitle">Antigravity, Gemini, Codex, Claude</div>
+          <div className="card-subtitle">Operational AI engines</div>
           <div className="stat-val">
-            {installedCount} / {providers.length}
+            {operationalCount} / {providers.length}
           </div>
         </div>
         <div className="card glass">
@@ -146,16 +155,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenWorkspace })
           </button>
         </div>
         <div style={{ marginTop: '16px' }}>
-          {workspaces.length === 0 ? (
+          {activeWorkspaces.length === 0 ? (
             <p className="card-subtitle">
               No workspaces opened yet. Click above to open a folder on the server.
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {workspaces.map((w) => (
+              {activeWorkspaces.map((w) => (
                 <div key={w.id} className="workspace-item-row">
                   <div className="workspace-item-info">
-                    <strong>{w.name}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {w.isFavorite && <span title="Favorite workspace">⭐</span>}
+                      <strong>{w.name}</strong>
+                    </div>
                     <div className="workspace-item-path" title={w.path}>{w.path}</div>
                   </div>
                   <div className="workspace-item-actions">

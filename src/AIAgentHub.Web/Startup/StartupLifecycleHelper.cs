@@ -79,7 +79,7 @@ public static class StartupLifecycleHelper
         return httpsUrl ?? list.FirstOrDefault(u => u.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) ?? list[0];
     }
 
-    public static string FormatStartupBanner(IEnumerable<string> urls)
+    public static string FormatStartupBanner(IEnumerable<string> urls, string? safeClientIp = null, bool isRecoveryMode = false)
     {
         var urlList = urls.ToList();
         var sb = new StringBuilder();
@@ -89,15 +89,25 @@ public static class StartupLifecycleHelper
         var primary = SelectPrimaryBrowserUrl(urlList);
         if (primary != null)
         {
-            sb.AppendLine($"  -> Local:    {primary}");
+            sb.AppendLine($"  -> Local:       {primary}");
         }
 
         foreach (var url in urlList)
         {
             if (!string.Equals(url, primary, StringComparison.OrdinalIgnoreCase))
             {
-                sb.AppendLine($"  -> Fallback: {url}");
+                sb.AppendLine($"  -> Fallback:    {url}");
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(safeClientIp))
+        {
+            sb.AppendLine($"  -> Safe Client: {safeClientIp}");
+        }
+
+        if (isRecoveryMode)
+        {
+            sb.AppendLine("  -> Mode:        Emergency Recovery Mode (--recovery)");
         }
 
         sb.AppendLine("==============================================================");
@@ -186,7 +196,8 @@ public static class StartupLifecycleHelper
             : (configuration["urls"]?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? ["https://0.0.0.0:5432", "http://0.0.0.0:5433"]);
 
         var normalizedUrls = ResolveListeningUrls(rawUrls);
-        var banner = FormatStartupBanner(normalizedUrls);
+        var recoveryOptions = services.GetService(typeof(AIAgentHub.Application.Security.RecoveryOptions)) as AIAgentHub.Application.Security.RecoveryOptions;
+        var banner = FormatStartupBanner(normalizedUrls, recoveryOptions?.SafeClientIp, recoveryOptions?.IsRecoveryModeEnabled ?? false);
         writer.WriteLine(banner);
 
         if (ShouldLaunchBrowser(args, configuration, environment))

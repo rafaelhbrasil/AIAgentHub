@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { MessageDto, isUserRole } from '../../types/conversation';
+import { MessageDto, isUserRole, ConversationStatus } from '../../types/conversation';
 import { formatMessageContent, escapeHtml } from '../../utils/markdown';
 import { formatTime } from '../../utils/formatting';
 
@@ -9,6 +9,7 @@ interface ChatMessageListProps {
   streamingContent?: string;
   isStreaming?: boolean;
   heartbeatMessages?: string[];
+  status?: number;
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -17,9 +18,12 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   streamingContent,
   isStreaming,
   heartbeatMessages,
+  status,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const isSwitching = status === ConversationStatus.SwitchingProvider || status === 1;
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
     if (listRef.current) {
@@ -30,7 +34,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
   useLayoutEffect(() => {
     scrollToBottom('instant');
-  }, [messages, streamingContent, isStreaming, heartbeatMessages, scrollToBottom]);
+  }, [messages, streamingContent, isStreaming, heartbeatMessages, isSwitching, scrollToBottom]);
 
   useEffect(() => {
     scrollToBottom('instant');
@@ -45,13 +49,38 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
       cancelAnimationFrame(rafId);
       clearTimeout(timerId);
     };
-  }, [messages, streamingContent, isStreaming, heartbeatMessages, scrollToBottom]);
+  }, [messages, streamingContent, isStreaming, heartbeatMessages, isSwitching, scrollToBottom]);
 
   return (
     <div className="chat-messages" id="messageList" ref={listRef}>
+      {isSwitching && (
+        <div
+          className="switching-provider-banner"
+          style={{
+            background: 'rgba(99, 102, 241, 0.15)',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            color: '#818cf8',
+            fontSize: '0.88rem',
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>🔄</span>
+          <div>
+            <strong>Switching Provider...</strong> Context is compiling and synchronizing with target provider session.
+          </div>
+        </div>
+      )}
+
       {messages.map((m) => {
         const isUser = isUserRole(m.role);
-        const prov = m.metadata?.providerId || providerId;
+        const originProv = m.originProviderId || m.metadata?.providerId || providerId;
+        const originModel = m.originModelId || m.metadata?.modelId;
+        const isDifferentProvider = !isUser && originProv.toLowerCase() !== providerId.toLowerCase();
 
         return (
           <div
@@ -59,7 +88,43 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             className={`message-item ${isUser ? 'message-user' : 'message-assistant'}`}
           >
             <div className="message-header">
-              <span>{isUser ? '👤 You' : `⚡ AI Assistant (${prov})`}</span>
+              <span>
+                {isUser ? (
+                  '👤 You'
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⚡ AI Assistant ({originProv})</span>
+                    {originModel && (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {originModel}
+                      </span>
+                    )}
+                    {isDifferentProvider && (
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: '#f59e0b',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                        }}
+                        title={`Executed via previous provider session: ${originProv}`}
+                      >
+                        prev session
+                      </span>
+                    )}
+                  </span>
+                )}
+              </span>
               <span style={{ marginLeft: 'auto' }}>{formatTime(m.createdAtUtc)}</span>
             </div>
             <div

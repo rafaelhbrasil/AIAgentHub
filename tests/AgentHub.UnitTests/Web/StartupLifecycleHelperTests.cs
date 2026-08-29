@@ -61,8 +61,18 @@ public class StartupLifecycleHelperTests
         var banner = StartupLifecycleHelper.FormatStartupBanner(urls);
 
         Assert.Contains("AI Agent Hub is running!", banner);
-        Assert.Contains("-> Local:    https://localhost:5432", banner);
-        Assert.Contains("-> Fallback: http://localhost:5433", banner);
+        Assert.Contains("-> Local:       https://localhost:5432", banner);
+        Assert.Contains("-> Fallback:    http://localhost:5433", banner);
+    }
+
+    [Fact]
+    public void FormatStartupBanner_WithSafeClientAndRecovery_IncludesDetails()
+    {
+        var urls = new[] { "https://localhost:5432" };
+        var banner = StartupLifecycleHelper.FormatStartupBanner(urls, "192.168.1.50", true);
+
+        Assert.Contains("-> Safe Client: 192.168.1.50", banner);
+        Assert.Contains("-> Mode:        Emergency Recovery Mode (--recovery)", banner);
     }
 
     [Fact]

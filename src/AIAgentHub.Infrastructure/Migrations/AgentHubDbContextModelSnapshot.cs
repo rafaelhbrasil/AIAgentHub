@@ -30,6 +30,14 @@ namespace AIAgentHub.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsPinned")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTimeOffset>("LastUserInteractionAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ModelId")
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
@@ -43,12 +51,14 @@ namespace AIAgentHub.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("LastUserInteractionAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
@@ -62,6 +72,44 @@ namespace AIAgentHub.Infrastructure.Migrations
                     b.HasIndex("WorkspaceId");
 
                     b.ToTable("Conversations");
+                });
+
+            modelBuilder.Entity("AIAgentHub.Domain.Conversations.ConversationProviderSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("LastActiveAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LastSharedMessageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LastSharedSequenceIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ProviderId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProviderSessionId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId", "ProviderId")
+                        .IsUnique();
+
+                    b.ToTable("ConversationProviderSessions");
                 });
 
             modelBuilder.Entity("AIAgentHub.Domain.Conversations.Message", b =>
@@ -83,12 +131,25 @@ namespace AIAgentHub.Infrastructure.Migrations
                     b.Property<string>("Metadata")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("OriginModelId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginProviderId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Role")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SequenceIndex")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ConversationId");
+
+                    b.HasIndex("ConversationId", "SequenceIndex");
 
                     b.ToTable("Messages");
                 });
@@ -253,6 +314,14 @@ namespace AIAgentHub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DefaultEffort")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DefaultModelId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("DetectedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -262,6 +331,11 @@ namespace AIAgentHub.Infrastructure.Migrations
 
                     b.Property<bool>("IsAuthenticated")
                         .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsHidden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsInstalled")
                         .HasColumnType("INTEGER");
@@ -510,6 +584,16 @@ namespace AIAgentHub.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsArchived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsFavorite")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTimeOffset>("LastAccessedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -539,6 +623,15 @@ namespace AIAgentHub.Infrastructure.Migrations
                     b.HasOne("AIAgentHub.Domain.Workspaces.Workspace", null)
                         .WithMany("Conversations")
                         .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AIAgentHub.Domain.Conversations.ConversationProviderSession", b =>
+                {
+                    b.HasOne("AIAgentHub.Domain.Conversations.Conversation", null)
+                        .WithMany("ProviderSessions")
+                        .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -600,6 +693,8 @@ namespace AIAgentHub.Infrastructure.Migrations
                     b.Navigation("FileChanges");
 
                     b.Navigation("Messages");
+
+                    b.Navigation("ProviderSessions");
                 });
 
             modelBuilder.Entity("AIAgentHub.Domain.Workspaces.Workspace", b =>

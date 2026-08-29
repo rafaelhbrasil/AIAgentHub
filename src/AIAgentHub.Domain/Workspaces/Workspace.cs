@@ -10,6 +10,8 @@ public sealed class Workspace : AggregateRoot
     public WorkspaceOrigin Origin { get; private set; } = WorkspaceOrigin.Server;
     public DateTimeOffset CreatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastAccessedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
+    public bool IsFavorite { get; private set; }
+    public bool IsArchived { get; private set; }
     public WorkspaceSettings Settings { get; private set; } = new();
 
     private readonly List<Conversation> _conversations = [];
@@ -17,7 +19,13 @@ public sealed class Workspace : AggregateRoot
 
     private Workspace() { }
 
-    public static Workspace Create(string name, string path, WorkspaceOrigin origin = WorkspaceOrigin.Server, WorkspaceSettings? settings = null)
+    public static Workspace Create(
+        string name,
+        string path,
+        WorkspaceOrigin origin = WorkspaceOrigin.Server,
+        WorkspaceSettings? settings = null,
+        bool isFavorite = false,
+        bool isArchived = false)
     {
         return string.IsNullOrWhiteSpace(name)
             ? throw new ArgumentException("Workspace name cannot be empty.", nameof(name))
@@ -31,6 +39,8 @@ public sealed class Workspace : AggregateRoot
                 Origin = origin,
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 LastAccessedAtUtc = DateTimeOffset.UtcNow,
+                IsFavorite = isFavorite,
+                IsArchived = isArchived,
                 Settings = settings ?? new WorkspaceSettings()
             };
     }
@@ -43,6 +53,18 @@ public sealed class Workspace : AggregateRoot
         }
 
         Name = newName.Trim();
+        Touch();
+    }
+
+    public void SetFavorite(bool isFavorite)
+    {
+        IsFavorite = isFavorite;
+        Touch();
+    }
+
+    public void SetArchived(bool isArchived)
+    {
+        IsArchived = isArchived;
         Touch();
     }
 

@@ -17,7 +17,7 @@ public sealed class ConversationServiceTests
         var service = new ConversationService(convRepo, wsRepo);
 
         var wsId = Guid.NewGuid();
-        var ws = Workspace.Create("WS", Path.GetTempPath());
+        var ws = Workspace.Create("WS", Path.GetTempPath(), WorkspaceOrigin.Server, new WorkspaceSettings { DefaultProviderId = "antigravity" });
         _ = wsRepo.GetByIdAsync(wsId, Arg.Any<CancellationToken>()).Returns(ws);
 
         var conv = Conversation.Create(wsId, "Conv 1", "gemini");
@@ -39,7 +39,7 @@ public sealed class ConversationServiceTests
         var created = await service.CreateAsync(createReq);
         Assert.Equal("New Conv", created.Title);
 
-        _ = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateAsync(new CreateConversationRequest(Guid.NewGuid(), "Title")));
+        _ = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateAsync(new CreateConversationRequest(Guid.NewGuid(), "Title", "antigravity")));
 
         // Rename
         var renamed = await service.RenameAsync(conv.Id, "Renamed Conv");
@@ -71,6 +71,20 @@ public sealed class ConversationServiceTests
     }
 
     [Fact]
+    public async Task ConversationService_CreateAsync_NoProviderAvailable_ThrowsInvalidOperationException()
+    {
+        var convRepo = Substitute.For<IConversationRepository>();
+        var wsRepo = Substitute.For<IWorkspaceRepository>();
+        var service = new ConversationService(convRepo, wsRepo);
+
+        var wsId = Guid.NewGuid();
+        var ws = Workspace.Create("WS", Path.GetTempPath(), WorkspaceOrigin.Server, new WorkspaceSettings { DefaultProviderId = null });
+        _ = wsRepo.GetByIdAsync(wsId, Arg.Any<CancellationToken>()).Returns(ws);
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(new CreateConversationRequest(wsId, "Conv Without Provider", ProviderId: null)));
+    }
+
+    [Fact]
     public async Task ConversationService_GetByWorkspaceIdAsync_OrdersByLastUserInteractionAtUtc_Descending()
     {
         var convRepo = Substitute.For<IConversationRepository>();
@@ -78,9 +92,9 @@ public sealed class ConversationServiceTests
         var service = new ConversationService(convRepo, wsRepo);
 
         var wsId = Guid.NewGuid();
-        var conv1 = Conversation.Create(wsId, "Older Conversation");
+        var conv1 = Conversation.Create(wsId, "Older Conversation", "antigravity");
         await Task.Delay(10);
-        var conv2 = Conversation.Create(wsId, "Newer Conversation");
+        var conv2 = Conversation.Create(wsId, "Newer Conversation", "antigravity");
 
         // Older conversation has a recent user message
         await Task.Delay(10);

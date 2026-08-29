@@ -23,6 +23,42 @@ public interface ISecretEncryptor
 public sealed class RecoveryOptions
 {
     public bool IsRecoveryModeEnabled { get; set; }
+    public string? SafeClientIp { get; set; }
+
+    public bool IsSafeClient(System.Net.IPAddress? remoteIp)
+    {
+        if (remoteIp == null || string.IsNullOrWhiteSpace(SafeClientIp))
+        {
+            return false;
+        }
+
+        if (remoteIp.IsIPv4MappedToIPv6)
+        {
+            remoteIp = remoteIp.MapToIPv4();
+        }
+
+        if (System.Net.IPAddress.TryParse(SafeClientIp.Trim(), out var parsedSafeIp))
+        {
+            if (parsedSafeIp.IsIPv4MappedToIPv6)
+            {
+                parsedSafeIp = parsedSafeIp.MapToIPv4();
+            }
+
+            return parsedSafeIp.Equals(remoteIp);
+        }
+
+        return false;
+    }
+
+    public bool IsSafeClientOrLoopback(System.Net.IPAddress? remoteIp)
+    {
+        if (remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp))
+        {
+            return true;
+        }
+
+        return IsSafeClient(remoteIp);
+    }
 }
 
 public interface IDatabaseResetter

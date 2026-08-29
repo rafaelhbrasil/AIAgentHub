@@ -7,10 +7,12 @@ public sealed class Conversation : AggregateRoot
 {
     public Guid WorkspaceId { get; private set; }
     public string Title { get; private set; } = "New Conversation";
-    public string ProviderId { get; private set; } = "gemini";
+    public string ProviderId { get; private set; } = string.Empty;
     public string? ModelId { get; private set; }
     public string? Effort { get; private set; }
     public string? ProviderSessionId { get; private set; }
+    public ConversationStatus Status { get; private set; } = ConversationStatus.Active;
+    public bool IsPinned { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastUserInteractionAtUtc { get; private set; } = DateTimeOffset.UtcNow;
@@ -21,26 +23,46 @@ public sealed class Conversation : AggregateRoot
     private readonly List<FileChange> _fileChanges = [];
     public IReadOnlyCollection<FileChange> FileChanges => _fileChanges.AsReadOnly();
 
+    private readonly List<ConversationProviderSession> _providerSessions = [];
+    public IReadOnlyCollection<ConversationProviderSession> ProviderSessions => _providerSessions.AsReadOnly();
+
     private Conversation() { }
 
-    public static Conversation Create(Guid workspaceId, string title, string providerId = "gemini", string? modelId = null, string? providerSessionId = null, string? effort = null)
+    public static Conversation Create(
+        Guid workspaceId,
+        string title,
+        string providerId,
+        string? modelId = null,
+        string? providerSessionId = null,
+        string? effort = null,
+        bool isPinned = false)
     {
+        if (workspaceId == Guid.Empty)
+        {
+            throw new ArgumentException("Workspace ID must be valid.", nameof(workspaceId));
+        }
+
+        if (string.IsNullOrWhiteSpace(providerId))
+        {
+            throw new ArgumentException("Provider ID cannot be empty.", nameof(providerId));
+        }
+
         var now = DateTimeOffset.UtcNow;
-        return workspaceId == Guid.Empty
-            ? throw new ArgumentException("Workspace ID must be valid.", nameof(workspaceId))
-            : new Conversation
-            {
-                Id = Guid.NewGuid(),
-                WorkspaceId = workspaceId,
-                Title = string.IsNullOrWhiteSpace(title) ? "New Conversation" : title.Trim(),
-                ProviderId = string.IsNullOrWhiteSpace(providerId) ? "gemini" : providerId.Trim(),
-                ModelId = NormalizeModelId(modelId),
-                Effort = effort,
-                ProviderSessionId = providerSessionId,
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now,
-                LastUserInteractionAtUtc = now
-            };
+        return new Conversation
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
+            Title = string.IsNullOrWhiteSpace(title) ? "New Conversation" : title.Trim(),
+            ProviderId = providerId.Trim(),
+            ModelId = NormalizeModelId(modelId),
+            Effort = effort,
+            ProviderSessionId = providerSessionId,
+            Status = ConversationStatus.Active,
+            IsPinned = isPinned,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+            LastUserInteractionAtUtc = now
+        };
     }
 
     public void Rename(string newTitle)
@@ -53,6 +75,18 @@ public sealed class Conversation : AggregateRoot
         Title = newTitle.Trim();
         UpdatedAtUtc = DateTimeOffset.UtcNow;
         LastUserInteractionAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void SetStatus(ConversationStatus status)
+    {
+        Status = status;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void SetPinned(bool isPinned)
+    {
+        IsPinned = isPinned;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
     public void SetProviderAndModel(string providerId, string? modelId, string? effort = null)
@@ -96,9 +130,46 @@ public sealed class Conversation : AggregateRoot
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
-    public Message AddMessage(MessageRole role, string content, ExecutionMetadata? metadata = null)
+    public ConversationProviderSession AddOrUpdateProviderSession(string providerId, string? sessionId, Guid? lastSharedMessageId = null, int lastSharedSequenceIndex = 0)
     {
-        var message = Message.Create(Id, role, content, metadata);
+        if (string.IsNullOrWhiteSpace(providerId))
+        {
+            throw new ArgumentException("Provider ID cannot be empty.", nameof(providerId));
+        }
+
+        var normalizedProviderId = providerId.Trim();
+        var existing = _providerSessions.FirstOrDefault(s => s.ProviderId.Equals(normalizedProviderId, StringComparison.OrdinalIgnoreCase));
+        if (existing == null)
+        {
+            existing = ConversationProviderSession.Create(Id, normalizedProviderId, sessionId, lastSharedMessageId, lastSharedSequenceIndex);
+            _providerSessions.Add(existing);
+        }
+        else
+        {
+            existing.UpdateCheckpoint(lastSharedMessageId, lastSharedSequenceIndex, sessionId);
+        }
+
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return existing;
+    }
+
+    public Message AddMessage(
+        MessageRole role,
+        string content,
+        ExecutionMetadata? metadata = null,
+        string? originProviderId = null,
+        string? originModelId = null)
+    {
+        var sequenceIndex = _messages.Count + 1;
+        var message = Message.Create(
+            Id,
+            role,
+            content,
+            metadata,
+            sequenceIndex,
+            originProviderId ?? ProviderId,
+            originModelId ?? ModelId);
+
         _messages.Add(message);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
         if (role == MessageRole.User)

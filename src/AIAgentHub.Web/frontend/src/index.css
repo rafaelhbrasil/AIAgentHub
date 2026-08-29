@@ -21,6 +21,19 @@
   --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
+html.light {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-glass: rgba(241, 245, 249, 0.85);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --border-focus: rgba(99, 102, 241, 0.6);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-heading: #020817;
+  --shadow-card: 0 8px 24px 0 rgba(0, 0, 0, 0.08);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -521,6 +534,31 @@ body {
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   border-color: var(--border-focus);
+}
+
+/* Select Option States & Disabled Scope Styling */
+select option {
+  background-color: var(--bg-card, #1e293b);
+  color: var(--text-main, #f8fafc);
+  padding: 6px 10px;
+}
+
+select option:disabled,
+select option[disabled],
+.form-control option:disabled,
+.form-select option:disabled,
+.scope-option-disabled {
+  color: var(--text-muted, #64748b) !important;
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  opacity: 0.45 !important;
+  font-style: italic !important;
+  cursor: not-allowed;
+}
+
+select option:not(:disabled),
+.scope-option-enabled {
+  color: var(--text-main, #f8fafc) !important;
+  font-weight: 500;
 }
 
 /* Consolidated Studio Compact Header */

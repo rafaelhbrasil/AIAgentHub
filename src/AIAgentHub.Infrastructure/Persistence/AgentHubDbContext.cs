@@ -29,6 +29,7 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
     public DbSet<PermissionRequest> PermissionRequests => Set<PermissionRequest>();
     public DbSet<ProviderModelSetting> ProviderModelSettings => Set<ProviderModelSetting>();
     public DbSet<ProviderDetectionRecord> ProviderDetectionRecords => Set<ProviderDetectionRecord>();
+    public DbSet<ConversationProviderSession> ConversationProviderSessions => Set<ConversationProviderSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,8 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
             _ = b.HasKey(w => w.Id);
             _ = b.Property(w => w.Name).IsRequired().HasMaxLength(256);
             _ = b.Property(w => w.Path).IsRequired().HasMaxLength(1024);
+            _ = b.Property(w => w.IsFavorite).HasDefaultValue(false);
+            _ = b.Property(w => w.IsArchived).HasDefaultValue(false);
             _ = b.HasIndex(w => w.Path).IsUnique();
 
             _ = b.OwnsOne(w => w.Settings, sb =>
@@ -78,6 +81,8 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
             _ = b.Property(c => c.ModelId).HasMaxLength(128);
             _ = b.Property(c => c.Effort).HasMaxLength(64);
             _ = b.Property(c => c.ProviderSessionId).HasMaxLength(256);
+            _ = b.Property(c => c.Status).HasDefaultValue(ConversationStatus.Active);
+            _ = b.Property(c => c.IsPinned).HasDefaultValue(false);
             _ = b.HasIndex(c => c.WorkspaceId);
 
             _ = b.HasMany(c => c.Messages)
@@ -89,6 +94,20 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
                 .WithOne()
                 .HasForeignKey(fc => fc.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            _ = b.HasMany(c => c.ProviderSessions)
+                .WithOne()
+                .HasForeignKey(s => s.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ConversationProviderSession
+        _ = modelBuilder.Entity<ConversationProviderSession>(b =>
+        {
+            _ = b.HasKey(s => s.Id);
+            _ = b.Property(s => s.ProviderId).IsRequired().HasMaxLength(64);
+            _ = b.Property(s => s.ProviderSessionId).HasMaxLength(256);
+            _ = b.HasIndex(s => new { s.ConversationId, s.ProviderId }).IsUnique();
         });
 
         // Message
@@ -96,7 +115,10 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
         {
             _ = b.HasKey(m => m.Id);
             _ = b.Property(m => m.Content).IsRequired();
+            _ = b.Property(m => m.OriginProviderId).HasMaxLength(64);
+            _ = b.Property(m => m.OriginModelId).HasMaxLength(128);
             _ = b.HasIndex(m => m.ConversationId);
+            _ = b.HasIndex(m => new { m.ConversationId, m.SequenceIndex });
 
             _ = b.Property(m => m.Metadata)
                 .HasConversion(
@@ -205,7 +227,19 @@ public sealed class AgentHubDbContext(DbContextOptions<AgentHubDbContext> option
             _ = b.Property(r => r.StatusDetails).HasMaxLength(1024);
             _ = b.Property(r => r.Version).HasMaxLength(64);
             _ = b.Property(r => r.ExecutablePath).HasMaxLength(1024);
+            _ = b.Property(r => r.IsHidden).HasDefaultValue(false);
+            _ = b.Property(r => r.DefaultModelId).HasMaxLength(128);
+            _ = b.Property(r => r.DefaultEffort).HasMaxLength(64);
             _ = b.HasIndex(r => r.ProviderId).IsUnique();
+        });
+
+        // ConversationProviderSession
+        _ = modelBuilder.Entity<ConversationProviderSession>(b =>
+        {
+            _ = b.HasKey(s => s.Id);
+            _ = b.Property(s => s.ProviderId).IsRequired().HasMaxLength(64);
+            _ = b.Property(s => s.ProviderSessionId).HasMaxLength(256);
+            _ = b.HasIndex(s => new { s.ConversationId, s.ProviderId }).IsUnique();
         });
     }
 }
