@@ -201,6 +201,62 @@ public sealed class LocalDiskSnapshotStoreTests
     }
 
     [Fact]
+    public async Task SnapshotStore_AfterAcceptingDeletedFile_CleansUpSnapshot_AndDoesNotReDetectDeletionOnSubsequentPrompts()
+    {
+        var tempWorkspace = Path.Combine(Path.GetTempPath(), "AgentHubDelWs_" + Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempWorkspace);
+        var testFilePath = Path.Combine(tempWorkspace, "Release-v0.3.md");
+
+        try
+        {
+            await File.WriteAllTextAsync(testFilePath, "# Release 0.3 notes");
+
+            var wsId = Guid.NewGuid();
+            var convId = Guid.NewGuid();
+            var snapRepo = new FakeSnapshotRepo();
+            var changeRepo = new FakeChangeRepo();
+            var store = new LocalDiskSnapshotStore(snapRepo, changeRepo);
+
+            // Turn 1: Capture initial baseline containing Release-v0.3.md
+            var token1 = await store.CaptureWorkspaceSnapshotAsync(wsId, convId, tempWorkspace, []);
+
+            // File is deleted from disk
+            File.Delete(testFilePath);
+
+            // Turn 1 ends: detect deletion
+            var changes1 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token1, []);
+            Assert.Single(changes1);
+            var delChange = changes1[0];
+            Assert.Equal(FileChangeType.Deleted, delChange.ChangeType);
+            Assert.Equal(ReviewStatus.Pending, delChange.Status);
+
+            // User accepts the deletion
+            delChange.Accept();
+            await store.DeleteSnapshotAsync(convId, delChange.RelativePath);
+
+            // Turn 2 starts (e.g. next prompt)
+            var token2 = await store.CaptureWorkspaceSnapshotAsync(wsId, convId, tempWorkspace, []);
+
+            // Turn 2 ends: detect changes
+            var changes2 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token2, []);
+
+            // Must NOT re-detect Release-v0.3.md as deleted
+            Assert.Empty(changes2);
+
+            // Verify snapshots in repo for this file are gone
+            var remainingSnaps = await snapRepo.GetByConversationIdAsync(convId);
+            Assert.Empty(remainingSnaps);
+        }
+        finally
+        {
+            if (Directory.Exists(tempWorkspace))
+            {
+                Directory.Delete(tempWorkspace, true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task SnapshotStore_Rollback_ShouldThrow_WhenPathEscapesWorkspace()
     {
         var tempWorkspace = Path.Combine(Path.GetTempPath(), "AgentHubTraverseWs_" + Guid.NewGuid().ToString("N"));

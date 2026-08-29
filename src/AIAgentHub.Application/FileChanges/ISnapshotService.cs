@@ -8,6 +8,7 @@ public interface ISnapshotService
     public Task<IReadOnlyList<FileChange>> DetectAndRecordChangesAsync(Guid workspaceId, Guid conversationId, string workspacePath, string snapshotToken, IReadOnlyList<string> ignoredPatterns, CancellationToken cancellationToken = default);
     public Task RollbackFileAsync(FileChange change, string workspacePath, CancellationToken cancellationToken = default);
     public Task<string?> GetSnapshotContentAsync(FileChange change, CancellationToken cancellationToken = default);
+    public Task DeleteSnapshotAsync(Guid conversationId, string relativePath, CancellationToken cancellationToken = default);
 }
 
 public interface IFileChangeService

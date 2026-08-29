@@ -72,6 +72,19 @@ export const App: React.FC = () => {
     navigateTo('workspaces', workspaceId);
   };
 
+  const handleNavigateToWorkspace = React.useCallback((wsId: string, convId?: string | null) => {
+    setTargetWorkspaceId(wsId);
+    setTargetConversationId(convId || null);
+    const path = convId ? `/workspaces/${wsId}/conversations/${convId}` : `/workspaces/${wsId}`;
+    window.history.pushState({}, '', path);
+  }, []);
+
+  const handleBackToWorkspaces = React.useCallback(() => {
+    setTargetWorkspaceId(null);
+    setTargetConversationId(null);
+    window.history.pushState({}, '', '/workspaces');
+  }, []);
+
   if (isLoading) {
     return <LoadingOverlay isVisible={true} text="Initializing AI Agent Hub..." />;
   }
@@ -101,17 +114,8 @@ export const App: React.FC = () => {
           <WorkspacesView
             initialWorkspaceId={targetWorkspaceId}
             initialConversationId={targetConversationId}
-            onNavigateToWorkspace={(wsId, convId) => {
-              setTargetWorkspaceId(wsId);
-              setTargetConversationId(convId || null);
-              const path = convId ? `/workspaces/${wsId}/conversations/${convId}` : `/workspaces/${wsId}`;
-              window.history.pushState({}, '', path);
-            }}
-            onBackToWorkspaces={() => {
-              setTargetWorkspaceId(null);
-              setTargetConversationId(null);
-              window.history.pushState({}, '', '/workspaces');
-            }}
+            onNavigateToWorkspace={handleNavigateToWorkspace}
+            onBackToWorkspaces={handleBackToWorkspaces}
           />
         )}
         {activeTab === 'providers' && <ProvidersView />}
