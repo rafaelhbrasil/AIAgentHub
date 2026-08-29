@@ -44,18 +44,53 @@ public sealed class LocalDiskSnapshotStore(
             ".git", "node_modules", "bin", "obj", ".vs", ".idea", ".vscode"
         };
 
-        // Query existing pending changes so we preserve the original pre-prompt baseline snapshot
         var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+
+        // Clean up any historical duplicate change records for the same path
+        var duplicateChanges = existingChanges
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
+            .ToList();
+
+        foreach (var dup in duplicateChanges)
+        {
+            await _fileChangeRepository.DeleteAsync(dup, cancellationToken);
+        }
+
+        var latestChangesByPath = existingChanges
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+
         var pendingPaths = new HashSet<string>(
-            existingChanges
-                .Where(c => c.Status == ReviewStatus.Pending)
-                .Select(c => c.RelativePath.Replace('\\', '/').TrimStart('/')),
+            latestChangesByPath
+                .Where(kv => kv.Value.Status == ReviewStatus.Pending)
+                .Select(kv => kv.Key),
             StringComparer.OrdinalIgnoreCase);
 
         var existingSnapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
         var existingSnapshotMap = existingSnapshots
             .GroupBy(s => s.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        // Clean up snapshots for files that have been accepted as deleted
+        var acceptedDeletedPaths = new HashSet<string>(
+            latestChangesByPath
+                .Where(kv => kv.Value.Status == ReviewStatus.Accepted && kv.Value.ChangeType == FileChangeType.Deleted)
+                .Select(kv => kv.Key),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var deletedRelPath in acceptedDeletedPaths)
+        {
+            if (existingSnapshotMap.TryGetValue(deletedRelPath, out var oldSnapshots))
+            {
+                foreach (var oldSnap in oldSnapshots)
+                {
+                    await _snapshotRepository.DeleteAsync(oldSnap, cancellationToken);
+                    var oldBackup = Path.Combine(snapshotDir, oldSnap.StorageKey);
+                    try { if (File.Exists(oldBackup)) File.Delete(oldBackup); } catch { }
+                }
+            }
+        }
 
         var files = rootDir.GetFiles("*", SearchOption.AllDirectories);
         foreach (var file in files)
@@ -122,22 +157,30 @@ public sealed class LocalDiskSnapshotStore(
 
         var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
 
-        // Clean up any historical duplicate pending changes for the same relative path
-        var duplicatePending = existingChanges
-            .Where(c => c.Status == ReviewStatus.Pending)
+        // Clean up any historical duplicate change records for the same relative path
+        var duplicateChanges = existingChanges
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
             .ToList();
 
-        foreach (var dup in duplicatePending)
+        foreach (var dup in duplicateChanges)
         {
             await _fileChangeRepository.DeleteAsync(dup, cancellationToken);
         }
 
-        var pendingChangesMap = existingChanges
-            .Where(c => c.Status == ReviewStatus.Pending)
+        var latestChangesByPath = existingChanges
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+
+        var pendingChangesMap = latestChangesByPath
+            .Where(kv => kv.Value.Status == ReviewStatus.Pending)
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+        var acceptedDeletedPaths = new HashSet<string>(
+            latestChangesByPath
+                .Where(kv => kv.Value.Status == ReviewStatus.Accepted && kv.Value.ChangeType == FileChangeType.Deleted)
+                .Select(kv => kv.Key),
+            StringComparer.OrdinalIgnoreCase);
 
         var rootDir = new DirectoryInfo(Path.GetFullPath(workspacePath));
         var ignored = new HashSet<string>(ignoredPatterns, StringComparer.OrdinalIgnoreCase)
@@ -203,6 +246,15 @@ public sealed class LocalDiskSnapshotStore(
         // Check for deleted files
         foreach (var (relPath, baseline) in baselineMap)
         {
+            if (acceptedDeletedPaths.Contains(relPath))
+            {
+                // Deletion was already accepted by user in a previous turn - clean up any stale snapshot and ignore
+                await _snapshotRepository.DeleteAsync(baseline, cancellationToken);
+                var backup = Path.Combine(GetSnapshotDir(conversationId), baseline.StorageKey);
+                try { if (File.Exists(backup)) File.Delete(backup); } catch { }
+                continue;
+            }
+
             if (!seenRelativePaths.Contains(relPath))
             {
                 if (pendingChangesMap.TryGetValue(relPath, out var existingPending))
@@ -227,6 +279,21 @@ public sealed class LocalDiskSnapshotStore(
         }
 
         return detectedChanges;
+    }
+
+    public async Task DeleteSnapshotAsync(Guid conversationId, string relativePath, CancellationToken cancellationToken = default)
+    {
+        var cleanRel = relativePath.Replace('\\', '/').TrimStart('/');
+        var snapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+        var matching = snapshots.Where(s => string.Equals(s.RelativePath.Replace('\\', '/').TrimStart('/'), cleanRel, StringComparison.OrdinalIgnoreCase));
+        var snapshotDir = GetSnapshotDir(conversationId);
+
+        foreach (var snap in matching)
+        {
+            await _snapshotRepository.DeleteAsync(snap, cancellationToken);
+            var backup = Path.Combine(snapshotDir, snap.StorageKey);
+            try { if (File.Exists(backup)) File.Delete(backup); } catch { }
+        }
     }
 
     public Task RollbackFileAsync(FileChange change, string workspacePath, CancellationToken cancellationToken = default)

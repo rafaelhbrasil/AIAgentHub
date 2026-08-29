@@ -21,15 +21,15 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
     public async Task<IActionResult> GetByConversation([FromQuery] Guid conversationId, [FromQuery] bool pendingOnly = true, CancellationToken cancellationToken = default)
     {
         var changes = await _fileChangeService.GetChangesAsync(conversationId, cancellationToken);
-        if (pendingOnly)
-        {
-            changes = changes.Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending).ToList();
-        }
-
         var distinctChanges = changes
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderByDescending(c => c.CreatedAtUtc).First())
             .ToList();
+
+        if (pendingOnly)
+        {
+            distinctChanges = distinctChanges.Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending).ToList();
+        }
 
         return Ok(distinctChanges);
     }
@@ -119,12 +119,15 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
     public async Task<IActionResult> AcceptAll([FromQuery] Guid conversationId, CancellationToken cancellationToken)
     {
         var changes = await _fileChangeService.GetChangesAsync(conversationId, cancellationToken);
-        foreach (var change in changes)
+        var pendingChanges = changes
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(c => c.CreatedAtUtc).First())
+            .Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
+            .ToList();
+
+        foreach (var change in pendingChanges)
         {
-            if (change.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
-            {
-                await _fileChangeService.AcceptAsync(change.Id, cancellationToken);
-            }
+            await _fileChangeService.AcceptAsync(change.Id, cancellationToken);
         }
         return Ok(new { success = true });
     }
@@ -139,12 +142,15 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         }
 
         var changes = await _fileChangeService.GetChangesAsync(conversationId, cancellationToken);
-        foreach (var change in changes)
+        var pendingChanges = changes
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(c => c.CreatedAtUtc).First())
+            .Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
+            .ToList();
+
+        foreach (var change in pendingChanges)
         {
-            if (change.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
-            {
-                await _fileChangeService.RejectAsync(change.Id, ws.Path, cancellationToken);
-            }
+            await _fileChangeService.RejectAsync(change.Id, ws.Path, cancellationToken);
         }
         return Ok(new { success = true });
     }

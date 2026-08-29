@@ -34,6 +34,23 @@ public sealed class FileChangeService(
         var change = await _fileChangeRepository.GetByIdAsync(fileChangeId, cancellationToken) ?? throw new KeyNotFoundException($"File change {fileChangeId} not found.");
         change.Accept();
         await _fileChangeRepository.UpdateAsync(change, cancellationToken);
+
+        // Purge any older duplicate changes for the same file path in this conversation
+        var allChanges = await _fileChangeRepository.GetByConversationIdAsync(change.ConversationId, cancellationToken);
+        var normalizedPath = change.RelativePath.Replace('\\', '/').TrimStart('/');
+        var olderChanges = allChanges
+            .Where(c => c.Id != change.Id && string.Equals(c.RelativePath.Replace('\\', '/').TrimStart('/'), normalizedPath, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var old in olderChanges)
+        {
+            await _fileChangeRepository.DeleteAsync(old, cancellationToken);
+        }
+
+        if (change.ChangeType == FileChangeType.Deleted)
+        {
+            await _snapshotService.DeleteSnapshotAsync(change.ConversationId, change.RelativePath, cancellationToken);
+        }
     }
 
     public async Task RejectAsync(Guid fileChangeId, string workspacePath, CancellationToken cancellationToken = default)
@@ -42,6 +59,18 @@ public sealed class FileChangeService(
         await _snapshotService.RollbackFileAsync(change, workspacePath, cancellationToken);
         change.Reject();
         await _fileChangeRepository.UpdateAsync(change, cancellationToken);
+
+        // Purge any older duplicate changes for the same file path in this conversation
+        var allChanges = await _fileChangeRepository.GetByConversationIdAsync(change.ConversationId, cancellationToken);
+        var normalizedPath = change.RelativePath.Replace('\\', '/').TrimStart('/');
+        var olderChanges = allChanges
+            .Where(c => c.Id != change.Id && string.Equals(c.RelativePath.Replace('\\', '/').TrimStart('/'), normalizedPath, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var old in olderChanges)
+        {
+            await _fileChangeRepository.DeleteAsync(old, cancellationToken);
+        }
     }
 
     private static bool IsImageExtension(string ext) => ext is ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".bmp" or ".svg";

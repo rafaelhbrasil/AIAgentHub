@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { WorkspaceDto, FileTreeNode } from '../../../types/workspace';
 import { ConversationDto, ConversationDetailDto, MessageRole } from '../../../types/conversation';
 import { ModelInfo, ProviderStatusDto, ProviderStatus } from '../../../types/provider';
@@ -40,6 +40,18 @@ export const useWorkspaceStudio = ({
   const [mobileTab, setMobileTab] = useState<'chat' | 'sidebar'>('chat');
   const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
 
+  const onConversationChangedRef = useRef(onConversationChanged);
+  useEffect(() => {
+    onConversationChangedRef.current = onConversationChanged;
+  }, [onConversationChanged]);
+
+  const activeConversationRef = useRef(activeConversation);
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
+
+  const initialConversationIdRef = useRef(initialConversationId);
+
   const fetchFileTree = useCallback(async () => {
     setIsRefreshingTree(true);
     try {
@@ -65,12 +77,12 @@ export const useWorkspaceStudio = ({
     }
   }, []);
 
-  const loadModelsForProvider = async (providerId: string) => {
+  const loadModelsForProvider = useCallback(async (providerId: string) => {
     const res = await apiFetch<ModelInfo[]>(`/api/v1/providers/${providerId}/models`);
     if (res.ok && res.data) {
       setModels(res.data.filter((m) => m.isDisplayed !== false));
     }
-  };
+  }, []);
 
   const selectConversationById = useCallback(
     async (convId: string, notifyUrl: boolean = true) => {
@@ -83,11 +95,11 @@ export const useWorkspaceStudio = ({
         }
         fetchFileChanges(convId);
         if (notifyUrl) {
-          onConversationChanged?.(convId);
+          onConversationChangedRef.current?.(convId);
         }
       }
     },
-    [fetchFileChanges, onConversationChanged]
+    [fetchFileChanges, loadModelsForProvider]
   );
 
   const fetchWorkspaceData = useCallback(async () => {
@@ -107,44 +119,52 @@ export const useWorkspaceStudio = ({
       setConversations(sortedConvs);
 
       if (sortedConvs.length > 0) {
+        const initialTarget = initialConversationIdRef.current;
         const targetId =
-          initialConversationId && loadedConvs.some((c) => c.id === initialConversationId)
-            ? initialConversationId
-            : loadedConvs[0].id;
+          initialTarget && loadedConvs.some((c) => c.id === initialTarget)
+            ? initialTarget
+            : sortedConvs[0].id;
         await selectConversationById(targetId);
       } else {
         setActiveConversation(null);
         setFileChanges([]);
-        onConversationChanged?.(null);
+        onConversationChangedRef.current?.(null);
       }
     } catch {
       // ignore
     }
-  }, [workspace.id, initialConversationId, selectConversationById, onConversationChanged]);
+  }, [workspace.id, selectConversationById]);
 
   useEffect(() => {
     fetchWorkspaceData();
   }, [fetchWorkspaceData]);
 
+  // Handle external navigation change (e.g. browser back/forward buttons)
+  useEffect(() => {
+    if (initialConversationId && initialConversationId !== activeConversationRef.current?.id) {
+      selectConversationById(initialConversationId, false);
+    }
+  }, [initialConversationId, selectConversationById]);
+
   // Re-join conversation and fetch latest state when page becomes visible again (e.g. Chrome restore on mobile)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && activeConversation) {
-        signalRService.joinConversation(activeConversation.id);
-        selectConversationById(activeConversation.id);
+      if (document.visibilityState === 'visible' && activeConversationRef.current) {
+        signalRService.joinConversation(activeConversationRef.current.id);
+        selectConversationById(activeConversationRef.current.id, false);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [activeConversation, selectConversationById]);
+  }, [selectConversationById]);
 
   // SignalR Event Listeners
   useEffect(() => {
     const handleStreamChunk = (payload: StreamChunkPayload) => {
       if (
-        !activeConversation ||
+        !activeConversationRef.current ||
         !payload.conversationId ||
-        payload.conversationId.toLowerCase() === activeConversation.id.toLowerCase()
+        payload.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
       ) {
         setIsStreaming(true);
         setHeartbeatMessages([]);
@@ -155,9 +175,9 @@ export const useWorkspaceStudio = ({
     const handleConversationEvent = (data: any) => {
       if (data.eventName === 'conversation.heartbeat') {
         if (
-          !activeConversation ||
+          !activeConversationRef.current ||
           !data.conversationId ||
-          data.conversationId.toLowerCase() === activeConversation.id.toLowerCase()
+          data.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
         ) {
           setIsStreaming(true);
           const msg = data.data?.message || data.data?.Message || 'Still thinking...';
@@ -178,8 +198,8 @@ export const useWorkspaceStudio = ({
         if (data.conversationId) {
           selectConversationById(data.conversationId);
           fetchFileChanges(data.conversationId);
-        } else if (activeConversation) {
-          fetchFileChanges(activeConversation.id);
+        } else if (activeConversationRef.current) {
+          fetchFileChanges(activeConversationRef.current.id);
         }
         fetchFileTree();
       }
@@ -196,7 +216,7 @@ export const useWorkspaceStudio = ({
       const convId = diff.conversationId || diff.ConversationId;
       const path = diff.relativePath || diff.RelativePath;
       showToast(`File modified: ${path}`, 'info');
-      if (activeConversation && activeConversation.id === convId) {
+      if (activeConversationRef.current && activeConversationRef.current.id === convId) {
         selectConversationById(convId);
       }
       fetchFileTree();
@@ -210,8 +230,8 @@ export const useWorkspaceStudio = ({
     signalRService.onPermissionRequested = handlePermissionRequested;
     signalRService.onDiffCreated = handleDiffCreated;
     signalRService.onReconnected = () => {
-      if (activeConversation) {
-        selectConversationById(activeConversation.id);
+      if (activeConversationRef.current) {
+        selectConversationById(activeConversationRef.current.id, false);
       }
     };
 
@@ -222,7 +242,7 @@ export const useWorkspaceStudio = ({
       signalRService.onDiffCreated = undefined;
       signalRService.onReconnected = undefined;
     };
-  }, [activeConversation, fetchFileTree, fetchFileChanges, selectConversationById, showModal, hideModal, showToast]);
+  }, [fetchFileTree, fetchFileChanges, selectConversationById, showModal, hideModal, showToast]);
 
   const handleCreateConversation = () => {
     showModal(
@@ -244,8 +264,8 @@ export const useWorkspaceStudio = ({
           if (res.ok && res.data) {
             hideModal();
             showToast('Conversation created.', 'success');
-            setConversations((prev) => [res.data!, ...prev]);
-            await selectConversationById(res.data.id);
+            setConversations((prev) => [res.data!, ...prev.filter((c) => c.id !== res.data!.id)]);
+            await selectConversationById(res.data.id, true);
             setMobileTab('chat');
           } else {
             showToast(res.error || (res.data as any)?.message || 'Failed to create conversation.', 'error');
@@ -294,10 +314,11 @@ export const useWorkspaceStudio = ({
               setConversations(remaining);
               if (activeConversation?.id === id) {
                 if (remaining.length > 0) {
-                  selectConversationById(remaining[0].id);
+                  selectConversationById(remaining[0].id, true);
                 } else {
                   setActiveConversation(null);
-                  onConversationChanged?.(null);
+                  setFileChanges([]);
+                  onConversationChangedRef.current?.(null);
                 }
               }
             } else {

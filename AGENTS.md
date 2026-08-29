@@ -23,3 +23,10 @@
 ## Documentation & Superpowers Artifacts
 - The `docs/superpowers/` folder contains ephemeral session plans and brainstorming design specs.
 - It is strictly ignored via `.gitignore` and must NEVER be staged, tracked, or committed to Git.
+
+## Application Execution & Development vs. Deployment Policy
+- **Running the Application**: When asked to run the app for testing or development, always run the default project using `dotnet run --project src/AIAgentHub.Web` or the default launchSettings profile on HTTPS port `5432` (`https://localhost:5432`).
+- **Do NOT Deploy on Run/Rebuild/Test**: Never run deployment or publishing scripts (`npm run deploy`, `deploy:run`, etc.) when asked to run the application, rebuild code, or run unit tests.
+- **Do NOT Kill Running Instances During Builds/Tests**: Never terminate or kill existing user application instances when rebuilding or running unit tests.
+- **Deployment Script Scope**: `npm run deploy` and the `/deploy` skill are reserved exclusively for explicit user requests to publish or create a release bundle.
+
