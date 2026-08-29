@@ -4,6 +4,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync, spawn, spawnSync } from 'node:child_process';
 
+// Enforce English language across all child processes (.NET CLI, MSBuild, Git, etc.)
+process.env.DOTNET_CLI_UI_LANGUAGE = 'en-US';
+process.env.VSLANG = '1033';
+process.env.LC_ALL = 'en_US.UTF-8';
+process.env.LANG = 'en_US.UTF-8';
+process.env.MSBUILDDISABLENODEREUSE = '1';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');

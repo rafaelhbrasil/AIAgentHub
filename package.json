@@ -1,6 +1,6 @@
 {
   "name": "aiagenthub",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "workspaces": [
     "src/AIAgentHub.Web/frontend"
@@ -10,8 +10,8 @@
     "build": "npm run build -w aiagenthub-frontend",
     "test": "npm run test:frontend && npm run test:unit",
     "test:frontend": "npm test -w aiagenthub-frontend",
-    "test:unit": "dotnet test tests/AgentHub.UnitTests/AgentHub.UnitTests.csproj",
-    "test:integration": "dotnet test tests/AgentHub.IntegrationTests/AgentHub.IntegrationTests.csproj",
+    "test:unit": "node scripts/dotnet.mjs test tests/AgentHub.UnitTests/AgentHub.UnitTests.csproj",
+    "test:integration": "node scripts/dotnet.mjs test tests/AgentHub.IntegrationTests/AgentHub.IntegrationTests.csproj",
     "test:all": "npm run test && npm run test:integration",
     "deploy": "node scripts/deploy.mjs",
     "deploy:run": "node scripts/deploy.mjs --run",
