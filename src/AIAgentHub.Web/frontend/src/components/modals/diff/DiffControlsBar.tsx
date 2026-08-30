@@ -131,9 +131,9 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                   textAlign: 'center',
                 }}
               >
-                {activeHunkIndex >= 0
-                  ? `${activeHunkIndex + 1} / ${changeHunks.length}`
-                  : `${changeHunks.length} diffs`}
+                {changeHunks.length > 0
+                  ? `${(activeHunkIndex >= 0 ? activeHunkIndex : 0) + 1} / ${changeHunks.length}`
+                  : '0 diffs'}
               </span>
               <button
                 type="button"
@@ -234,9 +234,9 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                     textAlign: 'center',
                   }}
                 >
-                  {activeHunkIndex >= 0
-                    ? `${activeHunkIndex + 1} / ${changeHunks.length}`
-                    : `${changeHunks.length} diffs`}
+                  {changeHunks.length > 0
+                    ? `${(activeHunkIndex >= 0 ? activeHunkIndex : 0) + 1} / ${changeHunks.length}`
+                    : '0 diffs'}
                 </span>
                 <button
                   type="button"

@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using AIAgentHub.Application.Conversations;
 using AIAgentHub.Application.Workspaces;
 using AIAgentHub.Domain.Workspaces;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace AgentHub.IntegrationTests.Web.Chat;
@@ -347,6 +348,209 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
         }
     }
 
+    [Fact]
+    public async Task GetSwitchConfig_ReturnsConfiguredRecentInteractionCounts()
+    {
+        var client = await SetupAndAuthenticateClientAsync();
+
+        var res = await client.GetAsync("/api/v1/conversations/switch-config");
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+
+        var doc = await res.Content.ReadFromJsonAsync<JsonDocument>(JsonOpts);
+        Assert.NotNull(doc);
+        var root = doc.RootElement;
+        Assert.True(root.TryGetProperty("recentMessageCounts", out var countsProp));
+        Assert.Equal(JsonValueKind.Array, countsProp.ValueKind);
+        Assert.NotEmpty(countsProp.EnumerateArray().ToList());
+    }
+
+    [Fact]
+    public async Task SwitchProvider_WithScopeNone_MaintainsLazyCheckpointUntilFirstPrompt()
+    {
+        var client = await SetupAndAuthenticateClientAsync();
+
+        var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLazyScopeWS_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempFolder);
+        try
+        {
+            var wsRes = await client.PostAsJsonAsync("/api/v1/workspaces", new CreateWorkspaceRequest(
+                Name: "Lazy Switch WS",
+                Path: tempFolder,
+                Origin: WorkspaceOrigin.Server,
+                DefaultProviderId: "antigravity",
+                DefaultModelId: "default"
+            ), JsonOpts);
+            var workspace = await wsRes.Content.ReadFromJsonAsync<WorkspaceDto>(JsonOpts);
+            Assert.NotNull(workspace);
+
+            var convRes = await client.PostAsJsonAsync("/api/v1/conversations", new CreateConversationRequest(
+                WorkspaceId: workspace.Id,
+                Title: "Lazy Scope Test",
+                ProviderId: "antigravity",
+                ModelId: "default"
+            ), JsonOpts);
+            var conv = await convRes.Content.ReadFromJsonAsync<ConversationDto>(JsonOpts);
+            Assert.NotNull(conv);
+
+            // Turn 1 on Antigravity (creates 2 messages)
+            _ = await client.PostAsJsonAsync($"/api/v1/conversations/{conv.Id}/prompt", new { prompt = "Hello Antigravity!" });
+            var state1 = await WaitForMessagesAsync(client, conv.Id, 2, TimeSpan.FromSeconds(10));
+            Assert.NotNull(state1);
+
+            // Switch to claude with scope "none"
+            var switchRes = await client.PostAsJsonAsync($"/api/v1/conversations/{conv.Id}/switch-provider", new SwitchProviderRequest(
+                TargetProviderId: "claude",
+                TargetModelId: "default",
+                HistoryScope: "none"
+            ), JsonOpts);
+            Assert.Equal(HttpStatusCode.OK, switchRes.StatusCode);
+            var switchResult = await switchRes.Content.ReadFromJsonAsync<SwitchProviderResult>(JsonOpts);
+            Assert.NotNull(switchResult);
+            Assert.Equal(0, switchResult.MigratedMessageCount);
+
+            // Verify sessions before first prompt: Claude session has not advanced checkpoint prematurely
+            var sessionsBeforeRes = await client.GetAsync($"/api/v1/conversations/{conv.Id}/sessions");
+            var sessionsBefore = await sessionsBeforeRes.Content.ReadFromJsonAsync<List<ConversationProviderSessionDto>>(JsonOpts);
+            Assert.NotNull(sessionsBefore);
+            Assert.DoesNotContain(sessionsBefore, s => s.ProviderId.Equals("claude", StringComparison.OrdinalIgnoreCase) && s.LastSharedSequenceIndex > 0);
+
+            // Turn 2 on Claude
+            _ = await client.PostAsJsonAsync($"/api/v1/conversations/{conv.Id}/prompt", new { prompt = "Hello Claude!" });
+            var state2 = await WaitForMessagesAsync(client, conv.Id, 4, TimeSpan.FromSeconds(10));
+            Assert.NotNull(state2);
+            var lastMsg = state2.Messages.Last();
+            Assert.Equal("claude", lastMsg.OriginProviderId);
+
+            // Verify sessions after Turn 2: Claude session is now recorded
+            var sessionsAfterRes = await client.GetAsync($"/api/v1/conversations/{conv.Id}/sessions");
+            var sessionsAfter = await sessionsAfterRes.Content.ReadFromJsonAsync<List<ConversationProviderSessionDto>>(JsonOpts);
+            Assert.NotNull(sessionsAfter);
+            Assert.Contains(sessionsAfter, s => s.ProviderId.Equals("claude", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(tempFolder))
+            {
+                try { Directory.Delete(tempFolder, true); } catch { }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task AbortSwitch_WhenInSwitchingProviderStatus_RevertsStatusAndRestoresOriginalProvider()
+    {
+        var client = await SetupAndAuthenticateClientAsync();
+
+        var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubAbortWS_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempFolder);
+        try
+        {
+            var wsRes = await client.PostAsJsonAsync("/api/v1/workspaces", new CreateWorkspaceRequest(
+                Name: "Abort Switch WS",
+                Path: tempFolder,
+                Origin: WorkspaceOrigin.Server,
+                DefaultProviderId: "antigravity",
+                DefaultModelId: "default"
+            ), JsonOpts);
+            var workspace = await wsRes.Content.ReadFromJsonAsync<WorkspaceDto>(JsonOpts);
+            Assert.NotNull(workspace);
+
+            var convRes = await client.PostAsJsonAsync("/api/v1/conversations", new CreateConversationRequest(
+                WorkspaceId: workspace.Id,
+                Title: "Abort Switch Test",
+                ProviderId: "antigravity",
+                ModelId: "default"
+            ), JsonOpts);
+            var conv = await convRes.Content.ReadFromJsonAsync<ConversationDto>(JsonOpts);
+            Assert.NotNull(conv);
+
+            // Set conversation status directly to SwitchingProvider
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AIAgentHub.Infrastructure.Persistence.AgentHubDbContext>();
+                var dbConv = await db.Conversations.FindAsync(conv.Id);
+                Assert.NotNull(dbConv);
+                dbConv.SetStatus(AIAgentHub.Domain.Conversations.ConversationStatus.SwitchingProvider);
+                await db.SaveChangesAsync();
+            }
+
+            // Verify status is SwitchingProvider (1)
+            var detailRes = await client.GetAsync($"/api/v1/conversations/{conv.Id}");
+            var detail = await detailRes.Content.ReadFromJsonAsync<ConversationDetailDto>(JsonOpts);
+            Assert.NotNull(detail);
+            Assert.Equal(AIAgentHub.Domain.Conversations.ConversationStatus.SwitchingProvider, detail.Status);
+
+            // Abort the switch
+            var abortRes = await client.PostAsync($"/api/v1/conversations/{conv.Id}/abort-switch", null);
+            Assert.Equal(HttpStatusCode.OK, abortRes.StatusCode);
+
+            // Verify conversation is restored to Active (0)
+            var restoredRes = await client.GetAsync($"/api/v1/conversations/{conv.Id}");
+            var restoredDetail = await restoredRes.Content.ReadFromJsonAsync<ConversationDetailDto>(JsonOpts);
+            Assert.NotNull(restoredDetail);
+            Assert.Equal(AIAgentHub.Domain.Conversations.ConversationStatus.Active, restoredDetail.Status);
+            Assert.Equal("antigravity", restoredDetail.ProviderId);
+        }
+        finally
+        {
+            if (Directory.Exists(tempFolder))
+            {
+                try { Directory.Delete(tempFolder, true); } catch { }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ConversationPinning_And_Search_WorksCorrectly()
+    {
+        var client = await SetupAndAuthenticateClientAsync();
+
+        var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubPinSearchWS_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempFolder);
+        try
+        {
+            var wsRes = await client.PostAsJsonAsync("/api/v1/workspaces", new CreateWorkspaceRequest(
+                Name: "Pin Search WS",
+                Path: tempFolder,
+                Origin: WorkspaceOrigin.Server,
+                DefaultProviderId: "antigravity",
+                DefaultModelId: "default"
+            ), JsonOpts);
+            var workspace = await wsRes.Content.ReadFromJsonAsync<WorkspaceDto>(JsonOpts);
+            Assert.NotNull(workspace);
+
+            var convRes = await client.PostAsJsonAsync("/api/v1/conversations", new CreateConversationRequest(
+                WorkspaceId: workspace.Id,
+                Title: "UniqueSearchTermXYZ",
+                ProviderId: "antigravity",
+                ModelId: "default"
+            ), JsonOpts);
+            var conv = await convRes.Content.ReadFromJsonAsync<ConversationDto>(JsonOpts);
+            Assert.NotNull(conv);
+
+            // Pin conversation
+            var pinRes = await client.PutAsJsonAsync($"/api/v1/conversations/{conv.Id}/pin", new { isPinned = true });
+            Assert.Equal(HttpStatusCode.OK, pinRes.StatusCode);
+            var pinnedDto = await pinRes.Content.ReadFromJsonAsync<ConversationDto>(JsonOpts);
+            Assert.NotNull(pinnedDto);
+            Assert.True(pinnedDto.IsPinned);
+
+            // Search conversation
+            var searchRes = await client.GetAsync($"/api/v1/conversations/search?q=UniqueSearchTermXYZ");
+            Assert.Equal(HttpStatusCode.OK, searchRes.StatusCode);
+            var searchResults = await searchRes.Content.ReadFromJsonAsync<List<ConversationDto>>(JsonOpts);
+            Assert.NotNull(searchResults);
+            Assert.Contains(searchResults, c => c.Id == conv.Id);
+        }
+        finally
+        {
+            if (Directory.Exists(tempFolder))
+            {
+                try { Directory.Delete(tempFolder, true); } catch { }
+            }
+        }
+    }
+
     private async Task<ConversationDetailDto?> WaitForMessagesAsync(HttpClient client, Guid conversationId, int minimumMessageCount, TimeSpan timeout)
     {
         var sw = Stopwatch.StartNew();
@@ -372,12 +576,10 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
     private async Task<HttpClient> SetupAndAuthenticateClientAsync()
     {
         var client = _factory.CreateClient();
-        var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
-        {
-            username = "admin",
-            password = "123456"
-        });
-        if (!loginRes.IsSuccessStatusCode)
+        var setupStatusRes = await client.GetAsync("/api/v1/auth/setup/status");
+        var setupStatus = await setupStatusRes.Content.ReadFromJsonAsync<SetupStatusResponse>(JsonOpts);
+
+        if (setupStatus?.IsSetupCompleted != true)
         {
             _ = await client.PostAsJsonAsync("/api/v1/auth/setup/initialize", new
             {
@@ -385,12 +587,25 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
                 password = "123456",
                 confirmPassword = "123456"
             });
+        }
+
+        var loginRes = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            username = "admin",
+            password = "123456"
+        });
+
+        if (!loginRes.IsSuccessStatusCode)
+        {
             _ = await client.PostAsJsonAsync("/api/v1/auth/login", new
             {
                 username = "admin",
-                password = "123456"
+                password = "123123"
             });
         }
+
         return client;
     }
+
+    private sealed record SetupStatusResponse(bool IsSetupCompleted, bool IsRecoveryModeEnabled, bool IsLocalRequest, bool CanResetWithoutCode);
 }

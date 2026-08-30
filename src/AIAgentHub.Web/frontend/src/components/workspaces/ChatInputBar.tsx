@@ -197,13 +197,15 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     // On desktop, Enter sends, Shift+Enter inserts line break
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      if (!isStreaming) {
+        handleSubmit();
+      }
     }
   };
 
   const handleSubmit = () => {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || isStreaming) return;
     onSend(trimmed);
     setText('');
     setAutocompleteState((prev) => ({ ...prev, isOpen: false }));
@@ -238,29 +240,32 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
           disabled={disabled}
           rows={1}
         />
-        {isStreaming && onAbort && (
+        {isStreaming ? (
+          onAbort && (
+            <button
+              type="button"
+              className="round-abort-btn btn-danger abort-pulse"
+              id="abortBtn"
+              onClick={onAbort}
+              title="Cancel ongoing response"
+              aria-label="Cancel ongoing response"
+            >
+              <span className="abort-btn-icon">⏹</span>
+            </button>
+          )
+        ) : (
           <button
             type="button"
-            className="round-abort-btn btn-danger abort-pulse"
-            id="abortBtn"
-            onClick={onAbort}
-            title="Cancel ongoing response"
-            aria-label="Cancel ongoing response"
+            className="round-send-btn btn-primary"
+            id="sendPromptBtn"
+            onClick={handleSubmit}
+            disabled={disabled || !text.trim()}
+            title="Send Prompt"
+            aria-label="Send Prompt"
           >
-            <span className="abort-btn-icon">⏹</span>
+            <span className="send-btn-icon">➤</span>
           </button>
         )}
-        <button
-          type="button"
-          className="round-send-btn btn-primary"
-          id="sendPromptBtn"
-          onClick={handleSubmit}
-          disabled={disabled || !text.trim()}
-          title="Send Prompt"
-          aria-label="Send Prompt"
-        >
-          <span className="send-btn-icon">➤</span>
-        </button>
       </div>
 
       <div className="input-actions desktop-hint-only">

@@ -245,8 +245,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
           <div className="explorer-nav-bar">
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ padding: '3px 8px', fontSize: '0.8rem' }}
+              className="btn-refresh-icon"
               onClick={() => {
                 if (browserData?.parentPath) {
                   loadDirectory(browserData.parentPath);
@@ -254,8 +253,21 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
               }}
               disabled={!browserData?.parentPath}
               title="Up one folder level"
+              aria-label="Up one folder level"
             >
-              ⬆️ Up
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
             </button>
 
             {/* Breadcrumb Path Bar */}
@@ -279,12 +291,26 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <button
                 type="button"
-                className="btn btn-secondary compact-btn"
-                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                className="btn-refresh-icon"
+                style={isCreatingFolder ? { color: 'var(--accent-primary)', background: 'rgba(99, 102, 241, 0.15)' } : undefined}
                 onClick={() => setIsCreatingFolder((prev) => !prev)}
-                title="Create a new subfolder in this directory"
+                title={isCreatingFolder ? 'Cancel new folder' : 'Create new folder'}
+                aria-label="Create new folder"
               >
-                ➕ New Folder
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  <line x1="12" y1="11" x2="12" y2="17" />
+                  <line x1="9" y1="14" x2="15" y2="14" />
+                </svg>
               </button>
               <button
                 type="button"
@@ -292,6 +318,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
                 onClick={() => loadDirectory(currentPath)}
                 disabled={isLoadingFolders}
                 title="Refresh folder"
+                aria-label="Refresh folder"
               >
                 <Spinner size={15} isSpinning={isLoadingFolders} />
               </button>

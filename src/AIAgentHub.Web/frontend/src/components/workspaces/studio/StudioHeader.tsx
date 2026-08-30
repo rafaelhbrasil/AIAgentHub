@@ -9,6 +9,7 @@ interface StudioHeaderProps {
   activeConversation: ConversationDetailDto | null;
   models: ModelInfo[];
   showActionsMenu: boolean;
+  isStreaming?: boolean;
   onBack: () => void;
   onModelChange: (modelId: string) => void;
   onToggleActionsMenu: () => void;
@@ -26,6 +27,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   activeConversation,
   models,
   showActionsMenu,
+  isStreaming,
   onBack,
   onModelChange,
   onToggleActionsMenu,
@@ -71,25 +73,29 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
                 <button
                   type="button"
                   className={`badge badge-provider ${isSwitching ? 'badge-provider-switching' : ''}`}
-                  onClick={onSwitchProvider}
+                  disabled={isStreaming || isSwitching}
+                  onClick={isStreaming ? undefined : onSwitchProvider}
                   title={
-                    isSwitching
+                    isStreaming
+                      ? 'Cannot switch provider while command is running. Please wait for it to finish or abort it.'
+                      : isSwitching
                       ? 'Provider migration in progress. Click to view status or abort.'
                       : `Active Provider: ${activeConversation.providerId}. Click to switch provider.`
                   }
                   style={{
-                    cursor: onSwitchProvider ? 'pointer' : 'default',
+                    cursor: onSwitchProvider && !isStreaming ? 'pointer' : 'default',
                     border: isSwitching ? '1px solid rgba(234, 179, 8, 0.4)' : 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
                     transition: 'all 0.2s',
+                    opacity: isStreaming ? 0.75 : 1,
                     background: isSwitching ? 'rgba(234, 179, 8, 0.15)' : undefined,
                     color: isSwitching ? '#fde047' : undefined,
                   }}
                 >
                   <span>{isSwitching ? '⏳ Migrating...' : `⚡ ${activeConversation.providerId}`}</span>
-                  {onSwitchProvider && (
+                  {onSwitchProvider && !isStreaming && (
                     <span style={{ fontSize: '0.75rem', opacity: 0.75 }}>
                       {isSwitching ? '⚠️' : '🔄'}
                     </span>
@@ -145,6 +151,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
             onClose={onCloseActionsMenu}
             activeConversation={activeConversation}
             workspaceId={workspace.id}
+            isStreaming={isStreaming}
             onNewConversation={onNewConversation}
             onOpenDiffs={onOpenDiffs}
             onDownloadZip={onDownloadZip}

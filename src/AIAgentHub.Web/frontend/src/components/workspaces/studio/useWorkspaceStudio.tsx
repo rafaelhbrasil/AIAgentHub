@@ -354,6 +354,11 @@ export const useWorkspaceStudio = ({
   const handleOpenSwitchProvider = () => {
     if (!activeConversation) return;
 
+    if (isStreaming) {
+      showToast('Cannot switch provider while command is running. Please wait for it to finish or abort it.', 'warning');
+      return;
+    }
+
     const isSwitching =
       activeConversation.status === 1 ||
       (activeConversation.status as any) === 'SwitchingProvider';

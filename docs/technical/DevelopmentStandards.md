@@ -381,8 +381,8 @@ The project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
 - Solution-wide versioning is centralized in root `Directory.Build.props` via `<BaseVersion>`.
 - In **Debug** configuration, MSBuild automatically appends dynamic build timestamp metadata (`$(BaseVersion).MMddHH`) for build diagnostics.
-- In **Release** configuration, strict semantic versions (`$(BaseVersion)`) are generated without build suffixes.
-- The Web frontend embeds `__APP_VERSION__` at build time from `package.json` for zero-latency initial rendering, and asynchronously queries `GET /api/v1/system/version` to display detailed build numbers in Debug mode.
+- In **Release** configuration, strict semantic versions (`$(BaseVersion)`) are generated without build suffixes. When running deployed/release binaries, the 4th zero-revision segment is omitted in the header badge (e.g. `v0.1.1` instead of `v0.1.1.0`).
+- The Web frontend embeds `__APP_VERSION__` at build time from `package.json` for zero-latency initial rendering, and asynchronously queries `GET /api/v1/system/version` to display detailed build numbers in Debug mode while displaying clean 3-part semantic versions in Release mode.
 
 ## Release Command
 Releases are prepared and packaged using the automated release workflow by specifying a target publish profile (`win64` or `portable`):

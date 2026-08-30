@@ -217,7 +217,14 @@ public sealed class ExecutionOrchestrator(
             }
             catch (Exception ex)
             {
-                var isTimeout = ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) || assistantResponseBuilder.ToString().Contains("timeout waiting for response", StringComparison.OrdinalIgnoreCase);
+                var responseText = assistantResponseBuilder.ToString();
+                var isTimeout = ex is TimeoutException
+                    || ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+                    || ex.Message.Contains("deadline exceeded", StringComparison.OrdinalIgnoreCase)
+                    || responseText.Contains("timeout waiting for response", StringComparison.OrdinalIgnoreCase)
+                    || responseText.Contains("context deadline exceeded", StringComparison.OrdinalIgnoreCase)
+                    || responseText.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+                    || responseText.Contains("print-timeout", StringComparison.OrdinalIgnoreCase);
 
                 if (isTimeout && resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
                 {

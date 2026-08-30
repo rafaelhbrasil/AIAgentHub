@@ -4,8 +4,10 @@ using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Providers;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -69,6 +71,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             _ = services.Configure<CliExecutionOptions>(options =>
             {
                 options.Headless = true;
+            });
+
+            var rateLimiterDescriptors = services.Where(d =>
+                d.ServiceType == typeof(Microsoft.Extensions.Options.IConfigureOptions<Microsoft.AspNetCore.RateLimiting.RateLimiterOptions>) ||
+                d.ServiceType == typeof(Microsoft.Extensions.Options.IPostConfigureOptions<Microsoft.AspNetCore.RateLimiting.RateLimiterOptions>)).ToList();
+            foreach (var d in rateLimiterDescriptors)
+            {
+                _ = services.Remove(d);
+            }
+
+            _ = services.AddRateLimiter(options =>
+            {
+                options.AddFixedWindowLimiter("AuthLimiter", opt =>
+                {
+                    opt.PermitLimit = 100000;
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.QueueLimit = 0;
+                });
             });
 
             var executorDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IProcessExecutor));

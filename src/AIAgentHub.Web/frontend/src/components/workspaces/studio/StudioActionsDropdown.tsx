@@ -7,6 +7,7 @@ interface StudioActionsDropdownProps {
   onClose: () => void;
   activeConversation: ConversationDetailDto | null;
   workspaceId: string;
+  isStreaming?: boolean;
   onNewConversation: () => void;
   onOpenDiffs: () => void;
   onDownloadZip: () => void;
@@ -20,6 +21,7 @@ export const StudioActionsDropdown: React.FC<StudioActionsDropdownProps> = ({
   onClose,
   activeConversation,
   workspaceId,
+  isStreaming,
   onNewConversation,
   onOpenDiffs,
   onDownloadZip,
@@ -52,7 +54,10 @@ export const StudioActionsDropdown: React.FC<StudioActionsDropdownProps> = ({
             type="button"
             className="dropdown-item"
             id="switchProviderDropdownBtn"
+            disabled={isStreaming}
+            title={isStreaming ? 'Cannot switch provider while command is running' : undefined}
             onClick={() => {
+              if (isStreaming) return;
               onClose();
               onSwitchProvider();
             }}

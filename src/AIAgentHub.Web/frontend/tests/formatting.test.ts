@@ -1,10 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { formatModelsSummary, formatFileSize, formatTime } from '../src/utils/formatting';
+import { formatModelsSummary, formatFileSize, formatTime, formatAppVersion } from '../src/utils/formatting';
 import { ModelInfo } from '../src/types/provider';
 import { MessageRole, isUserRole } from '../src/types/conversation';
 import { NetworkMode, normalizeNetworkMode } from '../src/types/settings';
 
 describe('formatting utils', () => {
+  it('formats app version correctly and omits 4th zero revision', () => {
+    expect(formatAppVersion('0.1.1.0')).toBe('v0.1.1');
+    expect(formatAppVersion('v0.1.1.0')).toBe('v0.1.1');
+    expect(formatAppVersion('0.1.1')).toBe('v0.1.1');
+    expect(formatAppVersion('v0.1.1')).toBe('v0.1.1');
+    expect(formatAppVersion('0.1.1.0830')).toBe('v0.1.1.0830');
+    expect(formatAppVersion('v0.1.1.0830')).toBe('v0.1.1.0830');
+    expect(formatAppVersion('')).toBe('');
+    expect(formatAppVersion(undefined)).toBe('');
+  });
+
   it('formats models summary correctly with active count', () => {
     const models: ModelInfo[] = [
       { id: 'm1', displayName: 'Model 1', isDisplayed: true },

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { apiFetch } from '../../services/apiClient';
+import { formatAppVersion } from '../../utils/formatting';
 
 export type NavTab = 'dashboard' | 'workspaces' | 'providers' | 'tools' | 'settings';
 
@@ -17,7 +18,7 @@ interface SystemVersionInfo {
   environment?: string;
 }
 
-const BASE_APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'v0.1.0';
+const BASE_APP_VERSION = formatAppVersion(typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0');
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
   const { isAuthenticated, username, logout } = useAuth();
@@ -30,8 +31,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
     apiFetch<SystemVersionInfo>('/api/v1/system/version')
       .then((res) => {
         if (res.ok && res.data?.version) {
-          const v = res.data.version;
-          setVersionText(`v${v}`);
+          const v = formatAppVersion(res.data.version);
+          setVersionText(v);
           if (res.data.informationalVersion) {
             setVersionTooltip(`Version ${res.data.informationalVersion} (${res.data.environment || 'Production'})`);
           }

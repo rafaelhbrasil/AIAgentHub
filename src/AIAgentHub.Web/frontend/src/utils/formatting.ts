@@ -22,3 +22,11 @@ export function formatTime(isoString?: string): string {
     return '';
   }
 }
+
+export function formatAppVersion(version?: string): string {
+  if (!version) return '';
+  const clean = version.startsWith('v') || version.startsWith('V') ? version.slice(1) : version;
+  const trimmed = clean.replace(/^(\d+\.\d+\.\d+)\.0$/, '$1');
+  return `v${trimmed}`;
+}
+

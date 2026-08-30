@@ -41,6 +41,10 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         startInfo.EnvironmentVariables["API_TIMEOUT_MS"] = timeoutMs.ToString();
         startInfo.EnvironmentVariables["REQUEST_TIMEOUT_MS"] = timeoutMs.ToString();
         startInfo.EnvironmentVariables["TIMEOUT"] = (timeoutMs / 1000).ToString();
+        startInfo.EnvironmentVariables["CLI_TIMEOUT"] = (timeoutMs / 1000).ToString();
+        startInfo.EnvironmentVariables["ANTIGRAVITY_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["ANTHROPIC_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["OPENAI_TIMEOUT_MS"] = timeoutMs.ToString();
 
         LogPrompt(
             promptLogger,

@@ -90,6 +90,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         activeConversation={activeConversation}
         models={models}
         showActionsMenu={showActionsMenu}
+        isStreaming={isStreaming}
         onBack={onBack}
         onModelChange={handleModelChange}
         onToggleActionsMenu={() => setShowActionsMenu((prev) => !prev)}
@@ -173,7 +174,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
 
                 <ChatInputBar
                   onSend={handleSendPrompt}
-                  disabled={isStreaming || isSwitching}
+                  disabled={isSwitching}
                   isStreaming={isStreaming}
                   onAbort={handleAbort}
                   workspaceFiles={workspaceFiles}

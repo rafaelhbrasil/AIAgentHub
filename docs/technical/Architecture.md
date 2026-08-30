@@ -130,7 +130,7 @@ Never the opposite.
 All CLI execution (live prompt streaming via `ExecuteAsync` and auxiliary CLI command executions such as `--version`, model listings, and auth status checks via `RunCommandAsync`) is handled exclusively through `IProcessExecutor`. The dependency injection container resolves the appropriate executor (`HeadlessProcessExecutor` or `HeadedProcessExecutor`) based on configuration (`AgentHub:CliExecution:Headless`), ensuring provider adapters remain decoupled from process execution modes.
 
 #### Execution Timeout & Keepalives
-- **Configurable Timeout**: `AgentHub:CliExecution:TimeoutMinutes` (default: `10` minutes) sets the maximum execution duration for an individual prompt turn. Standard timeout environment variables (`API_TIMEOUT_MS`, `REQUEST_TIMEOUT_MS`, `TIMEOUT`) are injected into child processes.
+- **Configurable Timeout**: `AgentHub:CliExecution:TimeoutMinutes` (default: `10` minutes) sets the maximum execution duration for an individual prompt turn. Standard timeout environment variables (`API_TIMEOUT_MS`, `REQUEST_TIMEOUT_MS`, `TIMEOUT`, `CLI_TIMEOUT`, `ANTIGRAVITY_TIMEOUT_MS`, `ANTHROPIC_TIMEOUT_MS`, `OPENAI_TIMEOUT_MS`) are injected into child processes, and provider adapters pass CLI-specific timeout flags (such as `--print-timeout "<N>m"` for Antigravity CLI).
 - **Keepalive Heartbeat**: Periodic `conversation.heartbeat` SignalR events (every `HeartbeatIntervalSeconds`, default: 60s) provide live elapsed time and friendly progress feedback (`"Still working..."`, `"Analyzing codebase..."`) to the user interface during long thinking phases.
 - **Bounded Auto-Resumption**: If a provider turn times out and `AutoResumeOnTimeout` is enabled, `ExecutionOrchestrator` automatically triggers a continuation turn (`"Continue from where you left off."`) in the same session, bounded by `MaxAutoResumes` (default: 2) to prevent infinite loops.
 
@@ -143,11 +143,25 @@ Each AI provider is implemented as an adapter inheriting from `CliProviderBase`.
 When building CLI arguments, if a conversation is set to "Default Model" (or if `ModelId` is empty, `"default"`, `"auto"`, etc.), provider adapters omit the `--model` CLI argument completely to let the underlying CLI resolve to its own configured or upstream default model.
 
 Provider-specific CLI argument formatting:
-- **Antigravity CLI**: `--output-format text --add-dir "<workspace>" --mode accept-edits -p "<prompt>"` with optional `--model`, `--effort`, `--conversation`.
+- **Antigravity CLI**: `--output-format text --add-dir "<workspace>" --mode accept-edits -p "<prompt>"` with optional `--model`, `--effort`, `--conversation`, and `--print-timeout "<TimeoutMinutes>m"`.
 - **Claude Code**: `--output-format text --permission-mode acceptEdits -p "<prompt>"` with optional `--model`, `--effort`, `--session-id` (initial message) and `--resume` (subsequent messages).
 - **OpenAI Codex CLI**: `exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<prompt>"` (or `exec resume ... <session-id> "<prompt>"` on subsequent turns), with optional `--model` and `-c model_reasoning_effort=<effort>`.
 - **OpenCode**: `run --dir "<workspace>" --auto "<prompt>"` with optional `--model`, `--variant`, `--session`.
 - **GitHub Copilot**: `--output-format text --silent --allow-all-tools --add-dir "<workspace>"` with optional `--model`, `--session-id` (initial message) and `--resume` (subsequent messages).
+
+---
+
+## Chat Studio & Diff Viewer Interaction Patterns
+
+### Chat Input Bar State Machine
+- When a prompt turn is actively executing (streaming), the Send button (`#sendPromptBtn`) is hidden and replaced by the Abort button (`#abortBtn`).
+- The user can type their next prompt in the chat input area while the current prompt executes, but cannot submit until the ongoing execution finishes or is aborted.
+- Upon turn completion or abort, the Abort button is hidden and the Send button becomes visible.
+- Provider switching is locked/disabled while a command is actively running until it completes or is aborted.
+
+### Diff Reviewer Direct Hunk Focus
+- In the file diff viewer, the change hunk indicator immediately displays `1 / <Total>` (e.g., `1 / 10`) upon opening or switching files instead of an unselected `<Total> diffs` label.
+- The diff viewer automatically and immediately focuses/scrolls to the first change hunk without requiring a manual user click.
 
 Examples:
 

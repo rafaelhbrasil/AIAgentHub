@@ -82,7 +82,7 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
     if (!changeHunks.length || hunkIndex < 0 || hunkIndex >= changeHunks.length) return;
     const targetIndex = changeHunks[hunkIndex].startIndex;
 
-    if (isMobile && viewMode === 'sideBySide' && sideBySideMobileTab === 'split') {
+    if (viewMode === 'sideBySide') {
       const leftEl = document.getElementById(`diff-line-left-${targetIndex}`);
       const rightEl = document.getElementById(`diff-line-right-${targetIndex}`);
       leftEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -99,9 +99,9 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
     const hunks = getChangeHunks(activeDiff, viewMode);
     if (hunks.length > 0) {
       setActiveHunkIndex(0);
-      const timer = setTimeout(() => {
+      const performScroll = () => {
         const targetIndex = hunks[0].startIndex;
-        if (isMobile && viewMode === 'sideBySide' && sideBySideMobileTab === 'split') {
+        if (viewMode === 'sideBySide') {
           const leftEl = document.getElementById(`diff-line-left-${targetIndex}`);
           const rightEl = document.getElementById(`diff-line-right-${targetIndex}`);
           leftEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -110,8 +110,14 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
           const rowEl = document.getElementById(`diff-line-row-${targetIndex}`);
           rowEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      }, 120);
-      return () => clearTimeout(timer);
+      };
+
+      const rafId = requestAnimationFrame(performScroll);
+      const timer = setTimeout(performScroll, 80);
+      return () => {
+        cancelAnimationFrame(rafId);
+        clearTimeout(timer);
+      };
     } else {
       setActiveHunkIndex(-1);
     }

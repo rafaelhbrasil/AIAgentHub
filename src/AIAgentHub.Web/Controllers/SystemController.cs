@@ -29,12 +29,23 @@ public sealed class SystemController(IWebHostEnvironment environment) : Controll
         var asmVersion = asm.GetName().Version?.ToString();
         var isDevelopment = _environment.IsDevelopment();
 
-        var version = fileVersion ?? asmVersion ?? "0.1.0";
+        var rawVersion = fileVersion ?? asmVersion ?? "0.1.0";
+        var version = FormatDisplayVersion(rawVersion);
 
         return Ok(new SystemVersionResponse(
             Version: version,
             InformationalVersion: infoVersion ?? version,
             IsDevelopment: isDevelopment,
             Environment: _environment.EnvironmentName));
+    }
+
+    public static string FormatDisplayVersion(string rawVersion)
+    {
+        if (System.Version.TryParse(rawVersion, out var parsed) && parsed.Revision == 0)
+        {
+            return $"{parsed.Major}.{parsed.Minor}.{parsed.Build}";
+        }
+
+        return rawVersion;
     }
 }

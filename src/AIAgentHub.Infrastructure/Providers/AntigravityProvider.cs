@@ -114,8 +114,10 @@ public sealed class AntigravityProvider(
         var logArg = !string.IsNullOrWhiteSpace(logFilePath)
             ? FormatFlag("--log-file", logFilePath)
             : string.Empty;
+        var timeoutMinutes = GetExecutionOptions().TimeoutMinutes > 0 ? GetExecutionOptions().TimeoutMinutes : 10;
+        var timeoutArg = $" --print-timeout \"{timeoutMinutes}m\"";
 
-        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}{logArg}";
+        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}{logArg}{timeoutArg}";
     }
 
     public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);
