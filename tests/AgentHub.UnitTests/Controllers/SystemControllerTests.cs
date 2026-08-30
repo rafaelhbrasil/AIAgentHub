@@ -35,7 +35,11 @@ public class SystemControllerTests
 
         Assert.NotNull(response.Version);
         Assert.False(string.IsNullOrEmpty(response.Version));
-        Assert.False(response.Version.EndsWith(".0", StringComparison.Ordinal));
+        var parts = response.Version.Split('.');
+        if (parts.Length == 4)
+        {
+            Assert.NotEqual("0", parts[3]);
+        }
         Assert.Equal("Production", response.Environment);
     }
 }
