@@ -8,7 +8,18 @@ document.addEventListener('DOMContentLoaded', () => {
   initTerminalTabs();
   initCopyButtons();
   initSmoothScroll();
+  initFooterYear();
 });
+
+/**
+ * Dynamic Footer Year
+ */
+function initFooterYear() {
+  const yearElem = document.getElementById('currentYear');
+  if (yearElem) {
+    yearElem.textContent = new Date().getFullYear();
+  }
+}
 
 /**
  * Mobile Navigation Drawer Toggle
