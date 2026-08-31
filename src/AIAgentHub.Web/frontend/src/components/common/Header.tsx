@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
       <header className="app-header">
         <div className="header-left">
           <div className="logo-badge" onClick={() => handleTabClick('dashboard')}>
-            <span className="logo-icon">⚡</span>
+            <img src="/logo.svg" alt="AI Agent Hub" className="logo-img" width="28" height="28" />
             <div className="logo-text">
               <span className="logo-title">AI Agent Hub</span>
               <span className="logo-version" title={versionTooltip}>{versionText}</span>

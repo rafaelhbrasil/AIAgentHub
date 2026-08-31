@@ -86,6 +86,12 @@ body {
   user-select: none;
 }
 
+.logo-img {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
 .logo-icon {
   font-size: 18px;
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));

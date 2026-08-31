@@ -21,6 +21,7 @@ Every contributor should follow these conventions.
 ```
 /
 ├── docs/
+├── site/
 ├── src/
 ├── tests/
 ├── tools/

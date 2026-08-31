@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Agent Hub — Provider-Agnostic Self-Hosted Platform for AI Coding Assistants</title>
+  <meta name="description" content="AI Agent Hub turns standalone CLI AI coding assistants into a centralized, self-hosted development platform. Orchestrate Claude Code, Gemini, OpenAI Codex, OpenCode, Antigravity, and GitHub Copilot with a modern web GUI, visual diffs, and multi-device access.">
+  <meta name="keywords" content="AI coding assistant, self-hosted AI, Antigravity CLI, Claude Code, Gemini CLI, OpenAI Codex, OpenCode, GitHub Copilot, visual diff, developer tools">
+  <meta name="author" content="Rafael Brasil">
+  
+  <!-- Open Graph / Social Meta -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://rafaelhbrasil.github.io/AIAgentHub/">
+  <meta property="og:title" content="AI Agent Hub — Self-Hosted AI Coding Studio">
+  <meta property="og:description" content="Centralized, self-hosted web interface and orchestrator for official CLI AI coding assistants. Multi-device access, visual diff reviews, and workspace isolation.">
+  <meta property="og:image" content="assets/desktopview1.png">
+
+  <!-- Twitter Meta -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AI Agent Hub — Self-Hosted AI Coding Studio">
+  <meta name="twitter:description" content="Centralized, self-hosted web interface and orchestrator for official CLI AI coding assistants.">
+  <meta name="twitter:image" content="assets/desktopview1.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  
+  <!-- Google Fonts (Inter + JetBrains Mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient-grid"></div>
+
+  <!-- Site Navigation -->
+  <header class="site-header">
+    <div class="container nav-container">
+      <a href="#" class="brand-link" aria-label="AI Agent Hub Home">
+        <img src="assets/logo.svg" alt="AI Agent Hub Logo" class="brand-logo" width="32" height="32">
+        <span>AI Agent <span class="gradient-text">Hub</span></span>
+      </a>
+
+      <nav>
+        <ul class="nav-links" id="navLinks">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#providers">Providers</a></li>
+          <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#quickstart">Quickstart</a></li>
+          <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/tree/main/docs" target="_blank" rel="noopener noreferrer">Docs</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="https://github.com/rafaelhbrasil/AIAgentHub" target="_blank" rel="noopener noreferrer" class="github-btn" aria-label="GitHub Repository">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>Star on GitHub</span>
+        </a>
+        <button class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle Navigation Menu" aria-expanded="false">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        <span>Next-Gen Self-Hosted AI Orchestration</span>
+      </div>
+
+      <h1 class="hero-title">
+        One Unified Studio for All Your <span class="gradient-text">AI Coding Assistants</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Retain the unrestricted power and native capabilities of official CLI assistants while unlocking centralized multi-device access, visual diff reviews, and isolated workspaces on your own hardware.
+      </p>
+
+      <div class="hero-cta-group">
+        <a href="#quickstart" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>Get Started Now</span>
+        </a>
+        <a href="https://github.com/rafaelhbrasil/AIAgentHub" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>Explore Repository</span>
+        </a>
+      </div>
+
+      <!-- Interactive Preview Showcase -->
+      <div class="showcase-container">
+        <div class="showcase-tabs" role="tablist">
+          <button class="showcase-tab active" data-view="desktopView" role="tab" aria-selected="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span>Desktop Studio</span>
+          </button>
+          <button class="showcase-tab" data-view="mobileView" role="tab" aria-selected="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+            <span>Mobile Companion</span>
+          </button>
+        </div>
+
+        <!-- Desktop Studio View (Desktop Browser Window) -->
+        <div id="desktopView" class="showcase-view active">
+          <div class="showcase-frame desktop-frame">
+            <div class="window-header">
+              <div class="window-controls">
+                <span class="window-dot red"></span>
+                <span class="window-dot yellow"></span>
+                <span class="window-dot green"></span>
+              </div>
+              <div class="window-address">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <span>https://mydesktop:5432</span>
+              </div>
+              <div style="width: 48px;"></div>
+            </div>
+
+            <div class="desktop-screen">
+              <img src="assets/desktopview1.png" alt="AI Agent Hub Desktop Studio View" width="1200" height="675" loading="eager">
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile Companion View (Realistic Smartphone Frame with Mobile Browser) -->
+        <div id="mobileView" class="showcase-view">
+          <div class="mobile-device-container">
+            <div class="mobile-phone-frame">
+              <!-- Dynamic Island / Top Speaker -->
+              <div class="phone-dynamic-island"></div>
+
+              <!-- Mobile Status Bar -->
+              <div class="phone-status-bar">
+                <span class="phone-time">9:41</span>
+                <div class="phone-icons">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M2 20h20L12 4z"/>
+                  </svg>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
+                  </svg>
+                  <svg width="16" height="11" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="1" width="18" height="12" rx="3"></rect>
+                    <path d="M23 5v4" stroke-linecap="round"></path>
+                    <rect x="3" y="3" width="12" height="8" rx="1.5" fill="currentColor"></rect>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Mobile Browser Address Bar -->
+              <div class="mobile-browser-bar">
+                <div class="mobile-url-capsule">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <span>https://mydesktop:5432</span>
+                </div>
+                <div class="mobile-browser-refresh">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Mobile Screen Content -->
+              <div class="mobile-screen-content">
+                <img src="assets/mobileview1.png" alt="AI Agent Hub Mobile Interface View" width="360" height="740" loading="lazy">
+              </div>
+
+              <!-- Home Indicator Bar -->
+              <div class="phone-home-indicator"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Supported Providers Section -->
+  <section class="providers-section" id="providers">
+    <div class="container">
+      <p class="section-label">Seamless Integration with Official Provider CLIs</p>
+      <div class="provider-grid">
+        <div class="provider-card">
+          <div class="provider-icon-box">⚡</div>
+          <div class="provider-info">
+            <h4>Antigravity CLI</h4>
+            <span>agy</span>
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <div class="provider-icon-box">🧠</div>
+          <div class="provider-info">
+            <h4>Claude Code</h4>
+            <span>claude</span>
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <div class="provider-icon-box">✨</div>
+          <div class="provider-info">
+            <h4>Gemini CLI</h4>
+            <span>gemini</span>
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <div class="provider-icon-box">🤖</div>
+          <div class="provider-info">
+            <h4>OpenAI Codex</h4>
+            <span>codex</span>
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <div class="provider-icon-box">🔌</div>
+          <div class="provider-info">
+            <h4>OpenCode</h4>
+            <span>opencode</span>
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <div class="provider-icon-box">💻</div>
+          <div class="provider-info">
+            <h4>GitHub Copilot</h4>
+            <span>gh copilot</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Features / Bento Grid -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Core Capabilities</span>
+        <h2 class="section-title">Engineered for Power Users, Designed for Flow</h2>
+        <p class="section-description">
+          Experience the unmatched velocity of terminal AI agents without the ergonomics penalty of a raw shell.
+        </p>
+      </div>
+
+      <div class="bento-grid">
+        <!-- Feature 1: Remote Execution -->
+        <div class="bento-card col-8">
+          <div class="bento-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </div>
+          <h3>Remote CLI Execution & Multi-Device Access</h3>
+          <p>
+            Host your AI agents and heavyweight dependencies on your primary workstation or home lab server. Connect effortlessly from any browser, laptop, or tablet on your network with full terminal interactivity and no client-side setup.
+          </p>
+          <div class="bento-tag-list">
+            <span class="bento-tag">Zero Client Install</span>
+            <span class="bento-tag">Local Network P2P</span>
+            <span class="bento-tag">Mobile Responsive</span>
+          </div>
+        </div>
+
+        <!-- Feature 2: Shared Quota -->
+        <div class="bento-card col-4">
+          <div class="bento-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h3>Centralized Access & Shared Quota</h3>
+          <p>
+            Configure provider API keys, subscriptions, and OAuth sessions once on the host server. Share AI capacity across all your devices securely without duplicating setups.
+          </p>
+          <div class="bento-tag-list">
+            <span class="bento-tag">Unified Auth</span>
+            <span class="bento-tag">Zero Credential Leak</span>
+          </div>
+        </div>
+
+        <!-- Feature 3: Visual Diffs -->
+        <div class="bento-card col-4">
+          <div class="bento-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+          </div>
+          <h3>Visual Diffs & Instant Rollback</h3>
+          <p>
+            Review agent modifications in side-by-side or unified syntax-highlighted diffs. Selectively accept, reject, or undo changes before executing subsequent prompts.
+          </p>
+          <div class="bento-tag-list">
+            <span class="bento-tag">Git Native</span>
+            <span class="bento-tag">Snapshot History</span>
+          </div>
+        </div>
+
+        <!-- Feature 4: Full CLI Power -->
+        <div class="bento-card col-4">
+          <div class="bento-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+          </div>
+          <h3>Unconstrained CLI Power</h3>
+          <p>
+            Avoid vendor desktop apps that strip out advanced terminal tools. AI Agent Hub orchestrates native binaries, preserving MCP servers, Skills, and custom subagents.
+          </p>
+          <div class="bento-tag-list">
+            <span class="bento-tag">MCP Protocol</span>
+            <span class="bento-tag">Custom Skills</span>
+          </div>
+        </div>
+
+        <!-- Feature 5: Workspace Isolation -->
+        <div class="bento-card col-4">
+          <div class="bento-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
+          <h3>Workspace & Session Isolation</h3>
+          <p>
+            Manage multiple software repositories simultaneously with independent conversation logs, execution tracking, and per-project AI configurations.
+          </p>
+          <div class="bento-tag-list">
+            <span class="bento-tag">Multi-Repo</span>
+            <span class="bento-tag">Context Persistence</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture & How It Works -->
+  <section class="architecture-section" id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">How It Works</span>
+        <h2 class="section-title">Clean, Provider-Agnostic Architecture</h2>
+        <p class="section-description">
+          A high-performance ASP.NET Core backend driving a modern React SPA via real-time streams and provider adapters.
+        </p>
+      </div>
+
+      <div class="flow-grid">
+        <div class="flow-step">
+          <span class="step-number">STEP 01</span>
+          <h3>Install & Configure CLIs</h3>
+          <p>Keep using your favorite tools: Antigravity (`agy`), Claude Code, Gemini CLI, OpenAI Codex, OpenCode, or Copilot with your existing credentials and system configurations.</p>
+        </div>
+
+        <div class="flow-step">
+          <span class="step-number">STEP 02</span>
+          <h3>Launch AI Agent Hub</h3>
+          <p>Start the lightweight self-hosted backend. The hub automatically detects installed providers and manages persistent workspace sessions.</p>
+        </div>
+
+        <div class="flow-step">
+          <span class="step-number">STEP 03</span>
+          <h3>Connect from Any Device</h3>
+          <p>Open the web interface on your desktop, iPad, or mobile phone. Enjoy real-time agent output streaming, visual file diffing, and one-click approvals.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quickstart Terminal Widget -->
+  <section class="quickstart-section" id="quickstart">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Instant Launch</span>
+        <h2 class="section-title">Up and Running in 30 Seconds</h2>
+        <p class="section-description">
+          No complex containers or databases required. Single-command execution with .NET 10.
+        </p>
+      </div>
+
+      <div class="terminal-box">
+        <div class="terminal-header">
+          <div class="terminal-tabs">
+            <button class="terminal-tab-btn active" data-target="pane-clone">Quick Launch</button>
+            <button class="terminal-tab-btn" data-target="pane-custom">Custom Port / Network</button>
+            <button class="terminal-tab-btn" data-target="pane-dev">Frontend Dev (HMR)</button>
+          </div>
+        </div>
+
+        <div class="terminal-body">
+          <button class="copy-btn" aria-label="Copy code to clipboard">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copy</span>
+          </button>
+
+          <!-- Pane 1: Quick Launch -->
+          <div id="pane-clone" class="code-pane active">
+            <div class="code-snippet">
+<span class="comment"># 1. Clone the repository</span>
+<span class="cmd">git clone</span> <span class="arg">https://github.com/rafaelhbrasil/AIAgentHub.git</span>
+<span class="cmd">cd</span> <span class="arg">AIAgentHub</span>
+
+<span class="comment"># 2. Run the application (starts on https://localhost:5432)</span>
+<span class="cmd">dotnet run</span> <span class="arg">--project src/AIAgentHub.Web</span></div>
+          </div>
+
+          <!-- Pane 2: Custom Port -->
+          <div id="pane-custom" class="code-pane">
+            <div class="code-snippet">
+<span class="comment"># Run on custom port without automatically opening browser</span>
+<span class="cmd">dotnet run</span> <span class="arg">--project src/AIAgentHub.Web -- --urls "https://0.0.0.0:8080" --no-browser</span></div>
+          </div>
+
+          <!-- Pane 3: Dev Mode -->
+          <div id="pane-dev" class="code-pane">
+            <div class="code-snippet">
+<span class="comment"># Install dependencies & start Vite frontend with Hot Module Reloading</span>
+<span class="cmd">npm install</span>
+<span class="cmd">npm run dev</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Banner -->
+  <section class="cta-section">
+    <div class="container">
+      <div class="cta-banner">
+        <h2>Ready to Unify Your AI Coding Flow?</h2>
+        <p>AI Agent Hub is open source under the Apache 2.0 License. Free forever, self-hosted on your own hardware.</p>
+        <a href="https://github.com/rafaelhbrasil/AIAgentHub" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>Star & Clone on GitHub</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#" class="brand-link">
+            <img src="assets/logo.svg" alt="AI Agent Hub" width="28" height="28">
+            <span>AI Agent <span class="gradient-text">Hub</span></span>
+          </a>
+          <p>
+            A provider-agnostic, self-hosted development platform and web studio for orchestrating CLI AI coding assistants.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h5>Documentation</h5>
+          <ul>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/docs/technical/Architecture.md" target="_blank" rel="noopener noreferrer">Architecture</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/docs/technical/ApiDesign.md" target="_blank" rel="noopener noreferrer">API Design</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/docs/technical/SecurityArchitecture.md" target="_blank" rel="noopener noreferrer">Security Model</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/docs/product/Product.md" target="_blank" rel="noopener noreferrer">Product Vision</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Community</h5>
+          <ul>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Contributing Guide</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Project</h5>
+          <ul>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Apache 2.0 License</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/docs/product/Roadmap.md" target="_blank" rel="noopener noreferrer">Roadmap</a></li>
+            <li><a href="https://github.com/rafaelhbrasil/AIAgentHub/blob/main/docs/product/Changelog.md" target="_blank" rel="noopener noreferrer">Changelog</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2026 AI Agent Hub. Open Source under Apache 2.0 License. Created by <a href="https://github.com/rafaelhbrasil" target="_blank" rel="noopener noreferrer" style="color: var(--text-primary); font-weight: 600;">Rafael Brasil</a>.</p>
+        <p>Hosted on GitHub Pages</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

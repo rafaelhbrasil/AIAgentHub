@@ -55,6 +55,7 @@ export const SignInPage: React.FC = () => {
     <div className="auth-page-container">
       <div className="auth-card glass">
         <div className="auth-header">
+          <img src="/logo.svg" alt="AI Agent Hub" className="auth-logo" width="48" height="48" style={{ marginBottom: '12px' }} />
           <h2>Sign In to AI Agent Hub</h2>
           <p>Enter your administrator credentials to proceed</p>
         </div>
