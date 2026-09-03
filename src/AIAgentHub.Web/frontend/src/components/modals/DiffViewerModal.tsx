@@ -4,7 +4,6 @@ import { apiFetch } from '../../services/apiClient';
 import { FileChangeDto } from '../../types/diff';
 import { useToast } from '../../context/ToastContext';
 import { getChangeHunks, isCreatedDiff, isDeletedDiff } from './diff/diffViewerUtils';
-import { DiffFileTabBar } from './diff/DiffFileTabBar';
 import { DiffControlsBar } from './diff/DiffControlsBar';
 import { DiffUnifiedView } from './diff/DiffUnifiedView';
 import { DiffSideBySideView } from './diff/DiffSideBySideView';
@@ -238,13 +237,19 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
     const fetchDiffDetail = async () => {
       const res = await apiFetch<FileChangeDto>(`/api/v1/diffs/${activeChangeId}?workspaceId=${workspaceId}`);
       if (res.ok && res.data) {
-        setActiveDiff(res.data);
+        const itemFromList = changes.find((c) => c.id === activeChangeId);
+        setActiveDiff({
+          ...itemFromList,
+          ...res.data,
+          id: activeChangeId,
+          changeType: res.data.changeType || itemFromList?.changeType || 'Modified',
+        });
         setEditedContent(res.data.newContent || '');
         setIsEditing(false);
       }
     };
     fetchDiffDetail();
-  }, [activeChangeId, workspaceId]);
+  }, [activeChangeId, workspaceId, changes]);
 
   const handleAccept = async () => {
     if (!activeChangeId) return;
@@ -364,24 +369,13 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
           sideBySideMobileTab={sideBySideMobileTab}
           onPrevFile={handlePrevFile}
           onNextFile={handleNextFile}
+          onSelectChange={setActiveChangeId}
           onPrevChange={handlePrevChange}
           onNextChange={handleNextChange}
           onToggleWordWrap={toggleWordWrap}
           onSetViewMode={setViewMode}
           onSetFullscreen={setIsFullscreen}
           onSetSideBySideMobileTab={setSideBySideMobileTab}
-        />
-      )}
-
-      {/* File tabs (Normal mode only) */}
-      {!isFullscreen && (
-        <DiffFileTabBar
-          changes={changes}
-          activeChangeId={activeChangeId}
-          currentFileIndex={currentFileIndex}
-          onSelectChange={setActiveChangeId}
-          onPrevFile={handlePrevFile}
-          onNextFile={handleNextFile}
         />
       )}
 
@@ -393,7 +387,7 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
           minHeight: '220px',
           height: isFullscreen ? 'calc(100dvh - 52px)' : '100%',
           overflow: 'auto',
-          background: '#090d16',
+          background: 'var(--bg-secondary)',
           padding: '12px',
           borderRadius: '8px',
           border: '1px solid var(--border-color)',

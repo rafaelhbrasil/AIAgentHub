@@ -72,6 +72,7 @@ describe('ChatInputBar & DiffControlsBar & StudioHeader', () => {
           sideBySideMobileTab="split"
           onPrevFile={vi.fn()}
           onNextFile={vi.fn()}
+          onSelectChange={vi.fn()}
           onPrevChange={vi.fn()}
           onNextChange={vi.fn()}
           onToggleWordWrap={vi.fn()}
@@ -83,6 +84,8 @@ describe('ChatInputBar & DiffControlsBar & StudioHeader', () => {
 
       expect(html).toContain('1 / 3');
       expect(html).not.toContain('3 diffs');
+      expect(html).toContain('app.ts');
+      expect(html).toContain('src/');
     });
 
     it('renders 2 / 3 when activeHunkIndex is 1', () => {
@@ -100,6 +103,7 @@ describe('ChatInputBar & DiffControlsBar & StudioHeader', () => {
           sideBySideMobileTab="split"
           onPrevFile={vi.fn()}
           onNextFile={vi.fn()}
+          onSelectChange={vi.fn()}
           onPrevChange={vi.fn()}
           onNextChange={vi.fn()}
           onToggleWordWrap={vi.fn()}

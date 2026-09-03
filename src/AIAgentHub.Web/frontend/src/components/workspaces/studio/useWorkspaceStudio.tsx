@@ -54,6 +54,12 @@ export const useWorkspaceStudio = ({
 
   const initialConversationIdRef = useRef(initialConversationId);
 
+  const setStreamingState = useCallback((active: boolean, initialHeartbeat?: string) => {
+    setIsStreaming(active);
+    setStreamingContent('');
+    setHeartbeatMessages(initialHeartbeat ? [initialHeartbeat] : []);
+  }, []);
+
   const fetchFileTree = useCallback(async () => {
     setIsRefreshingTree(true);
     try {
@@ -96,12 +102,17 @@ export const useWorkspaceStudio = ({
           loadModelsForProvider(res.data.providerId);
         }
         fetchFileChanges(convId);
+        if (res.data.isRunning) {
+          setStreamingState(true, 'AI Assistant is currently executing a prompt...');
+        } else {
+          setStreamingState(false);
+        }
         if (notifyUrl) {
           onConversationChangedRef.current?.(convId);
         }
       }
     },
-    [fetchFileChanges, loadModelsForProvider]
+    [fetchFileChanges, loadModelsForProvider, setStreamingState]
   );
 
   const fetchWorkspaceData = useCallback(async () => {
@@ -175,6 +186,17 @@ export const useWorkspaceStudio = ({
     };
 
     const handleConversationEvent = (data: any) => {
+      if (data.eventName === 'conversation.started') {
+        if (
+          !activeConversationRef.current ||
+          !data.conversationId ||
+          data.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
+        ) {
+          setStreamingState(true, 'AI Assistant started execution...');
+        }
+        return;
+      }
+
       if (data.eventName === 'conversation.heartbeat') {
         if (
           !activeConversationRef.current ||
@@ -189,9 +211,7 @@ export const useWorkspaceStudio = ({
       }
 
       if (data.eventName === 'conversation.completed' || data.eventName === 'conversation.aborted') {
-        setIsStreaming(false);
-        setStreamingContent('');
-        setHeartbeatMessages([]);
+        setStreamingState(false);
         if (data.eventName === 'conversation.aborted') {
           showToast('AI response cancelled.', 'info');
         } else {
@@ -595,14 +615,21 @@ export const useWorkspaceStudio = ({
       return [updatedActive, ...others];
     });
 
-    setIsStreaming(true);
-    setStreamingContent('');
-    setHeartbeatMessages([]);
+    setStreamingState(true);
 
-    await apiFetch(`/api/v1/conversations/${activeConversation.id}/prompt`, {
+    const promptRes = await apiFetch(`/api/v1/conversations/${activeConversation.id}/prompt`, {
       method: 'POST',
       body: { prompt },
     });
+    if (!promptRes.ok) {
+      if (promptRes.status === 409 || (promptRes.error && promptRes.error.includes('already running'))) {
+        showToast('A prompt is already running for this conversation.', 'warning');
+        setIsStreaming(true);
+      } else {
+        showToast(promptRes.error || 'Failed to send prompt.', 'error');
+        setStreamingState(false);
+      }
+    }
   };
 
   const handleDownloadZip = async () => {

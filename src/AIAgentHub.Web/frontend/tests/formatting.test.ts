@@ -12,6 +12,8 @@ describe('formatting utils', () => {
     expect(formatAppVersion('v0.1.1')).toBe('v0.1.1');
     expect(formatAppVersion('0.1.1.0830')).toBe('v0.1.1.0830');
     expect(formatAppVersion('v0.1.1.0830')).toBe('v0.1.1.0830');
+    expect(formatAppVersion('0.2.0-debug.09021810')).toBe('v0.2.0-debug.09021810');
+    expect(formatAppVersion('v0.2.0-debug.09021810')).toBe('v0.2.0-debug.09021810');
     expect(formatAppVersion('')).toBe('');
     expect(formatAppVersion(undefined)).toBe('');
   });

@@ -11,6 +11,8 @@ namespace AgentHub.UnitTests.Infrastructure.Executors;
 
 public class TestableHeadedProcessExecutor : HeadedProcessExecutor
 {
+    public TestableHeadedProcessExecutor() : base(Microsoft.Extensions.Options.Options.Create(new CliExecutionOptions())) { }
+
     public void CallEnsureWindowsPlatform(bool simulateWindows)
     {
         if (!simulateWindows)
@@ -51,39 +53,33 @@ public sealed class HeadedProcessExecutorTests
                 cts.Token
             );
 
-            var executor = new HeadedProcessExecutor();
+            var executor = new HeadedProcessExecutor(Microsoft.Extensions.Options.Options.Create(new CliExecutionOptions()));
             var streamTask = executor.StreamLogFileAsync(testLogFile, context, cts.Token);
 
             await Task.Delay(100);
             await File.WriteAllTextAsync(testLogFile, "Line 1: Hello World\nLine 2: Testing Tee-Object");
 
             await Task.Delay(300);
-            cts.Cancel();
+            await streamTask;
 
-            try
-            {
-                await streamTask;
-            }
-            catch (OperationCanceledException) { }
-
-            var streamedContent = outputBuilder.ToString();
-            Assert.Contains("Hello World", streamedContent);
-            Assert.Contains("Testing Tee-Object", streamedContent);
+            var result = outputBuilder.ToString();
+            Assert.Contains("Line 1: Hello World", result);
+            Assert.Contains("Line 2: Testing Tee-Object", result);
         }
         finally
         {
             if (File.Exists(testLogFile))
             {
-                File.Delete(testLogFile);
+                try { File.Delete(testLogFile); } catch { }
             }
         }
     }
 
     [Fact]
-    public async Task StreamLogFileAsync_WhenFileDoesNotExist_TimesOutGracefully()
+    public async Task StreamLogFileAsync_WhenFileNotFound_GracefullyHandles()
     {
-        var missingLogFile = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}.log");
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        var missingLogFile = Path.Combine(Path.GetTempPath(), $"missing_log_{Guid.NewGuid():N}.log");
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
 
         var context = new ProviderExecutionContext(
             Guid.NewGuid(),
@@ -98,7 +94,7 @@ public sealed class HeadedProcessExecutorTests
             cts.Token
         );
 
-        var executor = new HeadedProcessExecutor();
+        var executor = new HeadedProcessExecutor(Microsoft.Extensions.Options.Options.Create(new CliExecutionOptions()));
         await executor.StreamLogFileAsync(missingLogFile, context, cts.Token);
         Assert.False(File.Exists(missingLogFile));
     }
@@ -132,8 +128,8 @@ public sealed class HeadedProcessExecutorTests
         );
 
         var loggerMock = Substitute.For<IPromptLogger>();
-        var executor = new HeadedProcessExecutor();
         var options = new CliExecutionOptions { HeadedAutoCloseDelaySeconds = 0 };
+        var executor = new HeadedProcessExecutor(Microsoft.Extensions.Options.Options.Create(options));
 
         await executor.ExecuteAsync(
             "TestProvider",

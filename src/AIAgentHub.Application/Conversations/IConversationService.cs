@@ -26,7 +26,8 @@ public sealed record ConversationDto(
     int FileChangeCount,
     DateTimeOffset? LastUserInteractionAtUtc = null,
     ConversationStatus Status = ConversationStatus.Active,
-    bool IsPinned = false);
+    bool IsPinned = false,
+    bool IsRunning = false);
 
 public sealed record ConversationDetailDto(
     Guid Id,
@@ -41,7 +42,8 @@ public sealed record ConversationDetailDto(
     DateTimeOffset? LastUserInteractionAtUtc = null,
     ConversationStatus Status = ConversationStatus.Active,
     bool IsPinned = false,
-    IReadOnlyList<ConversationProviderSessionDto>? Sessions = null);
+    IReadOnlyList<ConversationProviderSessionDto>? Sessions = null,
+    bool IsRunning = false);
 
 public sealed record CreateConversationRequest(
     Guid WorkspaceId,

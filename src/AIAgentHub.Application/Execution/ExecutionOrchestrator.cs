@@ -21,6 +21,7 @@ public interface IExecutionOrchestrator
 {
     public Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default);
     public Task AbortAsync(Guid conversationId);
+    public bool IsExecuting(Guid conversationId);
 }
 
 public sealed class PermissionService(IPermissionRequestRepository permissionRepository, IAgentRealtimeBroadcaster broadcaster) : IPermissionService
@@ -54,7 +55,8 @@ public sealed class ExecutionOrchestrator(
     ISnapshotService snapshotService,
     IAgentRealtimeBroadcaster broadcaster,
     IPermissionService permissionService,
-    CliExecutionOptions? options = null) : IExecutionOrchestrator
+    IActiveExecutionTracker activeExecutionTracker,
+    CliExecutionOptions options) : IExecutionOrchestrator
 {
     private readonly IConversationRepository _conversationRepository = conversationRepository;
     private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
@@ -62,18 +64,36 @@ public sealed class ExecutionOrchestrator(
     private readonly ISnapshotService _snapshotService = snapshotService;
     private readonly IAgentRealtimeBroadcaster _broadcaster = broadcaster;
     private readonly IPermissionService _permissionService = permissionService;
-    private readonly CliExecutionOptions? _options = options;
+    private readonly IActiveExecutionTracker _activeExecutionTracker = activeExecutionTracker;
+    private readonly CliExecutionOptions _options = options;
+
+    public bool IsExecuting(Guid conversationId) => _activeExecutionTracker.IsExecuting(conversationId);
 
     public async Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default)
     {
-        var conversation = await _conversationRepository.GetByIdAsync(conversationId, cancellationToken) ?? throw new KeyNotFoundException($"Conversation {conversationId} not found.");
+        CancellationTokenSource? localCts = null;
+        if (!_activeExecutionTracker.TryGetCancellationTokenSource(conversationId, out var activeCts) || activeCts == null)
+        {
+            localCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (!_activeExecutionTracker.TryStart(conversationId, localCts))
+            {
+                localCts.Dispose();
+                throw new InvalidOperationException($"An execution is already running for conversation {conversationId}.");
+            }
+            activeCts = localCts;
+        }
 
-        var workspace = await _workspaceRepository.GetByIdAsync(conversation.WorkspaceId, cancellationToken) ?? throw new KeyNotFoundException($"Workspace {conversation.WorkspaceId} not found.");
+        try
+        {
+            var token = activeCts.Token;
+            var conversation = await _conversationRepository.GetByIdAsync(conversationId, token) ?? throw new KeyNotFoundException($"Conversation {conversationId} not found.");
 
-        // 1. Add User Message (persisted once for the initiating user prompt)
-        var userMsg = conversation.AddMessage(MessageRole.User, prompt, null, conversation.ProviderId, conversation.ModelId);
-        await _conversationRepository.UpdateAsync(conversation, cancellationToken);
-        await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, cancellationToken);
+            var workspace = await _workspaceRepository.GetByIdAsync(conversation.WorkspaceId, token) ?? throw new KeyNotFoundException($"Workspace {conversation.WorkspaceId} not found.");
+
+            // 1. Add User Message (persisted once for the initiating user prompt)
+            var userMsg = conversation.AddMessage(MessageRole.User, prompt, null, conversation.ProviderId, conversation.ModelId);
+            await _conversationRepository.UpdateAsync(conversation, token);
+            await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, token);
 
         // 2. Pre-execution Snapshot for change detection and atomic rollback
         var snapshotToken = await _snapshotService.CaptureWorkspaceSnapshotAsync(
@@ -293,9 +313,19 @@ public sealed class ExecutionOrchestrator(
             IsSuccess = isSuccess
         }, cancellationToken);
     }
+    finally
+    {
+        _ = _activeExecutionTracker.TryStop(conversationId);
+    }
+}
 
     public async Task AbortAsync(Guid conversationId)
     {
+        if (_activeExecutionTracker.TryGetCancellationTokenSource(conversationId, out var cts))
+        {
+            try { cts?.Cancel(); } catch { }
+        }
+
         var conversation = await _conversationRepository.GetByIdAsync(conversationId);
         if (conversation != null)
         {
@@ -306,5 +336,7 @@ public sealed class ExecutionOrchestrator(
                 message = "AI response was cancelled by the user."
             }, CancellationToken.None);
         }
+
+        _ = _activeExecutionTracker.TryStop(conversationId);
     }
 }

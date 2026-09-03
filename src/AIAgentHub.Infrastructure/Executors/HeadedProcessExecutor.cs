@@ -9,9 +9,9 @@ using Microsoft.Extensions.Options;
 
 namespace AIAgentHub.Infrastructure.Executors;
 
-public class HeadedProcessExecutor(IOptions<CliExecutionOptions>? options = null) : ProcessExecutorBase
+public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : ProcessExecutorBase
 {
-    private readonly IOptions<CliExecutionOptions>? _options = options;
+    private readonly IOptions<CliExecutionOptions> _options = options;
 
     public override async Task<ProcessCommandResult> RunCommandAsync(
         string executable,

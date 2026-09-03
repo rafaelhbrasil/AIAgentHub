@@ -1,3 +1,4 @@
+using AIAgentHub.Application.Execution;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Domain.Repositories;
@@ -7,11 +8,13 @@ namespace AIAgentHub.Application.Conversations;
 public sealed class ConversationService(
     IConversationRepository conversationRepository,
     IWorkspaceRepository workspaceRepository,
-    IProviderManager? providerManager = null) : IConversationService
+    IProviderManager providerManager,
+    IActiveExecutionTracker activeExecutionTracker) : IConversationService
 {
     private readonly IConversationRepository _conversationRepository = conversationRepository;
     private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
-    private readonly IProviderManager? _providerManager = providerManager;
+    private readonly IProviderManager _providerManager = providerManager;
+    private readonly IActiveExecutionTracker _activeExecutionTracker = activeExecutionTracker;
 
     public async Task<IReadOnlyList<ConversationDto>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken cancellationToken = default)
     {
@@ -59,6 +62,7 @@ public sealed class ConversationService(
                 s.LastActiveAtUtc))
             .ToList();
 
+        var isRunning = _activeExecutionTracker?.IsExecuting(conv.Id) ?? false;
         return new ConversationDetailDto(
             conv.Id,
             conv.WorkspaceId,
@@ -72,7 +76,8 @@ public sealed class ConversationService(
             conv.LastUserInteractionAtUtc,
             conv.Status,
             conv.IsPinned,
-            sessions
+            sessions,
+            isRunning
         );
     }
 
@@ -193,8 +198,9 @@ public sealed class ConversationService(
             .ToList();
     }
 
-    private static ConversationDto MapToDto(Conversation c)
+    private ConversationDto MapToDto(Conversation c)
     {
+        var isRunning = _activeExecutionTracker?.IsExecuting(c.Id) ?? false;
         return new ConversationDto(
             c.Id,
             c.WorkspaceId,
@@ -208,7 +214,8 @@ public sealed class ConversationService(
             c.FileChanges.Count,
             c.LastUserInteractionAtUtc,
             c.Status,
-            c.IsPinned
+            c.IsPinned,
+            isRunning
         );
     }
 }

@@ -13,6 +13,7 @@ public class SystemControllerTests
     [InlineData("1.0.0.0", "1.0.0")]
     [InlineData("0.1.1.830", "0.1.1.830")]
     [InlineData("0.1.1.0830", "0.1.1.0830")]
+    [InlineData("0.2.0-debug.09021810", "0.2.0-debug.09021810")]
     [InlineData("0.1.1", "0.1.1")]
     [InlineData("invalid-version", "invalid-version")]
     public void FormatDisplayVersion_OmitsZeroRevision_PreservesDebugBuild(string rawVersion, string expected)

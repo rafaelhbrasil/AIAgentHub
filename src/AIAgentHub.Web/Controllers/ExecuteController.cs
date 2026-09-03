@@ -8,9 +8,13 @@ namespace AIAgentHub.Web.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/conversations/{id:guid}")]
-public sealed class ExecuteController(IServiceScopeFactory scopeFactory, ILogger<ExecuteController> logger) : ControllerBase
+public sealed class ExecuteController(
+    IServiceScopeFactory scopeFactory,
+    IActiveExecutionTracker executionTracker,
+    ILogger<ExecuteController> logger) : ControllerBase
 {
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
+    private readonly IActiveExecutionTracker _executionTracker = executionTracker;
     private readonly ILogger<ExecuteController> _logger = logger;
 
     public sealed record PromptRequest(string Prompt);
@@ -23,17 +27,27 @@ public sealed class ExecuteController(IServiceScopeFactory scopeFactory, ILogger
             return BadRequest(new { code = "empty_prompt", message = "Prompt cannot be empty." });
         }
 
+        var cts = new CancellationTokenSource();
+        if (!_executionTracker.TryStart(id, cts))
+        {
+            cts.Dispose();
+            return Conflict(new { code = "execution_in_progress", message = "An AI prompt execution is already running for this conversation." });
+        }
+
         _ = Task.Run(async () =>
         {
-            using var scope = _scopeFactory.CreateScope();
-            var orchestrator = scope.ServiceProvider.GetRequiredService<IExecutionOrchestrator>();
-            try
+            using (cts)
             {
-                await orchestrator.ExecuteAsync(id, request.Prompt, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Background AI execution failed for conversation {ConversationId}", id);
+                using var scope = _scopeFactory.CreateScope();
+                var orchestrator = scope.ServiceProvider.GetRequiredService<IExecutionOrchestrator>();
+                try
+                {
+                    await orchestrator.ExecuteAsync(id, request.Prompt, cts.Token);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Background AI execution failed for conversation {ConversationId}", id);
+                }
             }
         });
 

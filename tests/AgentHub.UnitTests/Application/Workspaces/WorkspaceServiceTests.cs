@@ -15,7 +15,8 @@ public sealed class WorkspaceServiceTests
         var repo = Substitute.For<IWorkspaceRepository>();
         var fs = Substitute.For<IFilesystemService>();
         var validator = Substitute.For<ISystemPathValidator>();
-        var service = new WorkspaceService(repo, fs, validator);
+        var providerMgr = Substitute.For<AIAgentHub.Application.Providers.IProviderManager>();
+        var service = new WorkspaceService(repo, fs, validator, providerMgr);
 
         var ws1 = Workspace.Create("WS1", Path.GetTempPath());
         _ = repo.GetAllAsync(Arg.Any<CancellationToken>()).Returns(new List<Workspace> { ws1 });
@@ -74,7 +75,7 @@ public sealed class WorkspaceServiceTests
                 return true;
             });
 
-        var service = new WorkspaceService(repo, fs, validator);
+        var service = new WorkspaceService(repo, fs, validator, Substitute.For<AIAgentHub.Application.Providers.IProviderManager>());
         var request = new CreateWorkspaceRequest("WindowsWS", @"C:\Windows", WorkspaceOrigin.Server);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(request));

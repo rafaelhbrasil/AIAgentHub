@@ -43,4 +43,9 @@ public sealed class FileChange : Entity
         Status = ReviewStatus.Rejected;
         ReviewedAtUtc = DateTimeOffset.UtcNow;
     }
+
+    public void UpdateChangeType(FileChangeType changeType)
+    {
+        ChangeType = changeType;
+    }
 }

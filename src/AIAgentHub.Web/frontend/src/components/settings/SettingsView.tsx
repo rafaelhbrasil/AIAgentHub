@@ -90,7 +90,7 @@ export const SettingsView: React.FC = () => {
 
         <div className="form-group">
           <label className="form-label">Available Server Network Interfaces</label>
-          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '6px' }}>
+          <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: '6px' }}>
             {currentMode === 'Localhost' && (
               <div style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '0.85rem' }}>
                 🔒 Server is in Localhost mode. Remote connections from other machines or WSL are rejected with 403 Forbidden.

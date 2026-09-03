@@ -75,7 +75,7 @@ public sealed class CliProviderHeadlessTests
     {
         var options = Options.Create(new CliExecutionOptions { Headless = false, Shell = "PowerShell" });
         var loggerMock = NSubstitute.Substitute.For<IPromptLogger>();
-        var headedExecutor = new HeadedProcessExecutor();
+        var headedExecutor = new HeadedProcessExecutor(options);
         var provider = new TestDotnetCliProvider(options, loggerMock, headedExecutor);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));

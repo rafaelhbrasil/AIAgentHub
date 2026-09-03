@@ -136,7 +136,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenWorkspace })
             Security & Port <span>🔒</span>
           </div>
           <div className="card-subtitle">HTTPS Self-Signed TLS</div>
-          <div className="stat-val" style={{ fontSize: '1.6rem', color: '#34d399' }}>
+          <div className="stat-val" style={{ fontSize: '1.6rem' }}>
             Port 5432
           </div>
         </div>
