@@ -25,7 +25,8 @@ public sealed class ExecutionOrchestratorTests
         var permRepo = Substitute.For<IPermissionRequestRepository>();
 
         var permService = new PermissionService(permRepo, broadcaster);
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService);
+        var tracker = new ActiveExecutionTracker();
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions());
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
         var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
@@ -72,7 +73,8 @@ public sealed class ExecutionOrchestratorTests
         };
 
         var permService = new PermissionService(permRepo, broadcaster);
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, options);
+        var tracker = new ActiveExecutionTracker();
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, options);
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
         var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
@@ -117,7 +119,8 @@ public sealed class ExecutionOrchestratorTests
         var permRepo = Substitute.For<IPermissionRequestRepository>();
 
         var permService = new PermissionService(permRepo, broadcaster);
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService);
+        var tracker = new ActiveExecutionTracker();
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions());
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
         var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
@@ -145,5 +148,34 @@ public sealed class ExecutionOrchestratorTests
             conv.Id,
             Arg.Any<object>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void ActiveExecutionTracker_ShouldPreventDuplicateExecutions()
+    {
+        var tracker = new ActiveExecutionTracker();
+        var convId = Guid.NewGuid();
+
+        using var cts1 = new CancellationTokenSource();
+        using var cts2 = new CancellationTokenSource();
+
+        Assert.False(tracker.IsExecuting(convId));
+        Assert.True(tracker.TryStartExecution(convId, cts1));
+        Assert.True(tracker.IsExecuting(convId));
+
+        // Duplicate start fails
+        Assert.False(tracker.TryStartExecution(convId, cts2));
+
+        Assert.True(tracker.TryGetCancellationTokenSource(convId, out var registeredCts));
+        Assert.Same(cts1, registeredCts);
+
+        // Completion frees the lock
+        Assert.True(tracker.CompleteExecution(convId));
+        Assert.False(tracker.IsExecuting(convId));
+
+        // Now can start again
+        Assert.True(tracker.TryStartExecution(convId, cts2));
+        Assert.True(tracker.IsExecuting(convId));
+        Assert.True(tracker.CompleteExecution(convId));
     }
 }

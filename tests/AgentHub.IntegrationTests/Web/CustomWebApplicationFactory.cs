@@ -41,6 +41,7 @@ public sealed class TestProcessExecutor : IProcessExecutor
     }
 
     public bool AbortProcess(Guid conversationId) => true;
+    public bool IsRunning(Guid conversationId) => false;
 }
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>

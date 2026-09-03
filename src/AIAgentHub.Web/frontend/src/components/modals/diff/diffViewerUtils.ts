@@ -73,23 +73,45 @@ export const getChangeHunks = (
   return hunks;
 };
 
-export const formatChangeType = (type: DiffChangeType | string): string => {
-  if (type === DiffChangeType.Created || type === 'Created') return 'Created';
-  if (type === DiffChangeType.Deleted || type === 'Deleted') return 'Deleted';
+export const formatChangeType = (type: DiffChangeType | string | number | undefined | null): string => {
+  if (type === null || type === undefined) return 'Modified';
+  const str = String(type).trim().toLowerCase();
+  if (str === 'created' || str === '1' || type === DiffChangeType.Created) return 'Created';
+  if (str === 'deleted' || str === '2' || type === DiffChangeType.Deleted) return 'Deleted';
   return 'Modified';
 };
 
 export const isCreatedDiff = (diff: FileChangeDto | null): boolean => {
   if (!diff) return false;
-  return diff.changeType === DiffChangeType.Created || (diff.changeType as any) === 'Created';
+  const str = String(diff.changeType).trim().toLowerCase();
+  return str === 'created' || str === '1' || diff.changeType === DiffChangeType.Created;
 };
 
 export const isDeletedDiff = (diff: FileChangeDto | null): boolean => {
   if (!diff) return false;
-  return diff.changeType === DiffChangeType.Deleted || (diff.changeType as any) === 'Deleted';
+  const str = String(diff.changeType).trim().toLowerCase();
+  return str === 'deleted' || str === '2' || diff.changeType === DiffChangeType.Deleted;
 };
 
 export const isModifiedDiff = (diff: FileChangeDto | null): boolean => {
   if (!diff) return false;
   return !isCreatedDiff(diff) && !isDeletedDiff(diff);
 };
+
+export interface SmartPath {
+  dir: string;
+  fileName: string;
+}
+
+export const splitSmartPath = (fullPath: string | null | undefined): SmartPath => {
+  if (!fullPath) return { dir: '', fileName: '' };
+  const normalized = fullPath.replace(/\\/g, '/');
+  const lastSlashIndex = normalized.lastIndexOf('/');
+  if (lastSlashIndex === -1) {
+    return { dir: '', fileName: normalized };
+  }
+  const dir = normalized.substring(0, lastSlashIndex + 1);
+  const fileName = normalized.substring(lastSlashIndex + 1);
+  return { dir, fileName };
+};
+

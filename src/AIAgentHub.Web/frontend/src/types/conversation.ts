@@ -58,6 +58,7 @@ export interface ConversationDto {
   fileChangeCount: number;
   status?: ConversationStatus | number;
   isPinned?: boolean;
+  isRunning?: boolean;
 }
 
 export interface ConversationDetailDto {
@@ -72,6 +73,7 @@ export interface ConversationDetailDto {
   lastUserInteractionAtUtc?: string;
   status?: ConversationStatus | number;
   isPinned?: boolean;
+  isRunning?: boolean;
   messages: MessageDto[];
   sessions?: ConversationProviderSessionDto[];
 }

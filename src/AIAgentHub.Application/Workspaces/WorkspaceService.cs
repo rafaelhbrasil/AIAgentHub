@@ -9,12 +9,12 @@ public sealed class WorkspaceService(
     IWorkspaceRepository workspaceRepository,
     IFilesystemService filesystemService,
     ISystemPathValidator systemPathValidator,
-    IProviderManager? providerManager = null) : IWorkspaceService
+    IProviderManager providerManager) : IWorkspaceService
 {
     private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
     private readonly IFilesystemService _filesystemService = filesystemService;
     private readonly ISystemPathValidator _systemPathValidator = systemPathValidator;
-    private readonly IProviderManager? _providerManager = providerManager;
+    private readonly IProviderManager _providerManager = providerManager;
 
     public async Task<IReadOnlyList<WorkspaceDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {

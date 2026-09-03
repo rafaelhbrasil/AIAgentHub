@@ -43,10 +43,30 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
             return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
         }
 
+        var change = await _fileChangeService.GetByIdAsync(id, cancellationToken);
+        if (change == null)
+        {
+            return NotFound(new { code = "diff_not_found", message = $"File change {id} was not found." });
+        }
+
         try
         {
             var diff = await _fileChangeService.GetDiffAsync(id, ws.Path, cancellationToken);
-            return Ok(diff);
+            return Ok(new
+            {
+                id = change.Id,
+                conversationId = change.ConversationId,
+                relativePath = change.RelativePath,
+                changeType = change.ChangeType.ToString(),
+                isBinary = diff.IsBinary,
+                hasChanges = diff.HasChanges,
+                additionsCount = diff.AdditionsCount,
+                deletionsCount = diff.DeletionsCount,
+                unifiedLines = diff.UnifiedLines,
+                sideBySideLines = diff.SideBySideLines,
+                oldContent = diff.OldContent,
+                newContent = diff.NewContent
+            });
         }
         catch (KeyNotFoundException)
         {

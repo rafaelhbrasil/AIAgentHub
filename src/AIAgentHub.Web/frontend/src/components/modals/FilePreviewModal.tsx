@@ -104,7 +104,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
           minHeight: '450px',
           maxHeight: '72vh',
           overflow: 'auto',
-          background: '#090d16',
+          background: 'var(--bg-subtle)',
           padding: activeTab === 'raw' ? '0' : '20px',
           borderRadius: '8px',
           border: '1px solid var(--border-color)',
@@ -124,7 +124,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
               fontSize: '0.84rem',
               lineHeight: '1.5',
               padding: '12px 0',
-              color: '#e2e8f0',
+              color: 'var(--text-main)',
               overflowX: 'auto',
             }}
           >

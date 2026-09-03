@@ -18,12 +18,12 @@
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
   </PropertyGroup>
 
-  <!-- Debug Configuration: Appends dynamic build timestamp (e.g. 0.1.0.826) -->
+  <!-- Debug Configuration: Appends dynamic build timestamp (e.g. 0.2.0-debug-09021810) -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <Version>$(BaseVersion).$([System.DateTime]::Now.ToString("MMdd"))</Version>
-    <AssemblyVersion>$(BaseVersion).$([System.DateTime]::Now.ToString("MMdd"))</AssemblyVersion>
-    <FileVersion>$(BaseVersion).$([System.DateTime]::Now.ToString("MMdd"))</FileVersion>
-    <InformationalVersion>$(BaseVersion)-debug+$([System.DateTime]::Now.ToString("yyyyMMddHHmmss"))</InformationalVersion>
+    <Version>$(BaseVersion)-debug-$([System.DateTime]::Now.ToString("MMddHHmm"))</Version>
+    <AssemblyVersion>$(BaseVersion).0</AssemblyVersion>
+    <FileVersion>$(BaseVersion).0</FileVersion>
+    <InformationalVersion>$(BaseVersion)-debug-$([System.DateTime]::Now.ToString("MMddHHmm"))+$([System.DateTime]::Now.ToString("yyyyMMddHHmmss"))</InformationalVersion>
   </PropertyGroup>
 
   <!-- Release Configuration: Clean semantic version without build suffix -->

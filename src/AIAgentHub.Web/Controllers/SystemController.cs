@@ -29,7 +29,10 @@ public sealed class SystemController(IWebHostEnvironment environment) : Controll
         var asmVersion = asm.GetName().Version?.ToString();
         var isDevelopment = _environment.IsDevelopment();
 
-        var rawVersion = fileVersion ?? asmVersion ?? "0.1.0";
+        var cleanInfoVersion = infoVersion?.Split('+')[0];
+        var rawVersion = !string.IsNullOrWhiteSpace(cleanInfoVersion)
+            ? cleanInfoVersion
+            : fileVersion ?? asmVersion ?? "0.1.0";
         var version = FormatDisplayVersion(rawVersion);
 
         return Ok(new SystemVersionResponse(

@@ -5,6 +5,7 @@ import {
   isCreatedDiff,
   isDeletedDiff,
   isModifiedDiff,
+  splitSmartPath,
 } from '../src/components/modals/diff/diffViewerUtils';
 import { DiffChangeType, FileChangeDto } from '../src/types/diff';
 
@@ -13,17 +14,26 @@ describe('diffViewerUtils', () => {
     it('formats Created change types correctly', () => {
       expect(formatChangeType(DiffChangeType.Created)).toBe('Created');
       expect(formatChangeType('Created')).toBe('Created');
+      expect(formatChangeType('created')).toBe('Created');
+      expect(formatChangeType(1)).toBe('Created');
+      expect(formatChangeType('1')).toBe('Created');
     });
 
     it('formats Deleted change types correctly', () => {
       expect(formatChangeType(DiffChangeType.Deleted)).toBe('Deleted');
       expect(formatChangeType('Deleted')).toBe('Deleted');
+      expect(formatChangeType('deleted')).toBe('Deleted');
+      expect(formatChangeType(2)).toBe('Deleted');
+      expect(formatChangeType('2')).toBe('Deleted');
     });
 
     it('formats Modified change types correctly', () => {
       expect(formatChangeType(DiffChangeType.Modified)).toBe('Modified');
       expect(formatChangeType('Modified')).toBe('Modified');
+      expect(formatChangeType('modified')).toBe('Modified');
+      expect(formatChangeType(0)).toBe('Modified');
       expect(formatChangeType('unknown' as any)).toBe('Modified');
+      expect(formatChangeType(null)).toBe('Modified');
     });
   });
 
@@ -117,4 +127,28 @@ describe('diffViewerUtils', () => {
       expect(hunks[0]).toEqual({ id: 1, startIndex: 1, endIndex: 2 });
     });
   });
+
+  describe('splitSmartPath', () => {
+    it('handles null, undefined and empty paths', () => {
+      expect(splitSmartPath(null)).toEqual({ dir: '', fileName: '' });
+      expect(splitSmartPath(undefined)).toEqual({ dir: '', fileName: '' });
+      expect(splitSmartPath('')).toEqual({ dir: '', fileName: '' });
+    });
+
+    it('splits simple filename without directory', () => {
+      expect(splitSmartPath('README.md')).toEqual({ dir: '', fileName: 'README.md' });
+    });
+
+    it('splits nested path with forward and backward slashes', () => {
+      expect(splitSmartPath('src/components/modals/DiffControlsBar.tsx')).toEqual({
+        dir: 'src/components/modals/',
+        fileName: 'DiffControlsBar.tsx',
+      });
+      expect(splitSmartPath('src\\components\\modals\\DiffControlsBar.tsx')).toEqual({
+        dir: 'src/components/modals/',
+        fileName: 'DiffControlsBar.tsx',
+      });
+    });
+  });
 });
+

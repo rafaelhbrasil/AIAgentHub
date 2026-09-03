@@ -87,8 +87,11 @@ public static class DependencyInjection
 
         // 7. Provider Adapters & Manager (including Antigravity CLI / agy)
         _ = services.Configure<CliExecutionOptions>(configuration.GetSection("AgentHub:CliExecution"));
+        _ = services.AddSingleton(sp => sp.GetRequiredService<IOptions<CliExecutionOptions>>().Value);
         _ = services.Configure<ProvidersOptions>(configuration.GetSection(ProvidersOptions.SectionName));
+        _ = services.AddSingleton(sp => sp.GetRequiredService<IOptions<ProvidersOptions>>().Value);
         _ = services.Configure<ProviderSwitchOptions>(configuration.GetSection(ProviderSwitchOptions.SectionName));
+        _ = services.AddSingleton(sp => sp.GetRequiredService<IOptions<ProviderSwitchOptions>>().Value);
         _ = services.AddSingleton<HeadlessProcessExecutor>();
         _ = services.AddSingleton<HeadedProcessExecutor>();
         _ = services.AddSingleton<IProcessExecutor>(sp =>
@@ -110,10 +113,11 @@ public static class DependencyInjection
             () => sp.CreateScope().ServiceProvider.GetRequiredService<IProviderDetectionRecordRepository>()
         ));
 
-        // 7b. Prompt Logging
+        // 7b. Prompt Logging & Execution Tracking
         _ = services.AddSingleton<IPromptLogger, PromptLogger>();
 
         // 8. Application Services
+        _ = services.AddSingleton<IActiveExecutionTracker, ActiveExecutionTracker>();
         _ = services.AddScoped<IWorkspaceService, WorkspaceService>();
         _ = services.AddScoped<IConversationService, ConversationService>();
         _ = services.AddScoped<IConversationSwitchService, ConversationSwitchService>();
@@ -121,15 +125,7 @@ public static class DependencyInjection
         _ = services.AddScoped<ISetupService, SetupService>();
         _ = services.AddScoped<IAppAuthService, AuthenticationService>();
         _ = services.AddScoped<IPermissionService, PermissionService>();
-        _ = services.AddScoped<IExecutionOrchestrator>(sp => new ExecutionOrchestrator(
-            sp.GetRequiredService<IConversationRepository>(),
-            sp.GetRequiredService<IWorkspaceRepository>(),
-            sp.GetRequiredService<IProviderManager>(),
-            sp.GetRequiredService<ISnapshotService>(),
-            sp.GetRequiredService<IAgentRealtimeBroadcaster>(),
-            sp.GetRequiredService<IPermissionService>(),
-            sp.GetService<Microsoft.Extensions.Options.IOptions<CliExecutionOptions>>()?.Value
-        ));
+        _ = services.AddScoped<IExecutionOrchestrator, ExecutionOrchestrator>();
 
         // 9. Real-time (SignalR)
         _ = services.AddSignalR().AddJsonProtocol(options =>

@@ -374,14 +374,68 @@ To prevent schema desynchronization, designer file corruptions, or upgrade failu
 
 ---
 
+# Multi-Theme Architecture & Color Contrast Standards
+
+## Theme Variable Separation & Accessibility
+The frontend supports **Dark**, **Light**, and **System** themes via CSS variables defined on `:root` and overridden under `html.light`.
+To ensure WCAG AA color contrast and theme fidelity:
+
+1. **CSS Variable Exclusivity**:
+   - Never use hardcoded dark colors (e.g. `#000`, `#080c14`, `rgba(0, 0, 0, 0.25)`) or light colors (e.g. `#fff`, `#f8fafc`) directly in component inline styles or non-scoped CSS rules for surfaces and text.
+   - Surfaces must use semantic CSS variables: `var(--bg-primary)`, `var(--bg-secondary)`, `var(--bg-card)`, `var(--bg-glass)`, `var(--bg-subtle)`, and `var(--bg-input)`.
+   - Text must use semantic CSS variables: `var(--text-main)`, `var(--text-muted)`, `var(--text-heading)`.
+2. **Stat & Heading Contrast**:
+   - Number and stat displays (`.stat-val`) must utilize `--stat-gradient` with high-contrast foreground gradients in both dark mode (`linear-gradient(135deg, #ffffff, #94a3b8)`) and light mode (`linear-gradient(135deg, #0f172a, #475569)`).
+3. **Form Controls & Options**:
+   - Form inputs (`.form-input`, `.form-select`, `.form-textarea`, `.compact-select`) must adapt `background` and `color-scheme` to `light` when `html.light` is active, ensuring `<select>` dropdown options have clean white backgrounds with dark legible text.
+4. **Chat Bubbles & Code Blocks**:
+   - Assistant and user message bubbles must use theme variables (`--bg-card`, `--border-color`, `--text-main`) to prevent dark container styling from conflicting with dark font colors in light mode.
+   - Code blocks and diff views must provide clear foreground-to-background contrast across both themes without breaking dark mode styling.
+
+---
+
+# File Diff Viewer & Mobile Navigation Architecture
+
+## Smart Path & Unified Header Navigation
+The file diff review dialog (`DiffViewerModal`) provides a responsive, single-tier navigation header for multi-file reviews:
+
+1. **Smart Path Splitting**:
+   - File paths are divided into **Directory Path** (`.../parent/`) and **Filename** (`FileName.ext`).
+   - The directory path is rendered in a subtle, muted color with leading truncation if space is constrained.
+   - The filename is rendered in bold high-contrast text (`var(--text-heading)`), ensuring mobile viewports (375px+) always prioritize filename visibility over root workspace prefixes.
+2. **Unified Navigation & Dropdown Switcher**:
+   - Sequential navigation (`[ ◀ ] [ ▶ ]` buttons and `Alt+Left` / `Alt+Right` keyboard shortcuts) are embedded directly in the header when multiple files exist.
+   - The path title acts as an interactive dropdown trigger with a subtle chevron (`▾`), opening a quick file selector listing all changed files with their status badges (`Modified`, `Created`, `Deleted`) and addition/deletion counts.
+   - Redundant secondary file tab rows are removed to maximize vertical screen space for code diff viewing.
+3. **Pinned Status & Metadata**:
+   - The change status badge (`Modified`, `Created`, `Deleted`) and line diff metrics (`+N -N`) are pinned with `flex-shrink: 0`, preventing wrapping or clipping on narrow viewports.
+
+---
+
+# Conversation Execution Concurrency & Reconnection Architecture
+
+To prevent race conditions, duplicate prompt executions, and UI state loss across page reloads:
+
+1. **Single-Execution Invariant per Conversation**:
+   - Each conversation enforces at most one active execution (prompt processing or provider streaming) at any given time.
+   - Active executions are tracked in memory via a singleton `IActiveExecutionTracker` and `IProcessExecutor`.
+   - Any concurrent request to `POST /api/v1/conversations/{id}/prompt` for a running conversation is rejected with HTTP `409 Conflict` (`execution_in_progress`).
+
+2. **Execution State Propagation & Reconnection**:
+   - Conversation detail queries (`GET /api/v1/conversations/{id}`) expose the `isRunning` boolean flag.
+   - When loading or reloading a conversation in the frontend, if `isRunning` is `true`, the chat interface automatically switches to the streaming state (`isStreaming = true`), displaying the **Abort** button (`⏹`) and heartbeat indicator instead of the **Send** button.
+   - SignalR events (`conversation.started`, `conversation.heartbeat`, `conversation.completed`, `conversation.aborted`) dynamically sync execution state in real-time across multiple tabs or following page reconnects.
+
+---
+
 # Versioning & Release Management
 
 ## Version Strategy
 The project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
 - Solution-wide versioning is centralized in root `Directory.Build.props` via `<BaseVersion>`.
-- In **Debug** configuration, MSBuild automatically appends dynamic build timestamp metadata (`$(BaseVersion).MMddHH`) for build diagnostics.
-- In **Release** configuration, strict semantic versions (`$(BaseVersion)`) are generated without build suffixes. When running deployed/release binaries, the 4th zero-revision segment is omitted in the header badge (e.g. `v0.1.1` instead of `v0.1.1.0`).
+- In **Debug** configuration, MSBuild automatically appends dynamic build timestamp metadata (`$(BaseVersion)-debug.MMddHHmm`) for build diagnostics and intraday build tracking.
+- In **Release** configuration, strict semantic versions (`$(BaseVersion)`) are generated without build suffixes. When running deployed/release binaries, the 4th zero-revision segment is omitted in the header badge (e.g. `v0.2.0` instead of `v0.2.0.0`).
 - The Web frontend embeds `__APP_VERSION__` at build time from `package.json` for zero-latency initial rendering, and asynchronously queries `GET /api/v1/system/version` to display detailed build numbers in Debug mode while displaying clean 3-part semantic versions in Release mode.
 
 ## Release Command

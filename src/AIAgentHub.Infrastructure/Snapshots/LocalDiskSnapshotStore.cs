@@ -266,6 +266,11 @@ public sealed class LocalDiskSnapshotStore(
                     }
                     else
                     {
+                        if (existingPending.ChangeType != FileChangeType.Deleted)
+                        {
+                            existingPending.UpdateChangeType(FileChangeType.Deleted);
+                            await _fileChangeRepository.UpdateAsync(existingPending, cancellationToken);
+                        }
                         detectedChanges.Add(existingPending);
                     }
                 }

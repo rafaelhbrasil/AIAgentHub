@@ -14,7 +14,9 @@ public sealed class ConversationServiceTests
     {
         var convRepo = Substitute.For<IConversationRepository>();
         var wsRepo = Substitute.For<IWorkspaceRepository>();
-        var service = new ConversationService(convRepo, wsRepo);
+        var providerMgr = Substitute.For<AIAgentHub.Application.Providers.IProviderManager>();
+        var tracker = new AIAgentHub.Application.Execution.ActiveExecutionTracker();
+        var service = new ConversationService(convRepo, wsRepo, providerMgr, tracker);
 
         var wsId = Guid.NewGuid();
         var ws = Workspace.Create("WS", Path.GetTempPath(), WorkspaceOrigin.Server, new WorkspaceSettings { DefaultProviderId = "antigravity" });
@@ -75,7 +77,9 @@ public sealed class ConversationServiceTests
     {
         var convRepo = Substitute.For<IConversationRepository>();
         var wsRepo = Substitute.For<IWorkspaceRepository>();
-        var service = new ConversationService(convRepo, wsRepo);
+        var providerMgr = Substitute.For<AIAgentHub.Application.Providers.IProviderManager>();
+        var tracker = new AIAgentHub.Application.Execution.ActiveExecutionTracker();
+        var service = new ConversationService(convRepo, wsRepo, providerMgr, tracker);
 
         var wsId = Guid.NewGuid();
         var ws = Workspace.Create("WS", Path.GetTempPath(), WorkspaceOrigin.Server, new WorkspaceSettings { DefaultProviderId = null });
@@ -89,7 +93,9 @@ public sealed class ConversationServiceTests
     {
         var convRepo = Substitute.For<IConversationRepository>();
         var wsRepo = Substitute.For<IWorkspaceRepository>();
-        var service = new ConversationService(convRepo, wsRepo);
+        var providerMgr = Substitute.For<AIAgentHub.Application.Providers.IProviderManager>();
+        var tracker = new AIAgentHub.Application.Execution.ActiveExecutionTracker();
+        var service = new ConversationService(convRepo, wsRepo, providerMgr, tracker);
 
         var wsId = Guid.NewGuid();
         var conv1 = Conversation.Create(wsId, "Older Conversation", "antigravity");

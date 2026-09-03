@@ -116,7 +116,7 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
             padding: '12px',
             marginTop: '14px',
             fontSize: '0.88rem',
-            color: '#a5b4fc',
+            color: 'var(--text-main)',
           }}
         >
           ℹ️ <strong>Note:</strong> This only removes the workspace from AI Agent Hub. Your local folder

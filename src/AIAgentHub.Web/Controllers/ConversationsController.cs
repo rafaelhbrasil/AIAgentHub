@@ -11,11 +11,11 @@ namespace AIAgentHub.Web.Controllers;
 public sealed class ConversationsController(
     IConversationService conversationService,
     IConversationSwitchService conversationSwitchService,
-    IOptions<ProviderSwitchOptions>? switchOptions = null) : ApiControllerBase
+    IOptions<ProviderSwitchOptions> switchOptions) : ApiControllerBase
 {
     private readonly IConversationService _conversationService = conversationService;
     private readonly IConversationSwitchService _conversationSwitchService = conversationSwitchService;
-    private readonly IOptions<ProviderSwitchOptions>? _switchOptions = switchOptions;
+    private readonly IOptions<ProviderSwitchOptions> _switchOptions = switchOptions;
 
     [HttpGet("switch-config")]
     public IActionResult GetSwitchConfig()

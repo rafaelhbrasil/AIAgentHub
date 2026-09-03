@@ -15,7 +15,7 @@ public class ConversationsControllerTests
 
     public ConversationsControllerTests()
     {
-        _controller = new ConversationsController(_conversationService, _conversationSwitchService);
+        _controller = new ConversationsController(_conversationService, _conversationSwitchService, Microsoft.Extensions.Options.Options.Create(new AIAgentHub.Domain.Configuration.ProviderSwitchOptions()));
     }
 
     [Fact]
