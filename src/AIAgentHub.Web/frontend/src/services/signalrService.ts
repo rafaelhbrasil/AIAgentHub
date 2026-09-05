@@ -5,6 +5,18 @@ export interface StreamChunkPayload {
   chunk: string;
 }
 
+export interface TerminalOutputPayload {
+  conversationId: string;
+  chunk: string;
+}
+
+export interface TerminalMetaPayload {
+  conversationId: string;
+  thinkingTokens?: number | null;
+  activeBackgroundTask?: string | null;
+  currentTool?: string | null;
+}
+
 export interface ConversationEventPayload {
   conversationId: string;
   eventName: string;
@@ -30,6 +42,8 @@ export class SignalRService {
   private retryTimeoutId: any = null;
 
   public onStreamChunk?: (payload: StreamChunkPayload) => void;
+  public onTerminalOutput?: (payload: TerminalOutputPayload) => void;
+  public onTerminalMeta?: (payload: TerminalMetaPayload) => void;
   public onConversationEvent?: (payload: ConversationEventPayload) => void;
   public onPermissionRequested?: (req: any) => void;
   public onDiffCreated?: (diff: any) => void;
@@ -55,6 +69,22 @@ export class SignalRService {
       const conversationId = (data.conversationId || data.ConversationId || '').toString();
       const chunk = data.chunk || data.Chunk || '';
       this.onStreamChunk?.({ conversationId, chunk });
+    });
+
+    this.connection.on('terminalOutput', (data: any) => {
+      const conversationId = (data.conversationId || data.ConversationId || '').toString();
+      const chunk = data.chunk || data.Chunk || '';
+      this.onTerminalOutput?.({ conversationId, chunk });
+    });
+
+    this.connection.on('terminalMeta', (data: any) => {
+      const conversationId = (data.conversationId || data.ConversationId || '').toString();
+      this.onTerminalMeta?.({
+        conversationId,
+        thinkingTokens: data.thinkingTokens ?? data.ThinkingTokens,
+        activeBackgroundTask: data.activeBackgroundTask ?? data.ActiveBackgroundTask,
+        currentTool: data.currentTool ?? data.CurrentTool,
+      });
     });
 
     this.connection.on('conversationEvent', (data: any) => {
@@ -103,6 +133,24 @@ export class SignalRService {
     this.currentConversationId = conversationId;
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
       this.connection.invoke('JoinConversation', conversationId).catch(() => {});
+    }
+  }
+
+  public async sendTerminalInput(conversationId: string, input: string): Promise<void> {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('SendTerminalInput', conversationId, input);
+    }
+  }
+
+  public async requestTerminalHistory(conversationId: string): Promise<void> {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('RequestTerminalHistory', conversationId);
+    }
+  }
+
+  public async startTerminalSession(conversationId: string, workspacePath: string): Promise<void> {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('StartTerminalSession', conversationId, workspacePath);
     }
   }
 

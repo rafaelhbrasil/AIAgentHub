@@ -6,14 +6,57 @@ using AIAgentHub.Domain.Providers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
+using AIAgentHub.Infrastructure.Executors;
+
 namespace AIAgentHub.Infrastructure.Realtime;
 
 [Authorize]
-public sealed class AgentHubHub : Hub
+public sealed class AgentHubHub(IPtySessionManager ptySessionManager) : Hub
 {
+    private readonly IPtySessionManager _ptySessionManager = ptySessionManager;
+
     public async Task JoinConversation(string conversationId) => await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
 
     public async Task LeaveConversation(string conversationId) => await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
+
+    public async Task SendTerminalInput(string conversationId, string input)
+    {
+        if (Guid.TryParse(conversationId, out var id))
+        {
+            await _ptySessionManager.SendInputAsync(id, input);
+        }
+    }
+
+    public async Task RequestTerminalHistory(string conversationId)
+    {
+        if (Guid.TryParse(conversationId, out var id))
+        {
+            var history = _ptySessionManager.GetRecentOutput(id);
+            if (!string.IsNullOrEmpty(history))
+            {
+                await Clients.Caller.SendAsync("terminalOutput", new { conversationId = id, chunk = history });
+            }
+            var info = _ptySessionManager.GetSessionInfo(id);
+            if (info != null)
+            {
+                await Clients.Caller.SendAsync("terminalMeta", new
+                {
+                    conversationId = id,
+                    thinkingTokens = info.ThinkingTokens,
+                    activeBackgroundTask = info.ActiveBackgroundTask,
+                    currentTool = info.CurrentTool
+                });
+            }
+        }
+    }
+
+    public async Task StartTerminalSession(string conversationId, string workspacePath)
+    {
+        if (Guid.TryParse(conversationId, out var id))
+        {
+            _ = await _ptySessionManager.GetOrCreateSessionAsync(id, workspacePath);
+        }
+    }
 }
 
 public sealed class SignalRAgentRealtimeBroadcaster(IHubContext<AgentHubHub> hubContext) : IAgentRealtimeBroadcaster

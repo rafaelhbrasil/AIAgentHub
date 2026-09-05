@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { WorkspaceDto, FileTreeNode } from '../../types/workspace';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputBar } from './ChatInputBar';
 import { ChangesOverviewBar } from './ChangesOverviewBar';
+import { TerminalConsoleView } from './TerminalConsoleView';
 import { useWorkspaceStudio } from './studio/useWorkspaceStudio';
 import { StudioHeader } from './studio/StudioHeader';
 import { StudioSidebar } from './studio/StudioSidebar';
@@ -79,6 +80,14 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     onRemoveWorkspace,
   });
 
+  const [viewMode, setViewMode] = useState<'chat' | 'terminal'>('chat');
+
+  useEffect(() => {
+    if (activeConversation?.providerId === 'antigravity2') {
+      setViewMode('terminal');
+    }
+  }, [activeConversation?.providerId, activeConversation?.id]);
+
   const workspaceFiles = useMemo(() => extractFilePaths(treeData), [treeData]);
   const isSwitching = activeConversation?.status === ConversationStatus.SwitchingProvider || activeConversation?.status === 1;
 
@@ -152,14 +161,44 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
             <StudioEmptyState onCreateConversation={handleCreateConversation} />
           ) : (
             <>
-              <ChatMessageList
-                messages={activeConversation.messages || []}
-                providerId={activeConversation.providerId}
-                streamingContent={streamingContent}
-                isStreaming={isStreaming}
-                heartbeatMessages={heartbeatMessages}
-                status={activeConversation.status}
-              />
+              {/* Studio View Selector: Chat vs Terminal Console */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '6px 12px 0' }}>
+                <div className="studio-view-toggle">
+                  <button
+                    type="button"
+                    className={viewMode === 'chat' ? 'active' : ''}
+                    onClick={() => setViewMode('chat')}
+                  >
+                    💬 Chat
+                  </button>
+                  <button
+                    type="button"
+                    className={viewMode === 'terminal' ? 'active' : ''}
+                    onClick={() => setViewMode('terminal')}
+                  >
+                    💻 Console (PTY)
+                  </button>
+                </div>
+              </div>
+
+              {viewMode === 'terminal' ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '8px 12px' }}>
+                  <TerminalConsoleView
+                    conversationId={activeConversation.id}
+                    workspacePath={workspace.path}
+                    providerId={activeConversation.providerId}
+                  />
+                </div>
+              ) : (
+                <ChatMessageList
+                  messages={activeConversation.messages || []}
+                  providerId={activeConversation.providerId}
+                  streamingContent={streamingContent}
+                  isStreaming={isStreaming}
+                  heartbeatMessages={heartbeatMessages}
+                  status={activeConversation.status}
+                />
+              )}
 
               <div className="chat-bottom-dock">
                 <ChangesOverviewBar

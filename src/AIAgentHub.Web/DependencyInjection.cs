@@ -42,7 +42,10 @@ public static class DependencyInjection
 
         _ = services.AddDbContext<AgentHubDbContext>(options =>
         {
-            _ = options.UseSqlite($"Data Source={dbPath}");
+            _ = options.UseSqlite($"Data Source={dbPath}", sqliteOptions =>
+            {
+                _ = sqliteOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            });
             _ = options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         });
 
@@ -101,7 +104,9 @@ public static class DependencyInjection
                 ? sp.GetRequiredService<HeadlessProcessExecutor>()
                 : sp.GetRequiredService<HeadedProcessExecutor>();
         });
+        _ = services.AddSingleton<IPtySessionManager, PtySessionManager>();
         _ = services.AddSingleton<IProvider, AntigravityProvider>();
+        _ = services.AddSingleton<IProvider, AntigravityPtyProvider>();
         _ = services.AddSingleton<IProvider, GeminiCliProvider>();
         _ = services.AddSingleton<IProvider, CodexCliProvider>();
         _ = services.AddSingleton<IProvider, ClaudeCodeProvider>();

@@ -45,6 +45,10 @@ Schema evolution and versioning use EF Core Code-First Migrations (`Microsoft.En
 
 On application startup, database initialization invokes `Database.MigrateAsync()` to automatically apply all pending migrations against the SQLite database file without manual table inspection or custom ALTER statements.
 
+### Query Splitting Strategy
+
+To avoid Cartesian product performance degradation when loading multiple related collection navigations (such as conversations with messages, file changes, and provider sessions), EF Core is configured globally with `QuerySplittingBehavior.SplitQuery`. This ensures related collections are fetched via separate optimized SQL statements rather than a single massive `LEFT JOIN` Cartesian explosion.
+
 ---
 
 ## Default Database

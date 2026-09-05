@@ -129,6 +129,13 @@ Never the opposite.
 
 All CLI execution (live prompt streaming via `ExecuteAsync` and auxiliary CLI command executions such as `--version`, model listings, and auth status checks via `RunCommandAsync`) is handled exclusively through `IProcessExecutor`. The dependency injection container resolves the appropriate executor (`HeadlessProcessExecutor` or `HeadedProcessExecutor`) based on configuration (`AgentHub:CliExecution:Headless`), ensuring provider adapters remain decoupled from process execution modes.
 
+### Interactive Pseudo-Terminal (PTY) & Session Management
+
+For interactive console workflows, `IPtySessionManager` provides persistent terminal sessions keyed by `conversationId`:
+- **Long-Lived Process Lifecycle**: A single interactive CLI or shell process remains active across turns, preserving conversation memory and background tasks without process restart overhead.
+- **Bidirectional Real-Time I/O**: Connected via SignalR (`AgentHubHub`), streaming raw terminal bytes to web clients (`terminalOutput`) and forwarding client keystrokes and commands to the process (`SendTerminalInput`).
+- **Stream Analysis & Parsing**: The session manager monitors the output stream in real-time, detecting thinking tokens, background daemon processes (such as web servers), and turn completion events, broadcasting updates to the frontend.
+
 #### Execution Timeout & Keepalives
 - **Configurable Timeout**: `AgentHub:CliExecution:TimeoutMinutes` (default: `10` minutes) sets the maximum execution duration for an individual prompt turn. Standard timeout environment variables (`API_TIMEOUT_MS`, `REQUEST_TIMEOUT_MS`, `TIMEOUT`, `CLI_TIMEOUT`, `ANTIGRAVITY_TIMEOUT_MS`, `ANTHROPIC_TIMEOUT_MS`, `OPENAI_TIMEOUT_MS`) are injected into child processes, and provider adapters pass CLI-specific timeout flags (such as `--print-timeout "<N>m"` for Antigravity CLI).
 - **Keepalive Heartbeat**: Periodic `conversation.heartbeat` SignalR events (every `HeartbeatIntervalSeconds`, default: 60s) provide live elapsed time and friendly progress feedback (`"Still working..."`, `"Analyzing codebase..."`) to the user interface during long thinking phases.
@@ -138,12 +145,13 @@ All CLI execution (live prompt streaming via `ExecuteAsync` and auxiliary CLI co
 
 ## Provider Layer
 
-Each AI provider is implemented as an adapter inheriting from `CliProviderBase`. Providers delegate all process execution to the injected `IProcessExecutor`.
+Each AI provider is implemented as an adapter inheriting from `CliProviderBase`. Providers delegate all process execution to the injected `IProcessExecutor` or `IPtySessionManager`.
 
 When building CLI arguments, if a conversation is set to "Default Model" (or if `ModelId` is empty, `"default"`, `"auto"`, etc.), provider adapters omit the `--model` CLI argument completely to let the underlying CLI resolve to its own configured or upstream default model.
 
 Provider-specific CLI argument formatting:
 - **Antigravity CLI**: `--output-format text --add-dir "<workspace>" --mode accept-edits -p "<prompt>"` with optional `--model`, `--effort`, `--conversation`, and `--print-timeout "<TimeoutMinutes>m"`.
+- **Antigravity 2.0 (PTY Console)**: Interactive session execution managed by `IPtySessionManager`, piping interactive prompts and keystrokes directly to the CLI while streaming raw ANSI terminal output and extracting thinking tokens.
 - **Claude Code**: `--output-format text --permission-mode acceptEdits -p "<prompt>"` with optional `--model`, `--effort`, `--session-id` (initial message) and `--resume` (subsequent messages).
 - **OpenAI Codex CLI**: `exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<prompt>"` (or `exec resume ... <session-id> "<prompt>"` on subsequent turns), with optional `--model` and `-c model_reasoning_effort=<effort>`.
 - **OpenCode**: `run --dir "<workspace>" --auto "<prompt>"` with optional `--model`, `--variant`, `--session`.
@@ -159,6 +167,10 @@ Provider-specific CLI argument formatting:
 - Upon turn completion or abort, the Abort button is hidden and the Send button becomes visible.
 - Provider switching is locked/disabled while a command is actively running until it completes or is aborted.
 
+### Terminal Console Studio View
+- Conversations support switching between **Chat Studio** and **Terminal Console** views.
+- The Terminal Console renders an embedded `xterm.js` terminal, allowing direct interactive keystroke control, handling interactive CLI permission prompts, and viewing background task status.
+
 ### Diff Reviewer Direct Hunk Focus
 - In the file diff viewer, the change hunk indicator immediately displays `1 / <Total>` (e.g., `1 / 10`) upon opening or switching files instead of an unselected `<Total> diffs` label.
 - The diff viewer automatically and immediately focuses/scrolls to the first change hunk without requiring a manual user click.
@@ -170,6 +182,7 @@ Examples:
 - ClaudeProvider
 - OpenCodeProvider
 - AntigravityProvider
+- AntigravityPtyProvider
 - GitHubCopilotProvider
 
 The remainder of the application communicates only through abstractions.

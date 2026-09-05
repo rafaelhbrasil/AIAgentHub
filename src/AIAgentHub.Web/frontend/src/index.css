@@ -3212,6 +3212,147 @@ html.light .studio-crumb-sep {
   color: #94a3b8;
 }
 
+/* ==========================================================================
+   Terminal Console View (Antigravity 2.0 PTY POC)
+   ========================================================================== */
+.terminal-console-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  background: #080c14;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.terminal-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.terminal-ribbon-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.terminal-ribbon-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  font-weight: 600;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-dot.online {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.terminal-metric-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-color);
+}
+
+.terminal-metric-badge.thinking {
+  background: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.terminal-metric-badge.task {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-metric-badge.tool {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.terminal-canvas-wrapper {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  padding: 8px;
+  background: #0b0f19;
+  overflow: hidden;
+}
+
+.terminal-canvas-wrapper .xterm {
+  height: 100%;
+  padding: 4px;
+}
+
+.terminal-canvas-wrapper .xterm-viewport {
+  overflow-y: auto;
+}
+
+.studio-view-toggle {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.studio-view-toggle button {
+  padding: 3px 8px;
+  font-size: 0.78rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.studio-view-toggle button.active {
+  background: var(--accent-primary);
+  color: white;
+  font-weight: 500;
+}
+
 
 
 
