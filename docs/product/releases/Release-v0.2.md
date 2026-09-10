@@ -47,7 +47,8 @@ Users can switch AI providers mid-conversation seamlessly.
 - Users can change the active model at any time via the model dropdown in the studio header.
 
 ### Context Migration & Replay Protocol
-- **Context Injection**: When switching to a new provider (or when executing a prompt on a provider with unshared prior turns), AgentHub compiles the unshared conversation history (previous user prompts, assistant responses, and workspace file changes) and injects it as a structured handoff preamble into the provider CLI prompt on its first turn.
+- **Context Injection**: When switching to a new provider (or when executing a prompt on a provider with unshared prior turns where at least one unshared message originated from a different provider), AgentHub compiles the unshared conversation history (previous user prompts, assistant responses, and workspace file changes) and injects it as a structured handoff preamble into the provider CLI prompt on its first turn. Conversations executing repeatedly on the same provider never receive cross-provider handoff preambles.
+- **Session Checkpoint Integrity**: Checkpoint boundaries (`LastSharedSequenceIndex`) are preserved across dynamic session identification events (`OnSessionCreated`), and post-execution session updates on cancelled or aborted prompt turns are saved reliably using detached cancellation tokens to prevent checkpoints from falling behind or resetting to 0.
 - **Dynamic Default Provider & Single-Provider Guardrails**:
   - The default provider is dynamically resolved at runtime as the first operational, ready-to-use provider (`Status == Ready`, not hidden). No hardcoded fallback strings are assumed.
   - If no operational AI provider is available on the machine, warning banners with direct navigation links to the `/providers` page are displayed, and conversation execution gracefully alerts the user.

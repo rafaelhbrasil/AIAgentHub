@@ -5,6 +5,7 @@ using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Realtime;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Conversations;
+using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Permissions;
 using AIAgentHub.Domain.Repositories;
 
@@ -129,6 +130,7 @@ public sealed class ExecutionOrchestrator(
         }
 
         // 3b. Compile Context Handoff / Differential Replay for unshared history
+        currentSession = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
         var lastSharedIndex = currentSession?.LastSharedSequenceIndex ?? 0;
         var unsharedMessages = conversation.Messages
             .Where(m => m.Id != userMsg.Id && m.SequenceIndex > 0 && m.SequenceIndex > lastSharedIndex)
@@ -136,7 +138,10 @@ public sealed class ExecutionOrchestrator(
             .ToList();
 
         var effectivePrompt = prompt;
-        if (unsharedMessages.Count > 0)
+        var hasForeignMessages = unsharedMessages.Any(m => !string.IsNullOrEmpty(m.OriginProviderId) &&
+                                                           !m.OriginProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
+
+        if (hasForeignMessages)
         {
             var contextBuilder = new System.Text.StringBuilder();
             contextBuilder.AppendLine("[AI Agent Hub — Conversation Context Handoff]");
@@ -185,8 +190,11 @@ public sealed class ExecutionOrchestrator(
                 if (!string.IsNullOrEmpty(newSessionId) && conversation.ProviderSessionId != newSessionId)
                 {
                     conversation.SetProviderSessionId(newSessionId);
-                    _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, newSessionId);
-                    await _conversationRepository.UpdateAsync(conversation, cancellationToken);
+                    var existing = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
+                    var preservedIndex = existing?.LastSharedSequenceIndex ?? 0;
+                    var preservedMsgId = existing?.LastSharedMessageId ?? userMsg.Id;
+                    _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, newSessionId, preservedMsgId, preservedIndex);
+                    await _conversationRepository.UpdateAsync(conversation, CancellationToken.None);
                 }
             },
             conversation.Effort,
@@ -264,18 +272,26 @@ public sealed class ExecutionOrchestrator(
         stopwatch.Stop();
 
         // 5. Post-execution Snapshot Comparison & Diff Generation
-        var detectedChanges = await _snapshotService.DetectAndRecordChangesAsync(
-            workspace.Id,
-            conversation.Id,
-            workspace.Path,
-            snapshotToken,
-            workspace.Settings.IgnoredFiles,
-            cancellationToken);
-
-        foreach (var change in detectedChanges)
+        IReadOnlyList<FileChange> detectedChanges = [];
+        try
         {
-            conversation.AddFileChange(change);
-            await _broadcaster.SendDiffCreatedAsync(conversationId, change, cancellationToken);
+            detectedChanges = await _snapshotService.DetectAndRecordChangesAsync(
+                workspace.Id,
+                conversation.Id,
+                workspace.Path,
+                snapshotToken,
+                workspace.Settings.IgnoredFiles,
+                CancellationToken.None);
+
+            foreach (var change in detectedChanges)
+            {
+                conversation.AddFileChange(change);
+                await _broadcaster.SendDiffCreatedAsync(conversationId, change, CancellationToken.None);
+            }
+        }
+        catch
+        {
+            // Snapshot comparison failure should not block recording assistant message or session checkpoint
         }
 
         // 6. Record Assistant Message in History
@@ -304,14 +320,14 @@ public sealed class ExecutionOrchestrator(
 
         var assistantMsg = conversation.AddMessage(MessageRole.Assistant, finalAssistantText, metadata, provider.Id, conversation.ModelId);
         _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, conversation.ProviderSessionId, assistantMsg.Id, assistantMsg.SequenceIndex);
-        await _conversationRepository.UpdateAsync(conversation, cancellationToken);
+        await _conversationRepository.UpdateAsync(conversation, CancellationToken.None);
 
         await _broadcaster.SendConversationEventAsync("conversation.completed", conversationId, new
         {
             DurationMs = stopwatch.ElapsedMilliseconds,
             FileChangesCount = detectedChanges.Count,
             IsSuccess = isSuccess
-        }, cancellationToken);
+        }, CancellationToken.None);
     }
     finally
     {

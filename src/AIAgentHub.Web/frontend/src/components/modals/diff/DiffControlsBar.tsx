@@ -30,6 +30,7 @@ interface DiffControlsBarProps {
   onSetViewMode: (mode: 'sideBySide' | 'unified') => void;
   onSetFullscreen: (fullscreen: boolean) => void;
   onSetSideBySideMobileTab: (tab: 'modified' | 'original' | 'split') => void;
+  initialDropdownOpen?: boolean;
 }
 
 export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
@@ -52,6 +53,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
   onSetViewMode,
   onSetFullscreen,
   onSetSideBySideMobileTab,
+  initialDropdownOpen = false,
 }) => {
   let showToast: ((msg: string, type?: any) => void) | undefined;
   try {
@@ -60,7 +62,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
   } catch {
     showToast = undefined;
   }
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(initialDropdownOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathScrollRef = useRef<HTMLDivElement>(null);
 
@@ -229,6 +231,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
             display: 'flex',
             flexDirection: 'column',
             gap: '2px',
+            boxSizing: 'border-box',
           }}
         >
           {changes.map((c, idx) => {
@@ -246,6 +249,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                   onSelectChange(c.id);
                   setIsDropdownOpen(false);
                 }}
+                title={c.relativePath}
                 className="diff-files-dropdown-item"
                 style={{
                   display: 'flex',
@@ -261,6 +265,8 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                   color: isSelected ? 'var(--text-heading)' : 'var(--text-main)',
                   fontSize: '0.82rem',
                   fontFamily: 'var(--font-sans)',
+                  width: '100%',
+                  boxSizing: 'border-box',
                 }}
               >
                 <div
@@ -270,6 +276,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                     gap: '4px',
                     overflow: 'hidden',
                     minWidth: 0,
+                    flex: '1 1 auto',
                   }}
                 >
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', flexShrink: 0 }}>
@@ -286,7 +293,8 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                         textOverflow: 'ellipsis',
                         direction: 'rtl',
                         textAlign: 'left',
-                        maxWidth: '140px',
+                        flex: '0 1 auto',
+                        minWidth: 0,
                       }}
                     >
                       <bdo dir="ltr">{itemSmart.dir}</bdo>
@@ -298,8 +306,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                       fontSize: '0.82rem',
                       fontWeight: 600,
                       whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
+                      flexShrink: 0,
                     }}
                   >
                     {itemSmart.fileName}
@@ -308,13 +315,13 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                   {c.additionsCount !== undefined && c.additionsCount > 0 && (
-                    <span style={{ color: '#4ade80', fontSize: '0.74rem', fontWeight: 600 }}>
-                      +{c.additionsCount}
+                    <span style={{ color: '#4ade80', fontSize: '0.74rem', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {`+${c.additionsCount}`}
                     </span>
                   )}
                   {c.deletionsCount !== undefined && c.deletionsCount > 0 && (
-                    <span style={{ color: '#f87171', fontSize: '0.74rem', fontWeight: 600 }}>
-                      -{c.deletionsCount}
+                    <span style={{ color: '#f87171', fontSize: '0.74rem', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {`-${c.deletionsCount}`}
                     </span>
                   )}
                   <span
@@ -329,11 +336,13 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                         : 'rgba(99, 102, 241, 0.15)',
                       color: isItemCreated ? '#4ade80' : isItemDeleted ? '#f87171' : '#818cf8',
                       fontWeight: 600,
+                      flexShrink: 0,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {itemLabel}
                   </span>
-                  {isSelected && <span style={{ color: '#6366f1', fontSize: '0.85rem' }}>✓</span>}
+                  {isSelected && <span style={{ color: '#6366f1', fontSize: '0.85rem', flexShrink: 0 }}>✓</span>}
                 </div>
               </button>
             );

@@ -14,7 +14,7 @@
     <Deterministic>true</Deterministic>
 
     <!-- Base Semantic Version -->
-    <BaseVersion>0.2.1</BaseVersion>
+    <BaseVersion>0.2.2</BaseVersion>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
   </PropertyGroup>
 
