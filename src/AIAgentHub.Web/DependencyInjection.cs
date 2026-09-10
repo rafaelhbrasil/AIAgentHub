@@ -1,4 +1,5 @@
 using AIAgentHub.Application.Conversations;
+using AIAgentHub.Application.Diagnostics;
 using AIAgentHub.Application.Execution;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Filesystem;
@@ -12,6 +13,7 @@ using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Cryptography;
 using AIAgentHub.Infrastructure.Executors;
+using AIAgentHub.Infrastructure.Logging;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Providers;
 using AIAgentHub.Infrastructure.Realtime;
@@ -115,6 +117,7 @@ public static class DependencyInjection
 
         // 7b. Prompt Logging & Execution Tracking
         _ = services.AddSingleton<IPromptLogger, PromptLogger>();
+        _ = services.AddSingleton<ILogFileService, LogFileService>();
 
         // 8. Application Services
         _ = services.AddSingleton<IActiveExecutionTracker, ActiveExecutionTracker>();

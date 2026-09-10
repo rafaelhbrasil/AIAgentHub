@@ -45,6 +45,8 @@ Schema evolution and versioning use EF Core Code-First Migrations (`Microsoft.En
 
 On application startup, database initialization invokes `Database.MigrateAsync()` to automatically apply all pending migrations against the SQLite database file without manual table inspection or custom ALTER statements.
 
+Post-migration legacy data healing routines (such as sequence index backfilling and session synchronization) must use fast-path existence guards (`AnyAsync`) and LINQ projections targeting only required scalar identifiers, preventing full-table materialization, Cartesian joins, and memory overhead during regular application boot.
+
 ---
 
 ## Default Database

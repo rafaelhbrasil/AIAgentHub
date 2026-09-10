@@ -87,6 +87,7 @@ Primary focus:
 - Studio file explorer (create, rename, delete files/folders, drag & drop)
 - Embedded lightweight code editor (syntax highlighting, quick edits, search, go-to-file)
 - Expanded file previews (PDF, HTML, CSV, LOG, INI, TOML)
+- Single-user account management (update login username and password)
 
 See:
 > `docs/product/releases/Release-v0.3.md`

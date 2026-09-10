@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 
 using AIAgentHub.Application.Security;
 using AIAgentHub.Infrastructure.Certificates;
+using AIAgentHub.Infrastructure.Logging;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Web;
@@ -31,6 +32,7 @@ var builderOptions = new WebApplicationOptions
 };
 
 var builder = WebApplication.CreateBuilder(builderOptions);
+_ = builder.Logging.AddFile(builder.Configuration);
 
 // Parse custom --port flag if provided
 var portArgIndex = Array.FindIndex(args, a =>

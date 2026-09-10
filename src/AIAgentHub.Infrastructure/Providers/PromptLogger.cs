@@ -1,3 +1,4 @@
+using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Providers;
 
 using Microsoft.Extensions.Configuration;
@@ -14,10 +15,27 @@ public sealed class PromptLogger : IPromptLogger
     public PromptLogger(ILogger<PromptLogger> logger, IConfiguration configuration)
     {
         _logger = logger;
-        var configValue = configuration["AgentHub:PromptLogging"];
+        var configValue = configuration["Logging:PromptLogging"]
+            ?? configuration["Logging:PromptLogging:Enabled"]
+            ?? configuration["AgentHub:PromptLogging"];
         IsEnabled = string.IsNullOrEmpty(configValue) ||
                    configValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                    configValue.Equals("1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void LogPromptExecution(Guid conversationId, string providerId, string? modelId, string prompt, bool hasHandoffPreamble, int unsharedMessageCount)
+    {
+        if (!IsEnabled) return;
+
+        _logger.LogInformation(
+            "Prompt sent to {ProviderId} (model: {ModelId}) for conversation {ConversationId}. HandoffInjected: {HandoffInjected} (unshared: {UnsharedCount}), Length: {Length} chars. Prompt: {Prompt}",
+            providerId,
+            modelId ?? "default",
+            conversationId,
+            hasHandoffPreamble,
+            unsharedMessageCount,
+            prompt.Length,
+            prompt);
     }
 
     public void LogPromptSent(string providerName, string modelName, string commandLine, int promptLength)
