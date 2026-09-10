@@ -294,8 +294,8 @@ public sealed class ExecutionOrchestratorTests
         _ = conv.AddMessage(MessageRole.User, "1", null, "testprovider", "model-1");
         _ = conv.AddMessage(MessageRole.Assistant, "2", null, "testprovider", "model-1");
         _ = conv.AddMessage(MessageRole.User, "3", null, "testprovider", "model-1");
-        _ = conv.AddMessage(MessageRole.Assistant, "4", null, "testprovider", "model-1");
-        var session = conv.AddOrUpdateProviderSession("testprovider", "old-sess", null, 4);
+        var msg4 = conv.AddMessage(MessageRole.Assistant, "4", null, "testprovider", "model-1");
+        var session = conv.AddOrUpdateProviderSession("testprovider", "old-sess", msg4.Id, 4);
 
         _ = convRepo.GetByIdAsync(conv.Id, Arg.Any<CancellationToken>()).Returns(conv);
         _ = wsRepo.GetByIdAsync(ws.Id, Arg.Any<CancellationToken>()).Returns(ws);
