@@ -406,6 +406,7 @@ The file diff review dialog (`DiffViewerModal`) provides a responsive, single-ti
 2. **Unified Navigation & Dropdown Switcher**:
    - Sequential navigation (`[ ◀ ] [ ▶ ]` buttons and `Alt+Left` / `Alt+Right` keyboard shortcuts) are embedded directly in the header when multiple files exist.
    - The path title acts as an interactive dropdown trigger with a subtle chevron (`▾`), opening a quick file selector listing all changed files with their status badges (`Modified`, `Created`, `Deleted`) and addition/deletion counts.
+   - In dropdown switcher options, the filename is never truncated with an ellipsis (`flex-shrink: 0`) and status badges/counts remain fully visible without omission. If space is constrained on mobile, leading truncation (`...`) is applied to the directory path on the left (e.g., `...older4/folder5/folder6/ Filename.ext [Badge]`), prioritizing innermost directories and the filename.
    - Redundant secondary file tab rows are removed to maximize vertical screen space for code diff viewing.
 3. **Pinned Status & Metadata**:
    - The change status badge (`Modified`, `Created`, `Deleted`) and line diff metrics (`+N -N`) are pinned with `flex-shrink: 0`, preventing wrapping or clipping on narrow viewports.

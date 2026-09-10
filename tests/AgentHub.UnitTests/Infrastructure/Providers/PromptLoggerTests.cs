@@ -22,7 +22,7 @@ public sealed class PromptLoggerTests
     public void IsEnabled_WhenConfigTrue_ReturnsTrue()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act & Assert
@@ -33,7 +33,7 @@ public sealed class PromptLoggerTests
     public void IsEnabled_WhenConfigFalse_ReturnsFalse()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("false");
+        _ = _configMock["Logging:PromptLogging"].Returns("false");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act & Assert
@@ -44,7 +44,7 @@ public sealed class PromptLoggerTests
     public void IsEnabled_WhenConfigMissing_ReturnsTrue()
     {
         // Arrange - config value not set, should default to true
-        _ = _configMock["AgentHub:PromptLogging"].Returns((string?)null);
+        _ = _configMock["Logging:PromptLogging"].Returns((string?)null);
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act & Assert
@@ -52,10 +52,34 @@ public sealed class PromptLoggerTests
     }
 
     [Fact]
+    public void IsEnabled_WhenFallbackLegacyConfig_ReturnsTrue()
+    {
+        // Arrange - Logging:PromptLogging missing, AgentHub:PromptLogging set
+        _ = _configMock["Logging:PromptLogging"].Returns((string?)null);
+        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act & Assert
+        Assert.True(logger.IsEnabled);
+    }
+
+    [Fact]
+    public void IsEnabled_WhenSectionEnabledConfig_ReturnsFalse()
+    {
+        // Arrange - Logging:PromptLogging:Enabled is false
+        _ = _configMock["Logging:PromptLogging"].Returns((string?)null);
+        _ = _configMock["Logging:PromptLogging:Enabled"].Returns("false");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act & Assert
+        Assert.False(logger.IsEnabled);
+    }
+
+    [Fact]
     public void LogPromptSent_WhenDisabled_DoesNotLog()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("false");
+        _ = _configMock["Logging:PromptLogging"].Returns("false");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -74,7 +98,7 @@ public sealed class PromptLoggerTests
     public void LogPromptSent_WhenEnabled_LogsRedactedCommand()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -93,7 +117,7 @@ public sealed class PromptLoggerTests
     public void LogPromptSent_WithEmptyCommandLine_LogsSuccessfully()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -112,7 +136,7 @@ public sealed class PromptLoggerTests
     public void LogPromptSent_WithNullCommandLine_LogsSuccessfully()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -131,7 +155,7 @@ public sealed class PromptLoggerTests
     public void LogPromptSent_WithSpecialCharacters_LogsSuccessfully()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -150,7 +174,7 @@ public sealed class PromptLoggerTests
     public void LogCommandResult_WhenSuccess_LogsDebug()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -169,7 +193,7 @@ public sealed class PromptLoggerTests
     public void LogCommandResult_WhenFailed_LogsError()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -188,7 +212,7 @@ public sealed class PromptLoggerTests
     public void LogCommandResult_WhenAuthFailed_LogsWarning()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -207,7 +231,7 @@ public sealed class PromptLoggerTests
     public void LogCommandResult_WhenQuotaExceeded_LogsWarning()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -226,7 +250,7 @@ public sealed class PromptLoggerTests
     public void LogProviderStatus_WhenReady_LogsInformation()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -245,7 +269,7 @@ public sealed class PromptLoggerTests
     public void LogProviderStatus_WhenUnauthenticated_LogsWarning()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -264,7 +288,7 @@ public sealed class PromptLoggerTests
     public void LogProviderStatus_WhenError_LogsError()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -283,7 +307,7 @@ public sealed class PromptLoggerTests
     public void LogProviderStatus_WhenDiscontinued_LogsWarning()
     {
         // Arrange
-        _ = _configMock["AgentHub:PromptLogging"].Returns("true");
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
         var logger = new PromptLogger(_loggerMock, _configMock);
 
         // Act
@@ -292,6 +316,45 @@ public sealed class PromptLoggerTests
         // Assert
         _loggerMock.Received(1).Log(
             LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogPromptExecution_WhenEnabled_LogsInformation()
+    {
+        // Arrange
+        _ = _configMock["Logging:PromptLogging"].Returns("true");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+        var convId = Guid.NewGuid();
+
+        // Act
+        logger.LogPromptExecution(convId, "antigravity", "default", "Test Prompt Body", true, 3);
+
+        // Assert
+        _loggerMock.Received(1).Log(
+            LogLevel.Information,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public void LogPromptExecution_WhenDisabled_DoesNotLog()
+    {
+        // Arrange
+        _ = _configMock["Logging:PromptLogging"].Returns("false");
+        var logger = new PromptLogger(_loggerMock, _configMock);
+
+        // Act
+        logger.LogPromptExecution(Guid.NewGuid(), "antigravity", "default", "Test Prompt Body", false, 0);
+
+        // Assert
+        _loggerMock.DidNotReceive().Log(
+            LogLevel.Information,
             Arg.Any<EventId>(),
             Arg.Any<object>(),
             Arg.Any<Exception?>(),

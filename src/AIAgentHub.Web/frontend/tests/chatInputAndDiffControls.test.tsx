@@ -115,6 +115,65 @@ describe('ChatInputBar & DiffControlsBar & StudioHeader', () => {
 
       expect(html).toContain('2 / 3');
     });
+
+    it('renders file dropdown with path truncation on right and without filename truncation or badge omission', () => {
+      const secondDiff: FileChangeDto = {
+        id: 'diff-2',
+        conversationId: 'conv-1',
+        relativePath: 'very/long/nested/directory/path/AnotherLongFileNameComponent.tsx',
+        changeType: DiffChangeType.Created,
+        oldContent: '',
+        newContent: 'export const X = 1;',
+        additionsCount: 15,
+        deletionsCount: 0,
+        isBinary: false,
+      };
+
+      const html = renderToString(
+        <DiffControlsBar
+          activeDiff={sampleDiff}
+          changes={[sampleDiff, secondDiff]}
+          currentFileIndex={0}
+          isFullscreen={false}
+          isEditing={false}
+          changeHunks={sampleHunks}
+          activeHunkIndex={0}
+          isWordWrap={false}
+          viewMode="sideBySide"
+          sideBySideMobileTab="split"
+          onPrevFile={vi.fn()}
+          onNextFile={vi.fn()}
+          onSelectChange={vi.fn()}
+          onPrevChange={vi.fn()}
+          onNextChange={vi.fn()}
+          onToggleWordWrap={vi.fn()}
+          onSetViewMode={vi.fn()}
+          onSetFullscreen={vi.fn()}
+          onSetSideBySideMobileTab={vi.fn()}
+          initialDropdownOpen={true}
+        />
+      );
+
+      // Dropdown menu is rendered
+      expect(html).toContain('diff-files-dropdown-menu');
+      expect(html).toContain('diff-files-dropdown-item');
+
+      // Filename and path are present
+      expect(html).toContain('AnotherLongFileNameComponent.tsx');
+      expect(html).toContain('very/long/nested/directory/path/');
+
+      // Badges and counts are present and not omitted
+      expect(html).toContain('Created');
+      expect(html).toContain('+15');
+
+      // The dir path must have direction:rtl and <bdo dir="ltr"> for leading ellipsis on the left
+      expect(html).toContain('direction:rtl');
+      expect(html).toContain('<bdo dir="ltr">');
+
+      // Filename must NOT have text-overflow: ellipsis
+      // (The strong element for the filename should only have font and flex-shrink, not text-overflow)
+      expect(html).not.toMatch(/<strong[^>]*AnotherLongFileNameComponent\.tsx[^>]*text-overflow:\s*ellipsis/);
+    });
   });
 
   describe('StudioHeader', () => {

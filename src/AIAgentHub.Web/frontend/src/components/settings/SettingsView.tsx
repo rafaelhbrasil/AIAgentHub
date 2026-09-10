@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../services/apiClient';
 import { ServerSettingsDto, NetworkInterfaceDto, UpdateServerSettingsRequest, normalizeNetworkMode, NetworkModeType } from '../../types/settings';
 import { useToast } from '../../context/ToastContext';
+import { LogsViewer } from './LogsViewer';
 
 export const SettingsView: React.FC = () => {
   const { showToast } = useToast();
+  const [activeSubTab, setActiveSubTab] = useState<'network' | 'logs'>('network');
   const [settings, setSettings] = useState<ServerSettingsDto | null>(null);
   const [nics, setNics] = useState<NetworkInterfaceDto[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -66,95 +68,119 @@ export const SettingsView: React.FC = () => {
     <div>
       <h2>Server & Security Settings</h2>
       <p className="card-subtitle">
-        Manage HTTPS network interface listeners, TLS certificates and administrator recovery.
+        Manage HTTPS network interface listeners, TLS certificates, diagnostics and application logs.
       </p>
 
-      <div className="card glass" style={{ maxWidth: '800px', marginTop: '20px' }}>
-        <div className="card-title">Network Configuration</div>
-        <div className="form-group">
-          <label className="form-label">Network Mode</label>
-          <select
-            className="form-select"
-            id="netModeSelect"
-            value={currentMode}
-            onChange={(e) => {
-              const mode = e.target.value as NetworkModeType;
-              setSettings((prev) => (prev ? { ...prev, networkMode: mode } : prev));
-            }}
-          >
-            <option value="Localhost">Localhost Only (127.0.0.1)</option>
-            <option value="Lan">LAN Access (All Interfaces)</option>
-            <option value="SelectedInterfaces">Selected Interfaces Only</option>
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Available Server Network Interfaces</label>
-          <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: '6px' }}>
-            {currentMode === 'Localhost' && (
-              <div style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '0.85rem' }}>
-                🔒 Server is in Localhost mode. Remote connections from other machines or WSL are rejected with 403 Forbidden.
-              </div>
-            )}
-            {currentMode === 'Lan' && (
-              <div style={{ color: 'var(--accent-success)', marginBottom: '8px', fontSize: '0.85rem' }}>
-                🌐 All active network interfaces below are automatically enabled for LAN access.
-              </div>
-            )}
-            {currentMode === 'SelectedInterfaces' && (
-              <div style={{ color: 'var(--accent-primary)', marginBottom: '8px', fontSize: '0.85rem' }}>
-                Select which network interfaces to allow connections from:
-              </div>
-            )}
-
-            {nics.length > 0 ? (
-              nics.map((n) => {
-                const isChecked = (settings.selectedInterfaces || []).includes(n.name) ||
-                                  (settings.selectedInterfaces || []).includes(n.ipAddress);
-                return (
-                  <div key={n.name + n.ipAddress} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                    {currentMode === 'SelectedInterfaces' && (
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => {
-                          const current = settings.selectedInterfaces || [];
-                          const updated = e.target.checked
-                            ? [...current.filter((x) => x !== n.name && x !== n.ipAddress), n.ipAddress]
-                            : current.filter((x) => x !== n.name && x !== n.ipAddress);
-                          setSettings((prev) => (prev ? { ...prev, selectedInterfaces: updated } : prev));
-                        }}
-                      />
-                    )}
-                    <div>
-                      📶 <strong>{n.name}</strong> (<code>{n.ipAddress}</code>) — <span style={{ color: n.status === 'Up' ? 'var(--accent-success)' : 'var(--text-muted)' }}>{n.status}</span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div>127.0.0.1 (Localhost)</div>
-            )}
-          </div>
-        </div>
-
-        <div className="card-title" style={{ marginTop: '20px' }}>
-          TLS Certificate & SANs
-        </div>
-        <p className="card-subtitle">
-          Self-signed certificate generated with SANs covering localhost and LAN IP addresses.
-        </p>
-
+      {/* Settings Sub-tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', marginBottom: '8px' }}>
         <button
           type="button"
-          className="btn btn-primary"
-          id="saveSettingsBtn"
-          onClick={handleSave}
-          disabled={isSaving}
+          className={`btn compact-btn ${activeSubTab === 'network' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveSubTab('network')}
+          style={{ padding: '7px 16px', fontSize: '0.88rem' }}
         >
-          {isSaving ? 'Saving...' : 'Save Settings'}
+          🔒 Network & Security
+        </button>
+        <button
+          type="button"
+          className={`btn compact-btn ${activeSubTab === 'logs' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveSubTab('logs')}
+          style={{ padding: '7px 16px', fontSize: '0.88rem' }}
+        >
+          📜 Logs & Diagnostics
         </button>
       </div>
+
+      {activeSubTab === 'network' && (
+        <div className="card glass" style={{ maxWidth: '800px', marginTop: '16px' }}>
+          <div className="card-title">Network Configuration</div>
+          <div className="form-group">
+            <label className="form-label">Network Mode</label>
+            <select
+              className="form-select"
+              id="netModeSelect"
+              value={currentMode}
+              onChange={(e) => {
+                const mode = e.target.value as NetworkModeType;
+                setSettings((prev) => (prev ? { ...prev, networkMode: mode } : prev));
+              }}
+            >
+              <option value="Localhost">Localhost Only (127.0.0.1)</option>
+              <option value="Lan">LAN Access (All Interfaces)</option>
+              <option value="SelectedInterfaces">Selected Interfaces Only</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Available Server Network Interfaces</label>
+            <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: '6px' }}>
+              {currentMode === 'Localhost' && (
+                <div style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '0.85rem' }}>
+                  🔒 Server is in Localhost mode. Remote connections from other machines or WSL are rejected with 403 Forbidden.
+                </div>
+              )}
+              {currentMode === 'Lan' && (
+                <div style={{ color: 'var(--accent-success)', marginBottom: '8px', fontSize: '0.85rem' }}>
+                  🌐 All active network interfaces below are automatically enabled for LAN access.
+                </div>
+              )}
+              {currentMode === 'SelectedInterfaces' && (
+                <div style={{ color: 'var(--accent-primary)', marginBottom: '8px', fontSize: '0.85rem' }}>
+                  Select which network interfaces to allow connections from:
+                </div>
+              )}
+
+              {nics.length > 0 ? (
+                nics.map((n) => {
+                  const isChecked = (settings.selectedInterfaces || []).includes(n.name) ||
+                                    (settings.selectedInterfaces || []).includes(n.ipAddress);
+                  return (
+                    <div key={n.name + n.ipAddress} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      {currentMode === 'SelectedInterfaces' && (
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const current = settings.selectedInterfaces || [];
+                            const updated = e.target.checked
+                              ? [...current.filter((x) => x !== n.name && x !== n.ipAddress), n.ipAddress]
+                              : current.filter((x) => x !== n.name && x !== n.ipAddress);
+                            setSettings((prev) => (prev ? { ...prev, selectedInterfaces: updated } : prev));
+                          }}
+                        />
+                      )}
+                      <div>
+                        📶 <strong>{n.name}</strong> (<code>{n.ipAddress}</code>) — <span style={{ color: n.status === 'Up' ? 'var(--accent-success)' : 'var(--text-muted)' }}>{n.status}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div>127.0.0.1 (Localhost)</div>
+              )}
+            </div>
+          </div>
+
+          <div className="card-title" style={{ marginTop: '20px' }}>
+            TLS Certificate & SANs
+          </div>
+          <p className="card-subtitle">
+            Self-signed certificate generated with SANs covering localhost and LAN IP addresses.
+          </p>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            id="saveSettingsBtn"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save Settings'}
+          </button>
+        </div>
+      )}
+
+      {activeSubTab === 'logs' && <LogsViewer />}
     </div>
   );
 };
