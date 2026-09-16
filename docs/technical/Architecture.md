@@ -168,8 +168,15 @@ Provider-specific CLI argument formatting:
 - Provider switching is locked/disabled while a command is actively running until it completes or is aborted.
 
 ### Terminal Console Studio View
-- Conversations support switching between **Chat Studio** and **Terminal Console** views.
-- The Terminal Console renders an embedded `xterm.js` terminal, allowing direct interactive keystroke control, handling interactive CLI permission prompts, and viewing background task status.
+- Conversations support switching between **Chat Studio** and **Terminal Console** views via a header toggle.
+- The Terminal Console renders an embedded `xterm.js` terminal with `@xterm/addon-fit`, allowing direct interactive keystroke control, handling interactive CLI permission prompts, and real-time ANSI terminal emulation.
+- **Interactive PTY Architecture**:
+  - The backend execution layer uses `IPtySessionManager` backed by native pseudo-terminal subsystems (ConPTY on Windows via `Porta.Pty`, pseudo-terminals on Linux/macOS).
+  - PTY sessions run within the conversation's workspace root, executing the user's default shell (PowerShell or Bash).
+  - Realtime bidirectional I/O is streamed via SignalR (`StartTerminalSession`, `SendTerminalInput`, `ResizeTerminal`, and `ReceiveTerminalOutput`), utilizing a stateful UTF-8 decoder to preserve multi-byte characters and ANSI escape sequences across stream buffers.
+  - Terminal dimensions (columns/rows) are dynamically fitted to the container element via `ResizeObserver` and window resize listeners, maintaining synchronized ConPTY geometry.
+  - The xterm.js instance runs with `convertEol: false` and native ConPTY backend profile (`windowsPty: { backend: 'conpty', buildNumber: 26200 }`) to support full-screen TUI applications (such as `agy`, `claude`, `codex`, `vim`) without line-ending corruption or cursor desynchronization.
+  - **Process Lifecycle & Restart**: When terminating or restarting a session (`RestartTerminalSession`), the backend terminates the entire recursive process tree (`Kill(entireProcessTree: true)`) so child processes (e.g. `agy`, `codex`, `cmd`) do not persist as orphan processes holding console handles. The frontend executes a full RIS reset (`term.reset()`) to exit any active Alternate Screen Buffer (`\x1b[?1049h`), reset cursor coordinates to `(0, 0)`, and immediately render the newly spawned shell session prompt.
 
 ### Diff Reviewer Direct Hunk Focus
 - In the file diff viewer, the change hunk indicator immediately displays `1 / <Total>` (e.g., `1 / 10`) upon opening or switching files instead of an unselected `<Total> diffs` label.
@@ -182,7 +189,6 @@ Examples:
 - ClaudeProvider
 - OpenCodeProvider
 - AntigravityProvider
-- AntigravityPtyProvider
 - GitHubCopilotProvider
 
 The remainder of the application communicates only through abstractions.

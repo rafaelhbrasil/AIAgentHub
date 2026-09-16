@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { signalRService, TerminalMetaPayload } from '../../services/signalrService';
 
@@ -16,6 +17,7 @@ export const TerminalConsoleView: React.FC<TerminalConsoleViewProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
   const [meta, setMeta] = useState<TerminalMetaPayload>({ conversationId });
 
   useEffect(() => {
@@ -29,6 +31,12 @@ export const TerminalConsoleView: React.FC<TerminalConsoleViewProps> = ({
       fontSize: 13,
       lineHeight: 1.25,
       scrollback: 5000,
+      // ponytail: disable convertEol so TUI cursor-positioning and alternate screen buffers are not distorted
+      convertEol: false,
+      windowsPty: {
+        backend: 'conpty',
+        buildNumber: 26200,
+      },
       theme: {
         background: '#0B0F19',
         foreground: '#F3F4F6',
@@ -53,19 +61,36 @@ export const TerminalConsoleView: React.FC<TerminalConsoleViewProps> = ({
       },
     });
 
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    fitAddonRef.current = fitAddon;
     terminalInstanceRef.current = term;
+
     term.open(containerRef.current);
     term.focus();
+    (window as any).__term = term;
 
     // Hook up keyboard input to SignalR
     const dataDisposable = term.onData((inputData) => {
       signalRService.sendTerminalInput(conversationId, inputData).catch(() => {});
     });
 
+    // Notify backend on terminal resize
+    const resizeDisposable = term.onResize(({ cols, rows }) => {
+      signalRService.resizeTerminal(conversationId, cols, rows).catch(() => {});
+    });
+
     // Handle incoming terminal chunks
     signalRService.onTerminalOutput = (payload) => {
       if (payload.conversationId.toLowerCase() === conversationId.toLowerCase()) {
-        term.write(payload.chunk);
+        (window as any).__chunksReceived = ((window as any).__chunksReceived || 0) + 1;
+        (window as any).__lastChunk = payload.chunk;
+        (window as any).__allOutput = ((window as any).__allOutput || '') + payload.chunk;
+        try {
+          term.write(payload.chunk);
+        } catch (err) {
+          console.error('[Terminal] write error:', err);
+        }
       }
     };
 
@@ -76,30 +101,75 @@ export const TerminalConsoleView: React.FC<TerminalConsoleViewProps> = ({
       }
     };
 
-    // Start session and request history buffer
-    signalRService.startTerminalSession(conversationId, workspacePath).catch(() => {});
-    signalRService.requestTerminalHistory(conversationId).catch(() => {});
+    // Initial fit and start session
+    const animId = requestAnimationFrame(() => {
+      signalRService.joinConversation(conversationId);
+      try {
+        fitAddon.fit();
+      } catch { }
+      const cols = term.cols > 0 ? term.cols : 120;
+      const rows = term.rows > 0 ? term.rows : 30;
+      signalRService.startTerminalSession(conversationId, workspacePath, cols, rows).catch(() => {});
+      signalRService.requestTerminalHistory(conversationId).catch(() => {});
+    });
 
     const handleResize = () => {
-      // In a full implementation fit addon handles geometry; basic auto-wrap handles output here
+      try {
+        fitAddon.fit();
+      } catch { }
     };
     window.addEventListener('resize', handleResize);
 
+    // ponytail: ResizeObserver guarantees terminal geometry syncs when tab or studio split view resizes
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        try {
+          fitAddon.fit();
+        } catch { }
+      });
+      resizeObserver.observe(containerRef.current);
+    }
+
     return () => {
+      cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
+      resizeObserver?.disconnect();
       dataDisposable.dispose();
+      resizeDisposable.dispose();
+      fitAddon.dispose();
       term.dispose();
       terminalInstanceRef.current = null;
+      fitAddonRef.current = null;
     };
   }, [conversationId, workspacePath]);
 
   const handleClear = () => {
+    (window as any).__allOutput = '';
     terminalInstanceRef.current?.clear();
   };
 
   const handleRestart = () => {
-    terminalInstanceRef.current?.clear();
-    signalRService.startTerminalSession(conversationId, workspacePath).catch(() => {});
+    (window as any).__allOutput = '';
+    const term = terminalInstanceRef.current;
+    if (term) {
+      // ponytail: reset() issues RIS (\x1bc) exiting Alternate Screen Buffer and resetting cursor coordinates
+      term.reset();
+      try {
+        fitAddonRef.current?.fit();
+      } catch { }
+      term.scrollToBottom();
+      term.focus();
+    }
+    const cols = term?.cols || 120;
+    const rows = term?.rows || 30;
+    signalRService.restartTerminalSession(conversationId, workspacePath, cols, rows)
+      .then(() => {
+        term?.focus();
+        term?.scrollToBottom();
+        signalRService.requestTerminalHistory(conversationId).catch(() => {});
+      })
+      .catch(() => {});
   };
 
   return (
@@ -152,7 +222,11 @@ export const TerminalConsoleView: React.FC<TerminalConsoleViewProps> = ({
       </div>
 
       {/* Embedded Terminal Container */}
-      <div className="terminal-canvas-wrapper" ref={containerRef} />
+      <div
+        className="terminal-canvas-wrapper"
+        ref={containerRef}
+        onClick={() => terminalInstanceRef.current?.focus()}
+      />
     </div>
   );
 };

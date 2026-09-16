@@ -31,6 +31,7 @@ public sealed class AgentHubHub(IPtySessionManager ptySessionManager) : Hub
     {
         if (Guid.TryParse(conversationId, out var id))
         {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{id}");
             var history = _ptySessionManager.GetRecentOutput(id);
             if (!string.IsNullOrEmpty(history))
             {
@@ -50,11 +51,30 @@ public sealed class AgentHubHub(IPtySessionManager ptySessionManager) : Hub
         }
     }
 
-    public async Task StartTerminalSession(string conversationId, string workspacePath)
+    public async Task StartTerminalSession(string conversationId, string workspacePath, int cols = 120, int rows = 30)
     {
         if (Guid.TryParse(conversationId, out var id))
         {
-            _ = await _ptySessionManager.GetOrCreateSessionAsync(id, workspacePath);
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{id}");
+            _ = await _ptySessionManager.GetOrCreateSessionAsync(id, workspacePath, cols, rows);
+        }
+    }
+
+    public async Task RestartTerminalSession(string conversationId, string workspacePath, int cols = 120, int rows = 30)
+    {
+        if (Guid.TryParse(conversationId, out var id))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{id}");
+            await _ptySessionManager.TerminateSessionAsync(id);
+            _ = await _ptySessionManager.GetOrCreateSessionAsync(id, workspacePath, cols, rows);
+        }
+    }
+
+    public async Task ResizeTerminal(string conversationId, int cols, int rows)
+    {
+        if (Guid.TryParse(conversationId, out var id))
+        {
+            await _ptySessionManager.ResizeSessionAsync(id, cols, rows);
         }
     }
 }

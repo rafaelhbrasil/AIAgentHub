@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { WorkspaceDto, FileTreeNode } from '../../types/workspace';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputBar } from './ChatInputBar';
@@ -81,12 +81,6 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
   });
 
   const [viewMode, setViewMode] = useState<'chat' | 'terminal'>('chat');
-
-  useEffect(() => {
-    if (activeConversation?.providerId === 'antigravity2') {
-      setViewMode('terminal');
-    }
-  }, [activeConversation?.providerId, activeConversation?.id]);
 
   const workspaceFiles = useMemo(() => extractFilePaths(treeData), [treeData]);
   const isSwitching = activeConversation?.status === ConversationStatus.SwitchingProvider || activeConversation?.status === 1;

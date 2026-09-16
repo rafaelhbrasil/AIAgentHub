@@ -108,7 +108,6 @@ public static class DependencyInjection
         });
         _ = services.AddSingleton<IPtySessionManager, PtySessionManager>();
         _ = services.AddSingleton<IProvider, AntigravityProvider>();
-        _ = services.AddSingleton<IProvider, AntigravityPtyProvider>();
         _ = services.AddSingleton<IProvider, GeminiCliProvider>();
         _ = services.AddSingleton<IProvider, CodexCliProvider>();
         _ = services.AddSingleton<IProvider, ClaudeCodeProvider>();

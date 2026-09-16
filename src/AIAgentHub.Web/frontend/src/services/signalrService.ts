@@ -148,9 +148,21 @@ export class SignalRService {
     }
   }
 
-  public async startTerminalSession(conversationId: string, workspacePath: string): Promise<void> {
+  public async startTerminalSession(conversationId: string, workspacePath: string, cols = 120, rows = 30): Promise<void> {
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
-      await this.connection.invoke('StartTerminalSession', conversationId, workspacePath);
+      await this.connection.invoke('StartTerminalSession', conversationId, workspacePath, cols, rows);
+    }
+  }
+
+  public async restartTerminalSession(conversationId: string, workspacePath: string, cols = 120, rows = 30): Promise<void> {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('RestartTerminalSession', conversationId, workspacePath, cols, rows);
+    }
+  }
+
+  public async resizeTerminal(conversationId: string, cols: number, rows: number): Promise<void> {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('ResizeTerminal', conversationId, cols, rows);
     }
   }
 

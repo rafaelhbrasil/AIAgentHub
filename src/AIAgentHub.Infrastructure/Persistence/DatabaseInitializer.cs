@@ -45,6 +45,13 @@ public sealed class DatabaseInitializer(AgentHubDbContext context, IServerSettin
         var needsSessionHealing = await _context.Conversations
             .AnyAsync(c => !string.IsNullOrEmpty(c.ProviderId) && !c.ProviderSessions.Any(), cancellationToken);
 
+        if (await _context.Conversations.AnyAsync(c => c.ProviderId == "antigravity2", cancellationToken))
+        {
+            _ = await _context.Conversations
+                .Where(c => c.ProviderId == "antigravity2")
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ProviderId, "antigravity"), cancellationToken);
+        }
+
         if (!needsMessageHealing && !needsSessionHealing)
         {
             return;

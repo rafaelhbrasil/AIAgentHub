@@ -1,14 +1,14 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
-using AIAgentHub.Application.Realtime;
 using AIAgentHub.Infrastructure.Providers;
 using AIAgentHub.Infrastructure.Realtime;
 
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+
+using Porta.Pty;
 
 namespace AIAgentHub.Infrastructure.Executors;
 
@@ -25,13 +25,14 @@ public sealed class PtySessionManager(
         public required Guid ConversationId { get; init; }
         public required string WorkspacePath { get; init; }
         public required string Executable { get; init; }
-        public required Process Process { get; init; }
+        public required IPtyConnection PtyConnection { get; init; }
         public required CancellationTokenSource Cts { get; init; }
         public StringBuilder OutputBuffer { get; } = new(16384);
         public DateTimeOffset StartedAtUtc { get; } = DateTimeOffset.UtcNow;
         public int? ThinkingTokens { get; set; }
         public string? ActiveBackgroundTask { get; set; }
         public string? CurrentTool { get; set; }
+        public bool HasExited { get; set; }
 
         public void AppendOutput(string chunk)
         {
@@ -64,21 +65,35 @@ public sealed class PtySessionManager(
 
             try
             {
-                if (!Process.HasExited)
+                if (PtyConnection.Pid > 0)
                 {
-                    Process.Kill(entireProcessTree: true);
+                    var proc = System.Diagnostics.Process.GetProcessById(PtyConnection.Pid);
+                    proc.Kill(entireProcessTree: true);
                 }
-                Process.Dispose();
+            }
+            catch { }
+
+            try
+            {
+                if (!HasExited)
+                {
+                    PtyConnection.Kill();
+                }
             }
             catch { }
         }
     }
 
-    public Task<PtySessionInfo> GetOrCreateSessionAsync(Guid conversationId, string workspacePath, CancellationToken cancellationToken = default)
+    public async Task<PtySessionInfo> GetOrCreateSessionAsync(
+        Guid conversationId,
+        string workspacePath,
+        int cols = 120,
+        int rows = 30,
+        CancellationToken cancellationToken = default)
     {
-        if (_sessions.TryGetValue(conversationId, out var existing) && !existing.Process.HasExited)
+        if (_sessions.TryGetValue(conversationId, out var existing) && !existing.HasExited)
         {
-            return Task.FromResult(new PtySessionInfo(
+            return new PtySessionInfo(
                 existing.ConversationId,
                 existing.Executable,
                 existing.WorkspacePath,
@@ -86,106 +101,120 @@ public sealed class PtySessionManager(
                 existing.StartedAtUtc,
                 existing.ThinkingTokens,
                 existing.ActiveBackgroundTask,
-                existing.CurrentTool));
+                existing.CurrentTool);
         }
 
-        // Clean up dead session if present
         if (existing != null)
         {
             _ = _sessions.TryRemove(conversationId, out _);
             existing.Dispose();
         }
 
-        var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
-
-        var startInfo = new ProcessStartInfo
+        string shellExe;
+        string[] args;
+        if (OperatingSystem.IsWindows())
         {
-            FileName = shellExe,
-            Arguments = "-NoLogo -NoExit -ExecutionPolicy Bypass",
-            WorkingDirectory = Directory.Exists(workspacePath) ? workspacePath : Directory.GetCurrentDirectory(),
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden
+            shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
+            args = ["-NoLogo"];
+        }
+        else
+        {
+            shellExe = Environment.GetEnvironmentVariable("SHELL") ?? "/bin/bash";
+            args = ["-l"];
+        }
+
+        var env = new Dictionary<string, string>();
+        foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            if (entry.Key is string k && entry.Value is string v)
+            {
+                env[k] = v;
+            }
+        }
+        env["TERM"] = "xterm-256color";
+        env["COLORTERM"] = "truecolor";
+
+        var targetDir = Directory.Exists(workspacePath) ? workspacePath : Directory.GetCurrentDirectory();
+        var options = new PtyOptions
+        {
+            App = shellExe,
+            CommandLine = args,
+            Cwd = targetDir,
+            Cols = cols > 0 ? cols : 120,
+            Rows = rows > 0 ? rows : 30,
+            Environment = env
         };
 
         var cts = new CancellationTokenSource();
-        var process = new Process { StartInfo = startInfo };
-
+        IPtyConnection pty;
         try
         {
-            _ = process.Start();
+            pty = await PtyProvider.SpawnAsync(options, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to launch interactive shell for conversation {ConversationId}", conversationId);
+            _logger.LogError(ex, "Failed to spawn PTY session for conversation {ConversationId}", conversationId);
             throw;
         }
 
         var session = new ActiveSession
         {
             ConversationId = conversationId,
-            WorkspacePath = workspacePath,
+            WorkspacePath = targetDir,
             Executable = Path.GetFileName(shellExe),
-            Process = process,
+            PtyConnection = pty,
             Cts = cts
+        };
+
+        pty.ProcessExited += (_, e) =>
+        {
+            session.HasExited = true;
+            _logger.LogInformation("PTY process exited for conversation {ConversationId} with exit code {ExitCode}", conversationId, e.ExitCode);
         };
 
         _sessions[conversationId] = session;
 
-        // Configure UTF-8 encoding in PowerShell immediately
-        try
-        {
-            process.StandardInput.WriteLine("[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8");
-            process.StandardInput.Flush();
-        }
-        catch { }
+        // Background reader
+        _ = Task.Run(() => ReadPtyStreamAsync(session, pty.ReaderStream, cts.Token), CancellationToken.None);
 
-        // Initial banner
-        var banner = $"\u001b[36m=== AI Agent Hub — Antigravity 2.0 (PTY Console) ===\u001b[0m\r\n\u001b[90mWorkspace: {workspacePath}\u001b[0m\r\n\u001b[90mShell: {Path.GetFileName(shellExe)} | Session: {conversationId}\u001b[0m\r\n\r\n";
-        session.AppendOutput(banner);
-        _ = BroadcastTerminalChunkAsync(conversationId, banner);
-
-        // Start background stdout and stderr reading
-        _ = Task.Run(() => ReadStreamAsync(session, process.StandardOutput, cts.Token), CancellationToken.None);
-        _ = Task.Run(() => ReadStreamAsync(session, process.StandardError, cts.Token), CancellationToken.None);
-
-        return Task.FromResult(new PtySessionInfo(
+        return new PtySessionInfo(
             session.ConversationId,
             session.Executable,
             session.WorkspacePath,
             true,
-            session.StartedAtUtc));
+            session.StartedAtUtc);
     }
 
-    private async Task ReadStreamAsync(ActiveSession session, StreamReader reader, CancellationToken ct)
+    private async Task ReadPtyStreamAsync(ActiveSession session, Stream readerStream, CancellationToken ct)
     {
-        var buffer = new char[1024];
+        var buffer = new byte[4096];
+        var charBuffer = new char[4096];
+        // ponytail: UTF-8 decoder preserves incomplete multi-byte sequences across stream reads
+        var decoder = Encoding.UTF8.GetDecoder();
         try
         {
-            while (!ct.IsCancellationRequested && !session.Process.HasExited)
+            while (!ct.IsCancellationRequested && !session.HasExited)
             {
-                var read = await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+                var read = await readerStream.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false);
                 if (read <= 0) break;
 
-                var chunk = new string(buffer, 0, read);
+                var charsDecoded = decoder.GetChars(buffer, 0, read, charBuffer, 0, flush: false);
+                if (charsDecoded <= 0) continue;
+
+                var chunk = new string(charBuffer, 0, charsDecoded);
                 session.AppendOutput(chunk);
 
-                // Broadcast raw terminal chunk to SignalR
+                _logger.LogInformation("PTY read {Count}b for {ConvId}: {Preview}", read, session.ConversationId, chunk.Length > 80 ? chunk[..80].Replace("\r", "\\r").Replace("\n", "\\n") : chunk.Replace("\r", "\\r").Replace("\n", "\\n"));
+
                 await BroadcastTerminalChunkAsync(session.ConversationId, chunk).ConfigureAwait(false);
 
-                // Parse stream chunk for reasoning tokens, tools, and background tasks
                 InspectChunkForMetrics(session, chunk);
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Stream reading ended for conversation {ConversationId}", session.ConversationId);
+            _logger.LogDebug(ex, "PTY stream reading ended for conversation {ConversationId}", session.ConversationId);
         }
     }
 
@@ -193,29 +222,30 @@ public sealed class PtySessionManager(
     {
         var updated = false;
 
-        // 1. Check for thinking tokens (e.g., thinking_tokens: 66, or "thinking tokens")
-        var thinkingMatch = Regex.Match(chunk, @"(?:thinking_tokens["":\s]+|thinking[_\s]tokens[:\s]+)(\d+)", RegexOptions.IgnoreCase);
-        if (thinkingMatch.Success && int.TryParse(thinkingMatch.Groups[1].Value, out var tokens))
+        try
         {
-            session.ThinkingTokens = tokens;
-            updated = true;
-        }
+            var thinkingMatch = Regex.Match(chunk, @"(?:thinking_tokens["":\s]+|thinking[_\s]tokens[:\s]+)(\d+)", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50));
+            if (thinkingMatch.Success && int.TryParse(thinkingMatch.Groups[1].Value, out var tokens))
+            {
+                session.ThinkingTokens = tokens;
+                updated = true;
+            }
 
-        // 2. Check for background tasks running (e.g., [18:15:02] dotnet run ... running or task(s) · /tasks)
-        var bgMatch = Regex.Match(chunk, @"(\[\d{2}:\d{2}:\d{2}\]\s*.+?\s+running|\b\d+\s+task\(s\)\b|\bdotnet run.+running\b)", RegexOptions.IgnoreCase);
-        if (bgMatch.Success)
-        {
-            session.ActiveBackgroundTask = bgMatch.Groups[1].Value.Trim();
-            updated = true;
-        }
+            var bgMatch = Regex.Match(chunk, @"(\[\d{2}:\d{2}:\d{2}\]\s*.+?\s+running|\b\d+\s+task\(s\)\b|\bdotnet run.+running\b)", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50));
+            if (bgMatch.Success)
+            {
+                session.ActiveBackgroundTask = bgMatch.Groups[1].Value.Trim();
+                updated = true;
+            }
 
-        // 3. Check for tool execution
-        var toolMatch = Regex.Match(chunk, @"(?:Executing|Running tool|Tool:)\s*([A-Za-z0-9_]+)", RegexOptions.IgnoreCase);
-        if (toolMatch.Success)
-        {
-            session.CurrentTool = toolMatch.Groups[1].Value;
-            updated = true;
+            var toolMatch = Regex.Match(chunk, @"(?:Executing|Running tool|Tool:)\s*([A-Za-z0-9_]+)", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50));
+            if (toolMatch.Success)
+            {
+                session.CurrentTool = toolMatch.Groups[1].Value;
+                updated = true;
+            }
         }
+        catch (RegexMatchTimeoutException) { }
 
         if (updated)
         {
@@ -253,21 +283,44 @@ public sealed class PtySessionManager(
 
     public async Task SendInputAsync(Guid conversationId, string input, CancellationToken cancellationToken = default)
     {
-        if (!_sessions.TryGetValue(conversationId, out var session) || session.Process.HasExited)
+        if (!_sessions.TryGetValue(conversationId, out var session) || session.HasExited)
         {
             _logger.LogWarning("Cannot send input: no active PTY session for conversation {ConversationId}", conversationId);
             return;
         }
 
+        _logger.LogInformation("PTY sendInput for {ConvId}: {Input}", conversationId, input.Replace("\r", "\\r").Replace("\n", "\\n"));
+
         try
         {
-            await session.Process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken);
-            await session.Process.StandardInput.FlushAsync(cancellationToken);
+            var bytes = Encoding.UTF8.GetBytes(input);
+            await session.PtyConnection.WriterStream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+            await session.PtyConnection.WriterStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to write input to PTY process for conversation {ConversationId}", conversationId);
+            _logger.LogError(ex, "Failed to write input to PTY for conversation {ConversationId}", conversationId);
         }
+    }
+
+    public Task ResizeSessionAsync(Guid conversationId, int cols, int rows, CancellationToken cancellationToken = default)
+    {
+        if (_sessions.TryGetValue(conversationId, out var session) && !session.HasExited)
+        {
+            _logger.LogInformation("PTY resize for {ConvId}: {Cols}x{Rows}", conversationId, cols, rows);
+            try
+            {
+                if (cols > 0 && rows > 0)
+                {
+                    session.PtyConnection.Resize(cols, rows);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to resize PTY session for conversation {ConversationId}", conversationId);
+            }
+        }
+        return Task.CompletedTask;
     }
 
     public Task TerminateSessionAsync(Guid conversationId, CancellationToken cancellationToken = default)
@@ -289,7 +342,7 @@ public sealed class PtySessionManager(
 
     public PtySessionInfo? GetSessionInfo(Guid conversationId)
     {
-        if (_sessions.TryGetValue(conversationId, out var session) && !session.Process.HasExited)
+        if (_sessions.TryGetValue(conversationId, out var session) && !session.HasExited)
         {
             return new PtySessionInfo(
                 session.ConversationId,
@@ -306,7 +359,7 @@ public sealed class PtySessionManager(
 
     public bool HasActiveSession(Guid conversationId)
     {
-        return _sessions.TryGetValue(conversationId, out var session) && !session.Process.HasExited;
+        return _sessions.TryGetValue(conversationId, out var session) && !session.HasExited;
     }
 
     public ValueTask DisposeAsync()
