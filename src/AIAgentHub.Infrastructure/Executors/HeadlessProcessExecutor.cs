@@ -18,9 +18,13 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         IPromptLogger promptLogger,
         CliExecutionOptions options)
     {
-        EnsureWindowsPlatform(nameof(HeadlessProcessExecutor));
-
         var exePath = ResolveExecutablePath(executableName);
+        if (OperatingSystem.IsWindows() && exePath.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+        {
+            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
+            arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{exePath}\" {arguments}";
+            exePath = shellExe;
+        }
 
         var startInfo = CreateStartInfo(
             exePath,
@@ -60,11 +64,14 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
             try { processScope.StandardInput.Close(); } catch { }
         }
 
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(timeoutMinutes));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, timeoutCts.Token);
+
         var readOutputTask = Task.Run(async () =>
         {
             await processScope.StandardOutput.StreamChunksAsync(
                 async chunk => await context.OnStreamToken(chunk),
-                CancellationToken.None,
+                linkedCts.Token,
                 512);
         });
 
@@ -79,7 +86,7 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
                         await context.OnStreamToken(cleanChunk);
                     }
                 },
-                CancellationToken.None,
+                linkedCts.Token,
                 512);
         });
 
@@ -123,9 +130,6 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
             }
         });
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(timeoutMinutes));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, timeoutCts.Token);
-
         try
         {
             await processScope.WaitForExitAsync(linkedCts.Token);
@@ -163,8 +167,13 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         CancellationToken cancellationToken = default,
         string? operationTitle = null)
     {
-        EnsureWindowsPlatform(nameof(HeadlessProcessExecutor));
         var exePath = ResolveExecutablePath(executable);
+        if (OperatingSystem.IsWindows() && exePath.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+        {
+            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
+            arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{exePath}\" {arguments}";
+            exePath = shellExe;
+        }
 
         var startInfo = CreateStartInfo(
             fileName: exePath,

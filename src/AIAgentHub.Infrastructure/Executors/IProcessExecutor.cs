@@ -86,12 +86,9 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         return false;
     }
 
+    [Obsolete("Process execution is now supported cross-platform (Windows, Linux, macOS).")]
     protected virtual void EnsureWindowsPlatform(string executorTypeName)
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new NotImplementedException($"{executorTypeName} is not supported on non-Windows operating systems yet.");
-        }
     }
 
     protected virtual string ResolveExecutablePath(string executableName) => CliProviderBase.FindExecutable(executableName) ?? executableName;

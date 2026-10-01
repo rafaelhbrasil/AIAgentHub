@@ -20,44 +20,39 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
         CancellationToken cancellationToken = default,
         string? operationTitle = null)
     {
-        EnsureWindowsPlatform(nameof(HeadedProcessExecutor));
         var exePath = ResolveExecutablePath(executable);
+        var isWindows = OperatingSystem.IsWindows();
+        var scriptExt = isWindows ? ".ps1" : ".sh";
 
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLogs");
         _ = Directory.CreateDirectory(tempFolder);
         var logFilePath = Path.Combine(tempFolder, $"cmd_{Guid.NewGuid():N}.log");
-        var runnerScriptPath = Path.Combine(tempFolder, $"cmd_run_{Guid.NewGuid():N}.ps1");
+        var runnerScriptPath = Path.Combine(tempFolder, $"cmd_run_{Guid.NewGuid():N}{scriptExt}");
 
         using var process = new Process();
         try
         {
-            var escapedRunnerScriptPath = runnerScriptPath.Replace("'", "''");
-            var escapedLogFilePath = logFilePath.Replace("'", "''");
+            var autoCloseScript = BuildAutoCloseScript(autoCloseDelay: 0, isWindows, isSession: false);
 
-            var autoCloseDelay = _options?.Value?.HeadedAutoCloseDelaySeconds ?? 0;
-            var autoCloseScript = autoCloseDelay >= 0
-                ? (autoCloseDelay > 0
-                    ? $"\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green; Write-Host 'Window will close in {autoCloseDelay}s...' -ForegroundColor DarkGray; Start-Sleep -Seconds {autoCloseDelay}; [System.Environment]::Exit($LASTEXITCODE)\r\n"
-                    : "\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green; [System.Environment]::Exit($LASTEXITCODE)\r\n")
-                : "\r\nWrite-Host \"`n=== [AI Agent Hub] Command Finished ===\" -ForegroundColor Green\r\n";
-
-            var escapedExeForPs = exePath.Replace("'", "''");
-
-            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; & '{escapedExeForPs}' {arguments} 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
+            var runnerContent = isWindows
+                ? BuildWindowsRunnerScript(exePath, arguments, logFilePath, autoCloseScript)
+                : BuildLinuxRunnerScript(exePath, arguments, logFilePath, autoCloseScript).Replace("\r\n", "\n");
             File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
+            if (!isWindows)
+            {
+                try { File.SetUnixFileMode(runnerScriptPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); } catch { }
+            }
 
             var title = operationTitle ?? $"{executable} — {arguments}";
-            var psArguments = $"-NoExit -ExecutionPolicy Bypass -Command \"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $Host.UI.RawUI.WindowTitle = 'AI Agent Hub — {title}'; Write-Host '=== [AI Agent Hub] Command: {title} ===' -ForegroundColor Cyan; & '{escapedRunnerScriptPath}'\"";
-
-            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
-
-            process.StartInfo = CreateStartInfo(
-                fileName: shellExe,
-                arguments: psArguments,
-                workingDirectory: workingDirectory ?? "",
-                useShellExecute: true,
-                createNoWindow: false,
-                windowStyle: ProcessWindowStyle.Normal);
+            process.StartInfo = isWindows
+                ? CreateWindowsStartInfo(runnerScriptPath, workingDirectory ?? "", title)
+                : CreateStartInfo(
+                    fileName: "/bin/bash",
+                    arguments: $"\"{runnerScriptPath}\"",
+                    workingDirectory: workingDirectory ?? "",
+                    useShellExecute: false,
+                    createNoWindow: true,
+                    windowStyle: ProcessWindowStyle.Hidden);
 
             _ = process.Start();
             await process.WaitForExitAsync(cancellationToken);
@@ -92,42 +87,32 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
         IPromptLogger promptLogger,
         CliExecutionOptions options)
     {
-        EnsureWindowsPlatform(nameof(HeadedProcessExecutor));
-
         var exePath = ResolveExecutablePath(executableName);
+        var isWindows = OperatingSystem.IsWindows();
+        var scriptExt = isWindows ? ".ps1" : ".sh";
+
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLogs");
         _ = Directory.CreateDirectory(tempFolder);
         var logFilePath = Path.Combine(tempFolder, $"stream_{context.ConversationId:N}_{Guid.NewGuid():N}.log");
-        var runnerScriptPath = Path.Combine(tempFolder, $"run_{context.ConversationId:N}_{Guid.NewGuid():N}.ps1");
+        var runnerScriptPath = Path.Combine(tempFolder, $"run_{context.ConversationId:N}_{Guid.NewGuid():N}{scriptExt}");
+        var doneFilePath = Path.Combine(tempFolder, $"done_{context.ConversationId:N}_{Guid.NewGuid():N}.flag");
 
         try
         {
-            var escapedRunnerScriptPath = runnerScriptPath.Replace("'", "''");
-            var escapedLogFilePath = logFilePath.Replace("'", "''");
+            var autoCloseScript = BuildAutoCloseScript(options.HeadedAutoCloseDelaySeconds, isWindows, isSession: true);
 
-            // Write temporary PowerShell runner script that writes to console and appends immediately to log file
-            var autoCloseScript = options.HeadedAutoCloseDelaySeconds >= 0
-                ? (options.HeadedAutoCloseDelaySeconds > 0
-                    ? $"\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green; Write-Host 'Window will close in {options.HeadedAutoCloseDelaySeconds}s...' -ForegroundColor DarkGray; Start-Sleep -Seconds {options.HeadedAutoCloseDelaySeconds}; [System.Environment]::Exit(0)\r\n"
-                    : "\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green; [System.Environment]::Exit(0)\r\n")
-                : "\r\nWrite-Host \"`n=== [AI Agent Hub] Session Finished ===\" -ForegroundColor Green\r\n";
-
-            var escapedExeForPs = exePath.Replace("'", "''");
-
-            var runnerContent = $"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; & '{escapedExeForPs}' {arguments} 2>&1 | ForEach-Object {{ Write-Host $_; [System.IO.File]::AppendAllText('{escapedLogFilePath}', \"$_`r`n\", [System.Text.Encoding]::UTF8) }}{autoCloseScript}\r\n";
+            var runnerContent = isWindows
+                ? BuildWindowsRunnerScript(exePath, arguments, logFilePath, autoCloseScript)
+                : BuildLinuxRunnerScript(exePath, arguments, logFilePath, autoCloseScript, doneFilePath).Replace("\r\n", "\n");
             File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
+            if (!isWindows)
+            {
+                try { File.SetUnixFileMode(runnerScriptPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); } catch { }
+            }
 
-            var psArguments = $"-NoExit -ExecutionPolicy Bypass -Command \"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $Host.UI.RawUI.WindowTitle = 'AI Agent Hub — {displayName}'; Write-Host '=== [AI Agent Hub] Active Session: {displayName} ===' -ForegroundColor Cyan; & '{escapedRunnerScriptPath}'\"";
-
-            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
-
-            var psStartInfo = CreateStartInfo(
-                fileName: shellExe,
-                arguments: psArguments,
-                workingDirectory: context.WorkspacePath,
-                useShellExecute: true,
-                createNoWindow: false,
-                windowStyle: ProcessWindowStyle.Normal);
+            var startInfo = isWindows
+                ? CreateWindowsStartInfo(runnerScriptPath, context.WorkspacePath, displayName)
+                : CreateLinuxStartInfo(runnerScriptPath, context.WorkspacePath, displayName);
 
             LogPrompt(
                 promptLogger,
@@ -136,9 +121,10 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
                 $"\"{exePath}\" {arguments}",
                 context.Prompt?.Length ?? 0);
 
-            await context.OnStreamToken($"[{displayName}] External PowerShell session launched on desktop.\n\n");
+            var platformSession = isWindows ? "PowerShell" : "terminal";
+            await context.OnStreamToken($"[{displayName}] External {platformSession} session launched on desktop.\n\n");
 
-            using var processScope = StartProcess(psStartInfo, context.ConversationId);
+            using var processScope = StartProcess(startInfo, context.ConversationId);
 
             using var tailCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
             var tailTask = StreamLogFileAsync(logFilePath, context, tailCts.Token);
@@ -148,6 +134,14 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
                 try
                 {
                     await processScope.WaitForExitAsync(context.CancellationToken);
+
+                    if (!isWindows && !File.Exists(doneFilePath))
+                    {
+                        while (!File.Exists(doneFilePath) && !context.CancellationToken.IsCancellationRequested)
+                        {
+                            await Task.Delay(100, context.CancellationToken);
+                        }
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -171,23 +165,9 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
         }
         finally
         {
-            try
-            {
-                if (File.Exists(logFilePath))
-                {
-                    File.Delete(logFilePath);
-                }
-            }
-            catch { }
-
-            try
-            {
-                if (File.Exists(runnerScriptPath))
-                {
-                    File.Delete(runnerScriptPath);
-                }
-            }
-            catch { }
+            try { if (File.Exists(logFilePath)) { File.Delete(logFilePath); } } catch { }
+            try { if (File.Exists(runnerScriptPath)) { File.Delete(runnerScriptPath); } } catch { }
+            try { if (File.Exists(doneFilePath)) { File.Delete(doneFilePath); } } catch { }
         }
     }
 
@@ -251,4 +231,163 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
             catch { }
         }
     }
+
+    private static ProcessStartInfo CreateWindowsStartInfo(string runnerScriptPath, string workingDirectory, string title)
+    {
+        var escapedRunnerScriptPath = runnerScriptPath.Replace("'", "''");
+        var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
+        var psArguments = $"-NoExit -ExecutionPolicy Bypass -Command \"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; $Host.UI.RawUI.WindowTitle = 'AI Agent Hub — {title}'; Write-Host '=== [AI Agent Hub] Active Session: {title} ===' -ForegroundColor Cyan; & '{escapedRunnerScriptPath}'\"";
+
+        return CreateStartInfo(
+            fileName: shellExe,
+            arguments: psArguments,
+            workingDirectory: workingDirectory,
+            useShellExecute: true,
+            createNoWindow: false,
+            windowStyle: ProcessWindowStyle.Normal);
+    }
+
+    private static ProcessStartInfo CreateLinuxStartInfo(string runnerScriptPath, string workingDirectory, string title)
+    {
+        var isWsl = !OperatingSystem.IsWindows() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WSL_DISTRO_NAME"));
+        if (isWsl)
+        {
+            var distro = Environment.GetEnvironmentVariable("WSL_DISTRO_NAME");
+            var distroArg = string.IsNullOrEmpty(distro) ? "" : $"-d {distro} ";
+            var cmd = CliProviderBase.FindExecutable("cmd.exe");
+            if (!string.IsNullOrEmpty(cmd))
+            {
+                return CreateStartInfo(
+                    fileName: cmd,
+                    arguments: $"/c start \"AI Agent Hub — {title}\" wsl.exe {distroArg}-e /bin/bash \"{runnerScriptPath}\"",
+                    workingDirectory: workingDirectory,
+                    useShellExecute: false,
+                    createNoWindow: false,
+                    windowStyle: ProcessWindowStyle.Normal);
+            }
+        }
+
+        var term = CliProviderBase.FindExecutable("x-terminal-emulator")
+            ?? CliProviderBase.FindExecutable("gnome-terminal")
+            ?? CliProviderBase.FindExecutable("konsole")
+            ?? CliProviderBase.FindExecutable("xfce4-terminal")
+            ?? CliProviderBase.FindExecutable("xterm");
+
+        if (!string.IsNullOrEmpty(term))
+        {
+            var termName = Path.GetFileName(term).ToLowerInvariant();
+            var termArgs = termName switch
+            {
+                "gnome-terminal" => $"--title=\"AI Agent Hub — {title}\" -- /bin/bash \"{runnerScriptPath}\"",
+                _ => $"-T \"AI Agent Hub — {title}\" -e /bin/bash \"{runnerScriptPath}\""
+            };
+
+            return CreateStartInfo(
+                fileName: term,
+                arguments: termArgs,
+                workingDirectory: workingDirectory,
+                useShellExecute: false,
+                createNoWindow: false,
+                windowStyle: ProcessWindowStyle.Normal);
+        }
+
+        return CreateStartInfo(
+            fileName: "/bin/bash",
+            arguments: $"\"{runnerScriptPath}\"",
+            workingDirectory: workingDirectory,
+            useShellExecute: false,
+            createNoWindow: false,
+            windowStyle: ProcessWindowStyle.Normal);
+    }
+
+    private static string BuildAutoCloseScript(int autoCloseDelay, bool isWindows, bool isSession)
+    {
+        var banner = isSession ? "Session Finished" : "Command Finished";
+        if (isWindows)
+        {
+            return autoCloseDelay >= 0
+                ? (autoCloseDelay > 0
+                    ? $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green; Write-Host 'Window will close in {autoCloseDelay}s...' -ForegroundColor DarkGray; Start-Sleep -Seconds {autoCloseDelay}; [System.Environment]::Exit($exitCode)\r\n"
+                    : $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green; [System.Environment]::Exit($exitCode)\r\n")
+                : $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green\r\n";
+        }
+
+        return autoCloseDelay >= 0
+            ? (autoCloseDelay > 0
+                ? $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\necho \"Window will close in {autoCloseDelay}s...\"\nsleep {autoCloseDelay}\nexit $EXIT_CODE\n"
+                : $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\nexit $EXIT_CODE\n")
+            : $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\nexit $EXIT_CODE\n";
+    }
+
+    private static string BuildWindowsRunnerScript(string exePath, string arguments, string logFilePath, string autoCloseScript)
+    {
+        var escapedExeForPs = exePath.Replace("'", "''");
+        var escapedLogFilePath = logFilePath.Replace("'", "''");
+        var escapedArgsForPs = arguments.Replace("'", "''");
+
+        return $$"""
+            [Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8;
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = 'cmd.exe'
+            $psi.Arguments = '/c ""' + '{{escapedExeForPs}}' + '" ' + '{{escapedArgsForPs}}' + ' > "' + '{{escapedLogFilePath}}' + '" 2>&1"'
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow = $true
+            $p = [System.Diagnostics.Process]::Start($psi)
+
+            $attempts = 0
+            while (-not (Test-Path '{{escapedLogFilePath}}') -and $attempts -lt 50) {
+                [System.Threading.Thread]::Sleep(20)
+                $attempts++
+            }
+
+            if (Test-Path '{{escapedLogFilePath}}') {
+                $fs = [System.IO.File]::Open('{{escapedLogFilePath}}', [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+                $sr = New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::UTF8)
+
+                while (-not $p.HasExited) {
+                    while (($line = $sr.ReadLine()) -ne $null) {
+                        [System.Console]::WriteLine($line)
+                    }
+                    [System.Threading.Thread]::Sleep(50)
+                }
+
+                $p.WaitForExit()
+
+                while (($line = $sr.ReadLine()) -ne $null) {
+                    [System.Console]::WriteLine($line)
+                }
+                $sr.Dispose()
+                $fs.Dispose()
+            } else {
+                $p.WaitForExit()
+            }
+            $exitCode = $p.ExitCode
+            {{autoCloseScript}}
+            """;
+    }
+
+    private static string BuildLinuxRunnerScript(string exePath, string arguments, string logFilePath, string autoCloseScript, string? doneFilePath = null)
+    {
+        var trapDone = string.IsNullOrEmpty(doneFilePath)
+            ? ""
+            : $"trap 'EXIT_CODE=$?; echo \"$EXIT_CODE\" > \"{doneFilePath}\"' EXIT\n";
+
+        return $$"""
+            #!/usr/bin/env bash
+            LOG_FILE="{{logFilePath}}"
+            touch "$LOG_FILE"
+            {{trapDone}}
+            # Launch command in background and redirect output to log file
+            "{{exePath}}" {{arguments}} > "$LOG_FILE" 2>&1 &
+            CLI_PID=$!
+
+            # Tail log file bound to CLI process lifetime starting from line 1
+            tail -n +1 --pid="$CLI_PID" -f "$LOG_FILE"
+            wait "$CLI_PID"
+            EXIT_CODE=$?
+            {{autoCloseScript}}
+            exit $EXIT_CODE
+            """;
+    }
 }
+

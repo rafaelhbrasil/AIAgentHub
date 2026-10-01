@@ -69,9 +69,67 @@ public sealed class GitHubCopilotProvider(
         }
     }
 
+    public const string DetachedExecutionInstruction =
+        "[Instructions: When running any web application, dev server, dotnet project, or long-running service, always launch it as a detached background process using PowerShell (e.g. Start-Process -FilePath 'dotnet' -ArgumentList 'run' -WindowStyle Hidden) so the shell command exits immediately without blocking.]";
+
+    public IReadOnlyList<string> GetDetachedExecutionTriggerWords()
+    {
+        var globalWords = GetExecutionOptions().DetachedExecutionTriggerWords;
+        var providerWords = GetConfig()?.DetachedExecutionTriggerWords;
+
+        var merged = new List<string>();
+        if (globalWords != null)
+        {
+            merged.AddRange(globalWords);
+        }
+
+        if (providerWords != null)
+        {
+            merged.AddRange(providerWords);
+        }
+
+        return merged
+            .Where(w => !string.IsNullOrWhiteSpace(w))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public static bool ShouldInjectDetachedExecutionInstruction(string prompt, IEnumerable<string> triggerWords)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return false;
+        }
+
+        if (prompt.Contains("detached background process", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var words = triggerWords
+            .Where(w => !string.IsNullOrWhiteSpace(w))
+            .Select(w => Regex.Escape(w.Trim()))
+            .ToList();
+
+        if (words.Count == 0)
+        {
+            return false;
+        }
+
+        var pattern = $@"\b(?:{string.Join("|", words)})\b";
+        return Regex.IsMatch(prompt, pattern, RegexOptions.IgnoreCase);
+    }
+
     public override string BuildArguments(ProviderExecutionContext context)
     {
-        var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
+        var prompt = context.Prompt;
+        var triggerWords = GetDetachedExecutionTriggerWords();
+        if (ShouldInjectDetachedExecutionInstruction(prompt, triggerWords))
+        {
+            prompt = $"{DetachedExecutionInstruction} {prompt}";
+        }
+
+        var escapedPrompt = prompt.Replace("\"", "\\\"");
         var escapedWorkspace = context.WorkspacePath.Replace("\"", "\\\"");
 
         var sessionArg = !string.IsNullOrWhiteSpace(context.ProviderSessionId)

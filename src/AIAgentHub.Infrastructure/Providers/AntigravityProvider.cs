@@ -114,10 +114,10 @@ public sealed class AntigravityProvider(
         var logArg = !string.IsNullOrWhiteSpace(logFilePath)
             ? FormatFlag("--log-file", logFilePath)
             : string.Empty;
-        var timeoutMinutes = GetExecutionOptions().TimeoutMinutes > 0 ? GetExecutionOptions().TimeoutMinutes : 10;
-        var timeoutArg = $" --print-timeout \"{timeoutMinutes}m\"";
 
-        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}{logArg}{timeoutArg}";
+        // Omit --print-timeout so agy defaults to 0s (wait only for first turn to finish),
+        // preventing it from blocking on background tasks (e.g., dev servers) after the prompt turn finishes.
+        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}{logArg}";
     }
 
     public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);

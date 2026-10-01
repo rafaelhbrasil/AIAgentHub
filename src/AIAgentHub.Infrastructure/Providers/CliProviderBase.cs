@@ -455,9 +455,10 @@ public abstract class CliProviderBase(
 
     public static string? FindExecutable(string name)
     {
+        var isWsl = !OperatingSystem.IsWindows() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WSL_DISTRO_NAME"));
         var extensions = OperatingSystem.IsWindows()
             ? (Environment.GetEnvironmentVariable("PATHEXT") ?? ".EXE;.CMD;.BAT").Split(';')
-            : [""];
+            : (isWsl ? ["", ".exe", ".EXE", ".cmd", ".bat"] : [""]);
 
         var searchDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

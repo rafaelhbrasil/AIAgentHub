@@ -180,4 +180,90 @@ public sealed class GitHubCopilotProviderTests
 
         Assert.Equal(context.ConversationId.ToString(), capturedSessionId);
     }
+
+    [Theory]
+    [InlineData("Please run the application in the background", true)]
+    [InlineData("Start the web server and test endpoints", true)]
+    [InlineData("Launch the calc project", true)]
+    [InlineData("Listen on port 5050 and host the api", true)]
+    [InlineData("Serve the client application", true)]
+    [InlineData("Run the tests", true)]
+    [InlineData("Refactor the authentication service", false)]
+    [InlineData("Explain how this function works", false)]
+    [InlineData("Fix the typo in README.md", false)]
+    public void GitHubCopilotProvider_ShouldInjectDetachedExecutionInstruction_GatingWorks(string prompt, bool expected)
+    {
+        var triggerWords = new[] { "run", "start", "launch", "serve", "server", "host", "daemon", "listen", "up", "project", "calc", "web" };
+        var actual = GitHubCopilotProvider.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_ShouldInjectDetachedExecutionInstruction_DoesNotDuplicateIfAlreadyPresent()
+    {
+        var prompt = $"{GitHubCopilotProvider.DetachedExecutionInstruction} run the app";
+        var triggerWords = new[] { "run" };
+        var actual = GitHubCopilotProvider.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
+        Assert.False(actual);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_BuildArguments_WithTriggerWord_InjectsDetachedExecutionInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new GitHubCopilotProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Please run the application in the background");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains(GitHubCopilotProvider.DetachedExecutionInstruction, args);
+        Assert.Contains("Please run the application in the background", args);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_BuildArguments_WithoutTriggerWord_DoesNotInjectedInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new GitHubCopilotProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Explain the structure of this code");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.DoesNotContain(GitHubCopilotProvider.DetachedExecutionInstruction, args);
+        Assert.Contains("-p \"Explain the structure of this code\"", args);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_GetDetachedExecutionTriggerWords_MergesGlobalAndProviderOverrides()
+    {
+        var globalOpts = Options.Create(new CliExecutionOptions
+        {
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+
+        var providerSettings = new ProvidersOptions
+        {
+            ["copilot"] = new ProviderSettingsOptions
+            {
+                DetachedExecutionTriggerWords = ["customtrigger", "START"]
+            }
+        };
+        var providersOpts = Options.Create(providerSettings);
+
+        var provider = new GitHubCopilotProvider(globalOpts, _promptLogger, _executor, providersOpts);
+        var words = provider.GetDetachedExecutionTriggerWords();
+
+        Assert.Contains("run", words);
+        Assert.Contains("start", words, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("customtrigger", words);
+        Assert.Equal(3, words.Count); // "start" and "START" deduplicated
+    }
 }

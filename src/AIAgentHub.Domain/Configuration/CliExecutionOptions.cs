@@ -9,4 +9,5 @@ public sealed class CliExecutionOptions
     public int HeartbeatIntervalSeconds { get; set; } = 60;
     public bool AutoResumeOnTimeout { get; set; } = true;
     public int MaxAutoResumes { get; set; } = 2;
+    public List<string> DetachedExecutionTriggerWords { get; set; } = []; //default is never trigger by keyword
 }

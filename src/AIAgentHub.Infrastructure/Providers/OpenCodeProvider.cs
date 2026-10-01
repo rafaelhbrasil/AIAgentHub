@@ -33,6 +33,7 @@ public sealed class OpenCodeProvider(
 
     public override async Task ExecuteAsync(ProviderExecutionContext context)
     {
+        EnsureAgentConfigured();
         await base.ExecuteAsync(context);
 
         if (string.IsNullOrEmpty(context.ProviderSessionId) && context.OnSessionCreated != null)
@@ -128,8 +129,34 @@ public sealed class OpenCodeProvider(
             model = model.Split('\t')[0].Trim();
         }
 
-        return $"run --dir \"{escapedWorkspace}\" --auto{FormatFlag("--model", model, skipDefaultModel: true)}{FormatFlag("--variant", context.Effort?.ToLowerInvariant())}{sessionArg} \"{escapedPrompt}\"";
+        return $"run --dir \"{escapedWorkspace}\" --agent agenthub --auto{FormatFlag("--model", model, skipDefaultModel: true)}{FormatFlag("--variant", context.Effort?.ToLowerInvariant())}{sessionArg} \"{escapedPrompt}\"";
     }
 
     public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);
+
+    private static void EnsureAgentConfigured()
+    {
+        try
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (string.IsNullOrEmpty(userProfile)) return;
+            var dir = Path.Combine(userProfile, ".config", "opencode", "agents");
+            _ = Directory.CreateDirectory(dir);
+            var file = Path.Combine(dir, "agenthub.md");
+            if (!File.Exists(file))
+            {
+                File.WriteAllText(file, """
+                    ---
+                    description: Default execution agent for AI Agent Hub
+                    mode: primary
+                    ---
+                    You are an AI assistant executing tasks inside AI Agent Hub.
+                    When asked to run any project or application (including dotnet run, npm start, web servers, or services), NEVER run them directly as blocking foreground commands. ALWAYS launch them as detached background processes:
+                    - On Windows (PowerShell): Start-Process -FilePath "dotnet" -ArgumentList "run" -WindowStyle Hidden (Do NOT use -NoNewWindow for background servers).
+                    - On Linux / macOS (bash): nohup dotnet run > /dev/null 2>&1 & (or run with & in background so the command returns immediately).
+                    """, System.Text.Encoding.UTF8);
+            }
+        }
+        catch { }
+    }
 }

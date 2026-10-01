@@ -10,10 +10,14 @@
   5. When making changes to frontend code only, build only frontend via NPM and run only frontend unit/integration tests if any
   6. When making changes to backend code only, build only the backend via dotnet and run only backend unit/integration tests if any
 
-## Test Execution & Process Watchdog Instructions
-- When running integration tests, end-to-end browser tests, or tests/commands that interact with real external console/CLI executables (anything other than pure in-memory unit tests):
-  - Always run a watchdog mechanism (such as a scheduled timer, monitoring task, or companion agent) in parallel with the execution.
-  - The watchdog must actively check progress, verify logs are moving, prevent unmonitored blocking/freezes, and alert or terminate the process if it hangs or exceeds reasonable execution time limits.
+## Process Execution & Subagent Watchdog Instructions
+- When executing child processes, package/tool installations, builds, integration tests, or commands that should complete within an expected duration:
+  - The process MUST always be executed as a background subprocess (detached task or background process) to avoid having the interactive prompt window frozen.
+  - Run a subagent/watchdog mechanism to actively monitor the execution progress, verify logs are advancing, and ensure the command is not blocked waiting for unhandled interactive prompts (e.g., sudo password, npm permissions, stdin).
+  - If the process hangs, produces no progress, or exceeds reasonable timeouts, the watchdog must alert and terminate the process.
+- When running a service or webserver that runs indefinitely (such as `dotnet run`, dev servers, or daemon processes):
+  - Always run it as a detached background subprocess.
+  - Run a subprocess or health check to verify that it is running (e.g., check listening ports or ping endpoint) so you know it is alive and the agent is not stuck, then continue or release the prompt.
 
 ## Database Migration Parity & Backward Compatibility
 - Whenever modifying the database schema or creating/merging EF Core migrations:

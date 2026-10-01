@@ -7,6 +7,7 @@ public sealed class ProviderSettingsOptions
     public string? InstallInstructions { get; set; }
     public string? AuthCommand { get; set; }
     public string? DocumentationUrl { get; set; }
+    public List<string>? DetachedExecutionTriggerWords { get; set; }
 }
 
 public sealed class ProvidersOptions : Dictionary<string, ProviderSettingsOptions>

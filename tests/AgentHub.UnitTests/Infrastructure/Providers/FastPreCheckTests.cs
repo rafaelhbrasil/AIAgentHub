@@ -18,8 +18,8 @@ public class FastPreCheckTests
         var mockExecutor = Substitute.For<IProcessExecutor>();
         var mockLogger = Substitute.For<IPromptLogger>();
         var options = Options.Create(new CliExecutionOptions());
-
-        var provider = new TestableCliProvider(options, mockLogger, mockExecutor, "cmd");
+        var testBinary = OperatingSystem.IsWindows() ? "cmd" : "sh";
+        var provider = new TestableCliProvider(options, mockLogger, mockExecutor, testBinary);
 
         // Act
         var result = provider.IsInstalledFastCheck();

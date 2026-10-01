@@ -367,5 +367,8 @@ MigrationBackup/
 # Superpowers temporary brainstorm & planning artifacts
 docs/superpowers/
 
+# Local scratch testing scripts and results
+scratch/
+
 # Release distribution archives
 archive/
