@@ -79,6 +79,7 @@ Security-related improvements.
 
 ## Fixed
 
+- Fixed cross-conversation notification and stream bleeding across multiple browser tabs by scoping SignalR streaming groups to `usr_{userId}_conv_{conversationId}`, eliminating broad `Clients.All` broadcasts for conversation events, diffs, and permissions, ensuring client connections leave previous groups upon conversation switching, and filtering incoming events to the active conversation.
 - Fixed provider status showing "Unknown" by enabling global string enum serialization in ASP.NET Core (`JsonStringEnumConverter`).
 - Fixed OpenCode "Session not found" error by tagging initial runs with `--title agenthub-{conversationId}` and resolving generated native IDs (`ses_...`).
 - Fixed active model count not updating on provider cards after closing the model configuration modal by syncing provider state and fetching fresh DB model catalogs.

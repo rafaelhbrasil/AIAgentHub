@@ -446,7 +446,7 @@ SignalR is responsible for real-time communication and streaming.
 
 SignalR builds on WebSocket where available and falls back to other transports automatically, so the real-time contract is expressed as hubs and strongly-typed messages rather than raw frames.
 
-Clients connect to a single base endpoint and subscribe to the relevant groups/streams. Reconnection is handled by the SignalR client.
+Clients connect to a single base endpoint (`/hubs/agent`) and subscribe to conversation groups scoped per user (`usr_{userId}_conv_{conversationId}`). Reconnection and group re-subscription are handled by the SignalR client. Streaming tokens, heartbeat pings, completion events, diff notifications, and permission prompts are delivered strictly to the matching user+conversation group, preventing cross-tab or cross-user response bleeding.
 
 Examples include:
 

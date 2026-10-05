@@ -120,7 +120,14 @@ public sealed class OpenCodeProvider(
             ? FormatFlag("--session", context.ProviderSessionId)
             : FormatFlag("--title", $"agenthub-{context.ConversationId}");
 
-        var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
+        var prompt = context.Prompt;
+        var triggerWords = GetDetachedExecutionTriggerWords();
+        if (ShouldInjectDetachedExecutionInstruction(prompt, triggerWords))
+        {
+            prompt = $"{DetachedExecutionInstruction} {prompt}";
+        }
+
+        var escapedPrompt = prompt.Replace("\"", "\\\"");
         var escapedWorkspace = context.WorkspacePath.Replace("\"", "\\\"");
 
         var model = context.ModelId;
@@ -143,18 +150,20 @@ public sealed class OpenCodeProvider(
             var dir = Path.Combine(userProfile, ".config", "opencode", "agents");
             _ = Directory.CreateDirectory(dir);
             var file = Path.Combine(dir, "agenthub.md");
-            if (!File.Exists(file))
+            var desiredContent = """
+                ---
+                description: Default execution agent for AI Agent Hub
+                mode: primary
+                ---
+                You are an AI assistant executing tasks inside AI Agent Hub.
+                When asked to run any project or application (including dotnet run, npm start, web servers, or services), NEVER run them directly as blocking foreground commands. ALWAYS launch them as detached background processes and return immediately without running sleep, wait loops, or post-startup curl/ping checks:
+                - On Windows (PowerShell): Start-Process -FilePath "dotnet" -ArgumentList "run" -WindowStyle Hidden (Do NOT use -NoNewWindow for background servers, and always use dotnet run so launchSettings.json ports are respected).
+                - On Linux / macOS (bash): nohup dotnet run > /dev/null 2>&1 & (or run with & in background so the command returns immediately).
+                """;
+
+            if (!File.Exists(file) || !File.ReadAllText(file).Contains("launchSettings.json"))
             {
-                File.WriteAllText(file, """
-                    ---
-                    description: Default execution agent for AI Agent Hub
-                    mode: primary
-                    ---
-                    You are an AI assistant executing tasks inside AI Agent Hub.
-                    When asked to run any project or application (including dotnet run, npm start, web servers, or services), NEVER run them directly as blocking foreground commands. ALWAYS launch them as detached background processes:
-                    - On Windows (PowerShell): Start-Process -FilePath "dotnet" -ArgumentList "run" -WindowStyle Hidden (Do NOT use -NoNewWindow for background servers).
-                    - On Linux / macOS (bash): nohup dotnet run > /dev/null 2>&1 & (or run with & in background so the command returns immediately).
-                    """, System.Text.Encoding.UTF8);
+                File.WriteAllText(file, desiredContent, System.Text.Encoding.UTF8);
             }
         }
         catch { }

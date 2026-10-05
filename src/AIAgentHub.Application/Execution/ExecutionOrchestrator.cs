@@ -13,15 +13,15 @@ namespace AIAgentHub.Application.Execution;
 
 public interface IPermissionService
 {
-    public Task<PermissionRequest> RequestPermissionAsync(Guid conversationId, string providerId, PermissionType type, string target, string reason, CancellationToken cancellationToken = default);
+    public Task<PermissionRequest> RequestPermissionAsync(Guid conversationId, string providerId, PermissionType type, string target, string reason, string? userId = null, CancellationToken cancellationToken = default);
     public Task<PermissionRequest> DecideAsync(Guid requestId, bool approve, CancellationToken cancellationToken = default);
     public Task<IReadOnlyList<PermissionRequest>> GetRequestsByConversationAsync(Guid conversationId, CancellationToken cancellationToken = default);
 }
 
 public interface IExecutionOrchestrator
 {
-    public Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default);
-    public Task AbortAsync(Guid conversationId);
+    public Task ExecuteAsync(Guid conversationId, string prompt, string? userId = null, CancellationToken cancellationToken = default);
+    public Task AbortAsync(Guid conversationId, string? userId = null);
     public bool IsExecuting(Guid conversationId);
 }
 
@@ -30,11 +30,11 @@ public sealed class PermissionService(IPermissionRequestRepository permissionRep
     private readonly IPermissionRequestRepository _permissionRepository = permissionRepository;
     private readonly IAgentRealtimeBroadcaster _broadcaster = broadcaster;
 
-    public async Task<PermissionRequest> RequestPermissionAsync(Guid conversationId, string providerId, PermissionType type, string target, string reason, CancellationToken cancellationToken = default)
+    public async Task<PermissionRequest> RequestPermissionAsync(Guid conversationId, string providerId, PermissionType type, string target, string reason, string? userId = null, CancellationToken cancellationToken = default)
     {
         var request = PermissionRequest.Create(conversationId, providerId, type, target, reason);
         await _permissionRepository.AddAsync(request, cancellationToken);
-        await _broadcaster.SendPermissionRequestedAsync(request, cancellationToken);
+        await _broadcaster.SendPermissionRequestedAsync(request, userId, cancellationToken);
         return request;
     }
 
@@ -72,7 +72,7 @@ public sealed class ExecutionOrchestrator(
 
     public bool IsExecuting(Guid conversationId) => _activeExecutionTracker.IsExecuting(conversationId);
 
-    public async Task ExecuteAsync(Guid conversationId, string prompt, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(Guid conversationId, string prompt, string? userId = null, CancellationToken cancellationToken = default)
     {
         CancellationTokenSource? localCts = null;
         if (!_activeExecutionTracker.TryGetCancellationTokenSource(conversationId, out var activeCts) || activeCts == null)
@@ -96,7 +96,7 @@ public sealed class ExecutionOrchestrator(
             // 1. Add User Message (persisted once for the initiating user prompt)
             var userMsg = conversation.AddMessage(MessageRole.User, prompt, null, conversation.ProviderId, conversation.ModelId);
             await _conversationRepository.UpdateAsync(conversation, token);
-            await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, token);
+            await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, userId, token);
 
         // 2. Pre-execution Snapshot for change detection and atomic rollback
         var snapshotToken = await _snapshotService.CaptureWorkspaceSnapshotAsync(
@@ -180,7 +180,7 @@ public sealed class ExecutionOrchestrator(
             async (token) =>
             {
                 _ = assistantResponseBuilder.Append(token);
-                await _broadcaster.SendMessageStreamChunkAsync(conversationId, token, cancellationToken);
+                await _broadcaster.SendMessageStreamChunkAsync(conversationId, token, userId, cancellationToken);
             },
             async (actionType, target) =>
             {
@@ -191,7 +191,7 @@ public sealed class ExecutionOrchestrator(
                     "command" => PermissionType.CommandExecution,
                     _ => PermissionType.DirectoryAccess
                 };
-                var req = await _permissionService.RequestPermissionAsync(conversationId, provider.Id, permType, target, $"AI assistant requested {actionType} for {target}", cancellationToken);
+                var req = await _permissionService.RequestPermissionAsync(conversationId, provider.Id, permType, target, $"AI assistant requested {actionType} for {target}", userId, cancellationToken);
                 return req.Decision == PermissionDecision.Approved;
             },
             cancellationToken,
@@ -214,7 +214,7 @@ public sealed class ExecutionOrchestrator(
                 {
                     message = msg,
                     elapsedSeconds = elapsedSecs
-                }, cancellationToken);
+                }, userId, cancellationToken);
             }
         );
 
@@ -244,7 +244,7 @@ public sealed class ExecutionOrchestrator(
                 if (resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
                 {
                     resumeCount++;
-                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", cancellationToken);
+                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", userId, cancellationToken);
                     execContext = execContext with { Prompt = "Continue from where you left off." };
                     continue;
                 }
@@ -267,14 +267,14 @@ public sealed class ExecutionOrchestrator(
                 if (isTimeout && resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
                 {
                     resumeCount++;
-                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", cancellationToken);
+                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", userId, cancellationToken);
                     execContext = execContext with { Prompt = "Continue from where you left off." };
                     continue;
                 }
 
                 isSuccess = false;
                 error = ex.Message;
-                await _broadcaster.SendNotificationAsync("error", "AI Execution Failed", ex.Message, cancellationToken);
+                await _broadcaster.SendNotificationAsync("error", "AI Execution Failed", ex.Message, userId, cancellationToken);
                 break;
             }
         }
@@ -296,7 +296,7 @@ public sealed class ExecutionOrchestrator(
             foreach (var change in detectedChanges)
             {
                 conversation.AddFileChange(change);
-                await _broadcaster.SendDiffCreatedAsync(conversationId, change, CancellationToken.None);
+                await _broadcaster.SendDiffCreatedAsync(conversationId, change, userId, CancellationToken.None);
             }
         }
         catch
@@ -337,7 +337,7 @@ public sealed class ExecutionOrchestrator(
             DurationMs = stopwatch.ElapsedMilliseconds,
             FileChangesCount = detectedChanges.Count,
             IsSuccess = isSuccess
-        }, CancellationToken.None);
+        }, userId, CancellationToken.None);
     }
     finally
     {
@@ -345,7 +345,7 @@ public sealed class ExecutionOrchestrator(
     }
 }
 
-    public async Task AbortAsync(Guid conversationId)
+    public async Task AbortAsync(Guid conversationId, string? userId = null)
     {
         if (_activeExecutionTracker.TryGetCancellationTokenSource(conversationId, out var cts))
         {
@@ -360,7 +360,7 @@ public sealed class ExecutionOrchestrator(
             await _broadcaster.SendConversationEventAsync("conversation.aborted", conversationId, new
             {
                 message = "AI response was cancelled by the user."
-            }, CancellationToken.None);
+            }, userId, CancellationToken.None);
         }
 
         _ = _activeExecutionTracker.TryStop(conversationId);

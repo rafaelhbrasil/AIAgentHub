@@ -25,7 +25,7 @@ public class ConversationsControllerTests
         var request = new SwitchProviderRequest("claude-code", "claude-3-7-sonnet", "all");
         var expectedResult = new SwitchProviderResult(convId, "claude-code", "claude-3-7-sonnet", 5, "sess-1");
 
-        _conversationSwitchService.SwitchProviderAsync(convId, request, Arg.Any<CancellationToken>())
+        _conversationSwitchService.SwitchProviderAsync(convId, request, Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(expectedResult);
 
         var actionResult = await _controller.SwitchProvider(convId, request, CancellationToken.None);
@@ -70,7 +70,7 @@ public class ConversationsControllerTests
         var convId = Guid.NewGuid();
         var request = new SwitchProviderRequest("discontinued-prov", null, "all");
 
-        _conversationSwitchService.SwitchProviderAsync(convId, request, Arg.Any<CancellationToken>())
+        _conversationSwitchService.SwitchProviderAsync(convId, request, Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns<SwitchProviderResult>(_ => throw new InvalidOperationException("Provider discontinued"));
 
         var actionResult = await _controller.SwitchProvider(convId, request, CancellationToken.None);
@@ -83,7 +83,7 @@ public class ConversationsControllerTests
         var convId = Guid.NewGuid();
         var request = new SwitchProviderRequest("non-existent", null, "all");
 
-        _conversationSwitchService.SwitchProviderAsync(convId, request, Arg.Any<CancellationToken>())
+        _conversationSwitchService.SwitchProviderAsync(convId, request, Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns<SwitchProviderResult>(_ => throw new KeyNotFoundException("Conversation not found"));
 
         var actionResult = await _controller.SwitchProvider(convId, request, CancellationToken.None);

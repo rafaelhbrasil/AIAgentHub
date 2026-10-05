@@ -115,7 +115,7 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         bool createNoWindow,
         ProcessWindowStyle windowStyle = ProcessWindowStyle.Hidden)
     {
-        return new ProcessStartInfo
+        var psi = new ProcessStartInfo
         {
             FileName = fileName,
             Arguments = arguments,
@@ -124,6 +124,15 @@ public abstract class ProcessExecutorBase : IProcessExecutor
             CreateNoWindow = createNoWindow,
             WindowStyle = windowStyle
         };
+
+        if (!useShellExecute)
+        {
+            psi.EnvironmentVariables.Remove("ASPNETCORE_URLS");
+            psi.EnvironmentVariables.Remove("ASPNETCORE_HTTPS_PORTS");
+            psi.EnvironmentVariables.Remove("DOTNET_LAUNCH_PROFILE");
+        }
+
+        return psi;
     }
 
     protected sealed class ProcessRegistrationScope(ConcurrentDictionary<Guid, Process> allProcesses, Guid conversationId, Process process) : IDisposable

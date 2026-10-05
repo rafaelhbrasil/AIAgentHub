@@ -67,6 +67,7 @@ public class ConversationSwitchServiceTests
             "conversation.switched_provider",
             conversation.Id,
             Arg.Any<object>(),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -152,6 +153,7 @@ public class ConversationSwitchServiceTests
             "conversation.status_changed",
             conversation.Id,
             Arg.Is<object>(o => o.ToString()!.Contains("Active")),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 

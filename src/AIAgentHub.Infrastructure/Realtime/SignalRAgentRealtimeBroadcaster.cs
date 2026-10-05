@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AIAgentHub.Application.Realtime;
 using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Permissions;
@@ -11,27 +12,67 @@ namespace AIAgentHub.Infrastructure.Realtime;
 [Authorize]
 public sealed class AgentHubHub : Hub
 {
-    public async Task JoinConversation(string conversationId) => await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
+    private string? GetCurrentUserId()
+    {
+        return Context.UserIdentifier
+            ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? Context.User?.Identity?.Name;
+    }
 
-    public async Task LeaveConversation(string conversationId) => await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conv_{conversationId}");
+    public async Task JoinConversation(string conversationId)
+    {
+        if (Guid.TryParse(conversationId, out var convGuid))
+        {
+            var userId = GetCurrentUserId();
+            var userGroup = GetGroupName(userId, convGuid);
+            await Groups.AddToGroupAsync(Context.ConnectionId, userGroup);
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{convGuid}");
+        }
+        else
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"conv_{conversationId.Trim().ToLowerInvariant()}");
+        }
+    }
+
+    public async Task LeaveConversation(string conversationId)
+    {
+        if (Guid.TryParse(conversationId, out var convGuid))
+        {
+            var userId = GetCurrentUserId();
+            var userGroup = GetGroupName(userId, convGuid);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, userGroup);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conv_{convGuid}");
+        }
+        else
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conv_{conversationId.Trim().ToLowerInvariant()}");
+        }
+    }
+
+    public static string GetGroupName(string? userId, Guid conversationId) =>
+        !string.IsNullOrWhiteSpace(userId)
+            ? $"usr_{userId.Trim().ToLowerInvariant()}_conv_{conversationId}"
+            : $"conv_{conversationId}";
 }
 
 public sealed class SignalRAgentRealtimeBroadcaster(IHubContext<AgentHubHub> hubContext) : IAgentRealtimeBroadcaster
 {
     private readonly IHubContext<AgentHubHub> _hubContext = hubContext;
 
-    public async Task SendMessageStreamChunkAsync(Guid conversationId, string chunk, CancellationToken cancellationToken = default)
+    public async Task SendMessageStreamChunkAsync(Guid conversationId, string chunk, string? userId = null, CancellationToken cancellationToken = default)
     {
-        await _hubContext.Clients.Group($"conv_{conversationId}").SendAsync("streamChunk", new
+        var group = AgentHubHub.GetGroupName(userId, conversationId);
+        await _hubContext.Clients.Group(group).SendAsync("streamChunk", new
         {
             conversationId,
             chunk
         }, cancellationToken);
     }
 
-    public async Task SendConversationEventAsync(string eventName, Guid conversationId, object payload, CancellationToken cancellationToken = default)
+    public async Task SendConversationEventAsync(string eventName, Guid conversationId, object payload, string? userId = null, CancellationToken cancellationToken = default)
     {
-        await _hubContext.Clients.All.SendAsync("conversationEvent", new
+        var group = AgentHubHub.GetGroupName(userId, conversationId);
+        await _hubContext.Clients.Group(group).SendAsync("conversationEvent", new
         {
             eventName,
             conversationId,
@@ -48,9 +89,10 @@ public sealed class SignalRAgentRealtimeBroadcaster(IHubContext<AgentHubHub> hub
         }, cancellationToken);
     }
 
-    public async Task SendDiffCreatedAsync(Guid conversationId, FileChange change, CancellationToken cancellationToken = default)
+    public async Task SendDiffCreatedAsync(Guid conversationId, FileChange change, string? userId = null, CancellationToken cancellationToken = default)
     {
-        await _hubContext.Clients.All.SendAsync("diffCreated", new
+        var group = AgentHubHub.GetGroupName(userId, conversationId);
+        await _hubContext.Clients.Group(group).SendAsync("diffCreated", new
         {
             conversationId,
             fileChangeId = change.Id,
@@ -60,9 +102,10 @@ public sealed class SignalRAgentRealtimeBroadcaster(IHubContext<AgentHubHub> hub
         }, cancellationToken);
     }
 
-    public async Task SendPermissionRequestedAsync(PermissionRequest request, CancellationToken cancellationToken = default)
+    public async Task SendPermissionRequestedAsync(PermissionRequest request, string? userId = null, CancellationToken cancellationToken = default)
     {
-        await _hubContext.Clients.All.SendAsync("permissionRequested", new
+        var group = AgentHubHub.GetGroupName(userId, request.ConversationId);
+        await _hubContext.Clients.Group(group).SendAsync("permissionRequested", new
         {
             id = request.Id,
             conversationId = request.ConversationId,
@@ -73,9 +116,13 @@ public sealed class SignalRAgentRealtimeBroadcaster(IHubContext<AgentHubHub> hub
         }, cancellationToken);
     }
 
-    public async Task SendNotificationAsync(string level, string title, string message, CancellationToken cancellationToken = default)
+    public async Task SendNotificationAsync(string level, string title, string message, string? userId = null, CancellationToken cancellationToken = default)
     {
-        await _hubContext.Clients.All.SendAsync("notification", new
+        var clientTarget = !string.IsNullOrWhiteSpace(userId)
+            ? _hubContext.Clients.User(userId)
+            : _hubContext.Clients.All;
+
+        await clientTarget.SendAsync("notification", new
         {
             level,
             title,

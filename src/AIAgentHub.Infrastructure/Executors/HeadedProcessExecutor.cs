@@ -327,6 +327,7 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
 
         return $$"""
             [Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8;
+            Remove-Item env:ASPNETCORE_URLS -ErrorAction SilentlyContinue; Remove-Item env:ASPNETCORE_HTTPS_PORTS -ErrorAction SilentlyContinue; Remove-Item env:DOTNET_LAUNCH_PROFILE -ErrorAction SilentlyContinue;
             $psi = New-Object System.Diagnostics.ProcessStartInfo
             $psi.FileName = 'cmd.exe'
             $psi.Arguments = '/c ""' + '{{escapedExeForPs}}' + '" ' + '{{escapedArgsForPs}}' + ' > "' + '{{escapedLogFilePath}}' + '" 2>&1"'
@@ -377,6 +378,9 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
             LOG_FILE="{{logFilePath}}"
             touch "$LOG_FILE"
             {{trapDone}}
+            unset ASPNETCORE_URLS
+            unset ASPNETCORE_HTTPS_PORTS
+            unset DOTNET_LAUNCH_PROFILE
             # Launch command in background and redirect output to log file
             "{{exePath}}" {{arguments}} > "$LOG_FILE" 2>&1 &
             CLI_PID=$!

@@ -54,6 +54,57 @@ public abstract class CliProviderBase(
 
     protected CliExecutionOptions GetExecutionOptions() => _options.Value;
 
+    public const string DetachedExecutionInstruction =
+        "[Instructions: When running any web application, dev server, dotnet project, or long-running service, always launch it as a detached background process using PowerShell (e.g. Start-Process -FilePath 'dotnet' -ArgumentList 'run' -WindowStyle Hidden; always launch via dotnet run to respect launchSettings.json ports) and return immediately without running sleep, wait loops, or post-startup curl/ping checks, so the command exits immediately without blocking.]";
+
+    public IReadOnlyList<string> GetDetachedExecutionTriggerWords()
+    {
+        var globalWords = GetExecutionOptions().DetachedExecutionTriggerWords;
+        var providerWords = GetConfig()?.DetachedExecutionTriggerWords;
+
+        var merged = new List<string>();
+        if (globalWords != null)
+        {
+            merged.AddRange(globalWords);
+        }
+
+        if (providerWords != null)
+        {
+            merged.AddRange(providerWords);
+        }
+
+        return merged
+            .Where(w => !string.IsNullOrWhiteSpace(w))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public static bool ShouldInjectDetachedExecutionInstruction(string prompt, IEnumerable<string> triggerWords)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return false;
+        }
+
+        if (prompt.Contains("detached background process", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var words = triggerWords
+            .Where(w => !string.IsNullOrWhiteSpace(w))
+            .Select(w => Regex.Escape(w.Trim()))
+            .ToList();
+
+        if (words.Count == 0)
+        {
+            return false;
+        }
+
+        var pattern = $@"\b(?:{string.Join("|", words)})\b";
+        return Regex.IsMatch(prompt, pattern, RegexOptions.IgnoreCase);
+    }
+
     public virtual bool IsInstalledFastCheck() => !string.IsNullOrEmpty(FindExecutable(ExecutableName));
 
     public virtual async Task<ProviderInfo> DetectAsync(CancellationToken cancellationToken = default)

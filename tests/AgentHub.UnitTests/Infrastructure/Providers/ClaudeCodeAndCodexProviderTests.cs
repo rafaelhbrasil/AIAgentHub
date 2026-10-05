@@ -393,4 +393,59 @@ public sealed class ClaudeCodeAndCodexProviderTests
         Assert.Equal(2, streamedTokens.Count);
         Assert.Contains("Build succeeded.", streamedTokens[1]);
     }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_WithTriggerWord_InjectsDetachedExecutionInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new CodexCliProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Please run the calculator service");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains(CliProviderBase.DetachedExecutionInstruction, args);
+        Assert.Contains("Please run the calculator service", args);
+    }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_WithoutTriggerWord_DoesNotInjectInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new CodexCliProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Explain the architecture of this solution");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.DoesNotContain(CliProviderBase.DetachedExecutionInstruction, args);
+        Assert.Contains("\"Explain the architecture of this solution\"", args);
+    }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_DoesNotDuplicateIfAlreadyPresent()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new CodexCliProvider(options, _promptLogger, _executor);
+        var promptWithInstruction = $"{CliProviderBase.DetachedExecutionInstruction} run the app";
+        var context = CreateContext(null, promptWithInstruction);
+
+        var args = provider.BuildArguments(context);
+
+        var firstIndex = args.IndexOf(CliProviderBase.DetachedExecutionInstruction, StringComparison.Ordinal);
+        var lastIndex = args.LastIndexOf(CliProviderBase.DetachedExecutionInstruction, StringComparison.Ordinal);
+        Assert.NotEqual(-1, firstIndex);
+        Assert.Equal(firstIndex, lastIndex);
+    }
 }
+

@@ -180,6 +180,7 @@ public sealed class AuthController(
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, username),
+            new(ClaimTypes.NameIdentifier, username),
             new(ClaimTypes.Role, "Administrator")
         };
 

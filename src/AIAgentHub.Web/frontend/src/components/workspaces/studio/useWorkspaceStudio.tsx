@@ -174,39 +174,43 @@ export const useWorkspaceStudio = ({
   // SignalR Event Listeners
   useEffect(() => {
     const handleStreamChunk = (payload: StreamChunkPayload) => {
-      if (
-        !activeConversationRef.current ||
-        !payload.conversationId ||
-        payload.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
-      ) {
-        setIsStreaming(true);
-        setHeartbeatMessages([]);
-        setStreamingContent((prev) => prev + payload.chunk);
+      const current = activeConversationRef.current;
+      const payloadConvId = (payload.conversationId || '').toLowerCase();
+      if (!current || !payloadConvId || payloadConvId !== current.id.toLowerCase()) {
+        return;
       }
+      setIsStreaming(true);
+      setHeartbeatMessages([]);
+      setStreamingContent((prev) => prev + payload.chunk);
     };
 
     const handleConversationEvent = (data: any) => {
-      if (data.eventName === 'conversation.started') {
-        if (
-          !activeConversationRef.current ||
-          !data.conversationId ||
-          data.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
-        ) {
-          setStreamingState(true, 'AI Assistant started execution...');
+      const current = activeConversationRef.current;
+      const eventConvId = (data.conversationId || data.ConversationId || '').toString().toLowerCase();
+
+      // If the event is for a different conversation, do not mutate this tab's active conversation state.
+      if (!current || !eventConvId || eventConvId !== current.id.toLowerCase()) {
+        if (data.eventName === 'conversation.started') {
+          setConversations((prev) =>
+            prev.map((c) => (c.id.toLowerCase() === eventConvId ? { ...c, isRunning: true } : c))
+          );
+        } else if (data.eventName === 'conversation.completed' || data.eventName === 'conversation.aborted') {
+          setConversations((prev) =>
+            prev.map((c) => (c.id.toLowerCase() === eventConvId ? { ...c, isRunning: false } : c))
+          );
         }
         return;
       }
 
+      if (data.eventName === 'conversation.started') {
+        setStreamingState(true, 'AI Assistant started execution...');
+        return;
+      }
+
       if (data.eventName === 'conversation.heartbeat') {
-        if (
-          !activeConversationRef.current ||
-          !data.conversationId ||
-          data.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
-        ) {
-          setIsStreaming(true);
-          const msg = data.data?.message || data.data?.Message || 'Still thinking...';
-          setHeartbeatMessages((prev) => [...prev, msg]);
-        }
+        setIsStreaming(true);
+        const msg = data.data?.message || data.data?.Message || 'Still thinking...';
+        setHeartbeatMessages((prev) => [...prev, msg]);
         return;
       }
 
@@ -217,17 +221,18 @@ export const useWorkspaceStudio = ({
         } else {
           showToast('AI response completed.', 'success');
         }
-        if (data.conversationId) {
-          selectConversationById(data.conversationId);
-          fetchFileChanges(data.conversationId);
-        } else if (activeConversationRef.current) {
-          fetchFileChanges(activeConversationRef.current.id);
-        }
+        selectConversationById(current.id);
+        fetchFileChanges(current.id);
         fetchFileTree();
       }
     };
 
     const handlePermissionRequested = (req: any) => {
+      const current = activeConversationRef.current;
+      const reqConvId = (req.conversationId || req.ConversationId || '').toString().toLowerCase();
+      if (!current || !reqConvId || reqConvId !== current.id.toLowerCase()) {
+        return;
+      }
       showModal(
         '⚠️ Permission Required for AI Action',
         <PermissionModal request={req} onClose={hideModal} />
@@ -235,16 +240,16 @@ export const useWorkspaceStudio = ({
     };
 
     const handleDiffCreated = (diff: any) => {
-      const convId = diff.conversationId || diff.ConversationId;
+      const current = activeConversationRef.current;
+      const convId = (diff.conversationId || diff.ConversationId || '').toString().toLowerCase();
+      if (!current || !convId || convId !== current.id.toLowerCase()) {
+        return;
+      }
       const path = diff.relativePath || diff.RelativePath;
       showToast(`File modified: ${path}`, 'info');
-      if (activeConversationRef.current && activeConversationRef.current.id === convId) {
-        selectConversationById(convId);
-      }
+      selectConversationById(current.id);
       fetchFileTree();
-      if (convId) {
-        fetchFileChanges(convId);
-      }
+      fetchFileChanges(current.id);
     };
 
     signalRService.onStreamChunk = handleStreamChunk;
@@ -258,6 +263,9 @@ export const useWorkspaceStudio = ({
     };
 
     return () => {
+      if (activeConversationRef.current) {
+        signalRService.leaveConversation(activeConversationRef.current.id);
+      }
       signalRService.onStreamChunk = undefined;
       signalRService.onConversationEvent = undefined;
       signalRService.onPermissionRequested = undefined;

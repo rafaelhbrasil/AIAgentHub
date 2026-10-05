@@ -147,6 +147,7 @@ public sealed class ExecutionOrchestratorTests
             "conversation.heartbeat",
             conv.Id,
             Arg.Any<object>(),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 

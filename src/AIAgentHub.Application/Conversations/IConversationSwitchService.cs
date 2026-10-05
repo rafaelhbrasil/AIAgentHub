@@ -28,6 +28,7 @@ public interface IConversationSwitchService
     public Task<SwitchProviderResult> SwitchProviderAsync(
         Guid conversationId,
         SwitchProviderRequest request,
+        string? userId = null,
         CancellationToken cancellationToken = default);
 
     public Task<IReadOnlyList<ConversationProviderSessionDto>> GetSessionsAsync(
@@ -36,5 +37,6 @@ public interface IConversationSwitchService
 
     public Task<ConversationDetailDto> AbortSwitchAsync(
         Guid conversationId,
+        string? userId = null,
         CancellationToken cancellationToken = default);
 }

@@ -86,7 +86,8 @@ public sealed class ConversationsController(
     {
         try
         {
-            var result = await _conversationSwitchService.SwitchProviderAsync(id, request, cancellationToken);
+            var userId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User?.Identity?.Name;
+            var result = await _conversationSwitchService.SwitchProviderAsync(id, request, userId, cancellationToken);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)
@@ -104,7 +105,8 @@ public sealed class ConversationsController(
     {
         try
         {
-            var result = await _conversationSwitchService.AbortSwitchAsync(id, cancellationToken);
+            var userId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User?.Identity?.Name;
+            var result = await _conversationSwitchService.AbortSwitchAsync(id, userId, cancellationToken);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)

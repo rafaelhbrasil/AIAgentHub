@@ -19,6 +19,7 @@ public sealed class ConversationSwitchService(
     public async Task<SwitchProviderResult> SwitchProviderAsync(
         Guid conversationId,
         SwitchProviderRequest request,
+        string? userId = null,
         CancellationToken cancellationToken = default)
     {
         if (request == null)
@@ -46,6 +47,7 @@ public sealed class ConversationSwitchService(
             "conversation.status_changed",
             conversationId,
             new { Status = (int)ConversationStatus.SwitchingProvider, StatusName = nameof(ConversationStatus.SwitchingProvider) },
+            userId,
             cancellationToken);
 
         try
@@ -141,6 +143,7 @@ public sealed class ConversationSwitchService(
                     MigratedMessageCount = migratedInteractionsCount,
                     TargetSessionId = targetSessionId
                 },
+                userId,
                 cancellationToken);
 
             return new SwitchProviderResult(
@@ -160,6 +163,7 @@ public sealed class ConversationSwitchService(
                     "conversation.status_changed",
                     conversationId,
                     new { Status = (int)ConversationStatus.Active, StatusName = nameof(ConversationStatus.Active) },
+                    userId,
                     cancellationToken);
             }
         }
@@ -188,6 +192,7 @@ public sealed class ConversationSwitchService(
 
     public async Task<ConversationDetailDto> AbortSwitchAsync(
         Guid conversationId,
+        string? userId = null,
         CancellationToken cancellationToken = default)
     {
         var conversation = await _conversationRepository.GetByIdAsync(conversationId, cancellationToken)
@@ -201,6 +206,7 @@ public sealed class ConversationSwitchService(
                 "conversation.status_changed",
                 conversationId,
                 new { Status = (int)ConversationStatus.Active, StatusName = nameof(ConversationStatus.Active) },
+                userId,
                 cancellationToken);
         }
 

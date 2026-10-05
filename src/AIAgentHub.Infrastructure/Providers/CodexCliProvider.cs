@@ -239,7 +239,14 @@ public sealed class CodexCliProvider(
 
     public override string BuildArguments(ProviderExecutionContext context)
     {
-        var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
+        var prompt = context.Prompt;
+        var triggerWords = GetDetachedExecutionTriggerWords();
+        if (ShouldInjectDetachedExecutionInstruction(prompt, triggerWords))
+        {
+            prompt = $"{DetachedExecutionInstruction} {prompt}";
+        }
+
+        var escapedPrompt = prompt.Replace("\"", "\\\"");
         var modelArg = FormatFlag("--model", context.ModelId, skipDefaultModel: true);
         var effortArg = !string.IsNullOrWhiteSpace(context.Effort)
             ? $" -c model_reasoning_effort={context.Effort.ToLowerInvariant()}"
