@@ -372,3 +372,8 @@ scratch/
 
 # Release distribution archives
 archive/
+
+# Local developer credentials and test environment configuration
+credentials.md
+credentials.*.md
+

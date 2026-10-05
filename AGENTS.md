@@ -36,3 +36,10 @@
 - **Do NOT Kill Running Instances During Builds/Tests**: Never terminate or kill existing user application instances when rebuilding or running unit tests.
 - **Deployment Script Scope**: `npm run deploy` and the `/deploy` skill are reserved exclusively for explicit user requests to publish or create a release bundle.
 
+## Local Test Environment & Credentials
+- For running integration tests, API verification, or local development sessions:
+  - Always check for the existence of `credentials.md` in the repository root.
+  - If `credentials.md` exists, read its contents to obtain the local test admin credentials, target test workspace ID/path, and local background AI provider endpoints without prompting the user.
+  - `credentials.md` is strictly ignored in `.gitignore` and must NEVER be tracked, staged, or committed to Git.
+
+
