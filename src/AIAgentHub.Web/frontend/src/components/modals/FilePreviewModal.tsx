@@ -7,12 +7,14 @@ interface FilePreviewModalProps {
   relativePath: string;
   preview: FilePreviewDto;
   onClose: () => void;
+  onOpenEditor?: (relativePath: string) => void;
 }
 
 export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
   relativePath,
   preview,
   onClose,
+  onOpenEditor,
 }) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'preview' | 'raw'>('preview');
@@ -84,16 +86,33 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
             </button>
           </div>
 
-          {/* Quick Copy Button */}
-          <button
-            type="button"
-            className="btn btn-secondary compact-btn"
-            onClick={handleCopyRaw}
-            style={{ fontSize: '0.78rem', padding: '3px 10px' }}
-            title="Copy raw file content to clipboard"
-          >
-            {copied ? '✅ Copied!' : '📋 Copy Raw'}
-          </button>
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {onOpenEditor && canShowRaw && (
+              <button
+                type="button"
+                className="btn btn-primary compact-btn"
+                onClick={() => {
+                  onClose();
+                  onOpenEditor(relativePath);
+                }}
+                style={{ fontSize: '0.78rem', padding: '3px 10px' }}
+                title="Open and edit this file in the embedded code editor"
+                id="previewEditInEditorBtn"
+              >
+                ✏️ Edit in Editor
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary compact-btn"
+              onClick={handleCopyRaw}
+              style={{ fontSize: '0.78rem', padding: '3px 10px' }}
+              title="Copy raw file content to clipboard"
+            >
+              {copied ? '✅ Copied!' : '📋 Copy Raw'}
+            </button>
+          </div>
         </div>
       )}
 

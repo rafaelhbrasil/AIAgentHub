@@ -140,6 +140,45 @@ public sealed class AuthController(
         });
     }
 
+    public sealed record UpdateUsernameRequest(string CurrentPassword, string NewUsername);
+
+    [HttpPut("account/username")]
+    [Authorize]
+    [EnableRateLimiting("AuthLimiter")]
+    public async Task<IActionResult> UpdateUsername([FromBody] UpdateUsernameRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _authService.UpdateUsernameAsync(request.CurrentPassword, request.NewUsername, cancellationToken);
+        if (!result.Success)
+        {
+            return BadRequest(new { code = "update_username_failed", message = result.Error });
+        }
+
+        await SignInUserAsync(request.NewUsername.Trim());
+        return Ok(new { success = true, username = request.NewUsername.Trim() });
+    }
+
+    public sealed record UpdatePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmNewPassword);
+
+    [HttpPut("account/password")]
+    [Authorize]
+    [EnableRateLimiting("AuthLimiter")]
+    public async Task<IActionResult> UpdatePassword([FromBody] UpdatePasswordRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _authService.UpdatePasswordAsync(request.CurrentPassword, request.NewPassword, request.ConfirmNewPassword, cancellationToken);
+        if (!result.Success)
+        {
+            return BadRequest(new { code = "update_password_failed", message = result.Error });
+        }
+
+        var admin = await _authService.GetAdminAsync(cancellationToken);
+        if (admin != null)
+        {
+            await SignInUserAsync(admin.Username);
+        }
+
+        return Ok(new { success = true, message = "Password updated successfully." });
+    }
+
     public sealed record RecoverRequest(string RecoveryCode);
 
     [HttpPost("recover")]

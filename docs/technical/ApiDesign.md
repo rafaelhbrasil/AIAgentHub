@@ -169,7 +169,16 @@ POST /api/v1/auth/logout
 GET /api/v1/auth/session
 
 POST /api/v1/auth/recover
+
+PUT /api/v1/auth/account/username
+
+PUT /api/v1/auth/account/password
 ```
+
+Account management endpoints allow the authenticated administrator to update credentials:
+- `PUT /api/v1/auth/account/username`: Request payload `{ "currentPassword": "...", "newUsername": "..." }`. Validates current password, updates the administrator username, and refreshes the authenticated session cookie.
+- `PUT /api/v1/auth/account/password`: Request payload `{ "currentPassword": "...", "newPassword": "...", "confirmNewPassword": "..." }`. Validates current password and matching confirmation, re-hashes password with fresh salt, updates credentials, and refreshes the session cookie.
+Both endpoints are protected by `AuthLimiter` rate limiting.
 
 ---
 
@@ -210,12 +219,17 @@ GET /api/v1/workspaces
  
 POST /api/v1/workspaces
 
+POST /api/v1/workspaces/clone
+
 GET /api/v1/workspaces/{id}
 
 GET /api/v1/workspaces/{id}/download
 
 DELETE /api/v1/workspaces/{id}
 ```
+
+Workspace cloning endpoint:
+- `POST /api/v1/workspaces/clone`: Request payload `{ "cloneUrl": "...", "targetDirectory": "...", "workspaceName": "..." }`. Runs `git clone` into the specified target directory and registers the workspace with `Origin = WorkspaceOrigin.Git`.
 
 ---
 
@@ -233,7 +247,28 @@ GET /api/v1/filesystem/tree?workspaceId={workspaceId}
 GET /api/v1/filesystem/forbidden-paths
 
 POST /api/v1/filesystem/mkdir
+
+GET /api/v1/filesystem/file?workspaceId={workspaceId}&path={path}
+
+POST /api/v1/filesystem/file
+
+PUT /api/v1/filesystem/file
+
+PUT /api/v1/filesystem/rename
+
+DELETE /api/v1/filesystem/item
+
+POST /api/v1/filesystem/move
 ```
+
+Filesystem operations:
+- `GET /api/v1/filesystem/file?workspaceId={workspaceId}&path={path}`: Retrieves file content for lightweight in-browser editor inspection and editing, including binary check and length.
+- `POST /api/v1/filesystem/file`: Request payload `{ "workspaceId": "...", "path": "...", "content": "..." }`. Creates a new empty or seeded file within workspace root.
+- `PUT /api/v1/filesystem/file`: Request payload `{ "workspaceId": "...", "path": "...", "content": "..." }`. Saves modified file content from the embedded code editor.
+- `PUT /api/v1/filesystem/rename`: Request payload `{ "workspaceId": "...", "oldPath": "...", "newPath": "..." }`. Renames a file or folder within workspace root.
+- `DELETE /api/v1/filesystem/item`: Request payload or query `{ "workspaceId": "...", "path": "..." }`. Deletes a file or directory within workspace root.
+- `POST /api/v1/filesystem/move`: Request payload `{ "workspaceId": "...", "sourcePath": "...", "destinationDirectory": "..." }`. Moves a file or folder to support drag-and-drop workspace reorganization.
+All filesystem endpoints enforce strict containment within the workspace root path to prevent path traversal vulnerabilities.
 
 ---
 
@@ -334,10 +369,17 @@ POST /api/v1/diffs/reject-all
 Examples:
 
 ```
-GET /api/v1/preview
+GET /api/v1/preview?workspaceId={workspaceId}&path={path}
 
 GET /api/v1/files/{id}/preview
 ```
+
+The server-side content rendering architecture supports multiple file preview categories:
+- **Code & Text**: C#, TS, JS, Python, HTML, CSS, SQL, Shell, Markdown
+- **Documents & Web**: PDF (`application/pdf` embed/data URI view), HTML (sandboxed preview)
+- **Structured Data**: CSV, TSV (rendered as responsive data table)
+- **Logs & Config**: LOG, INI, TOML, ENV (colorized key-value/log stream)
+- **Images**: PNG, JPG, WEBP, SVG, GIF, BMP
 
 ---
 
@@ -369,6 +411,8 @@ POST /api/v1/skills/sync-symlinks
 
 ## Git Operations
 
+Git integration enables repository control directly from the workspace studio. When Git is not installed on the server machine, endpoints gracefully report `isGitInstalled: false` without failing.
+
 Examples:
 
 ```
@@ -376,9 +420,13 @@ GET /api/v1/git/status?workspaceId={workspaceId}
 
 GET /api/v1/git/branches?workspaceId={workspaceId}
 
+POST /api/v1/git/branch
+
 POST /api/v1/git/checkout
 
-POST /api/v1/git/branch
+POST /api/v1/git/stage
+
+POST /api/v1/git/unstage
 
 POST /api/v1/git/commit
 
@@ -386,10 +434,26 @@ POST /api/v1/git/push
 
 POST /api/v1/git/pull
 
+POST /api/v1/git/fetch
+
 POST /api/v1/git/stash
 
-GET /api/v1/git/history?workspaceId={workspaceId}
+GET /api/v1/git/history?workspaceId={workspaceId}&maxCount={maxCount}
 ```
+
+Endpoint contracts:
+- `GET /api/v1/git/status`: Returns `{ isGitInstalled, isRepository, currentBranch, ahead, behind, staged: [{ path, status }], modified: [{ path, status }], untracked: [string] }`.
+- `GET /api/v1/git/branches`: Returns list of `{ name, isCurrent, isRemote }`.
+- `POST /api/v1/git/branch`: Request payload `{ "workspaceId": "...", "branchName": "...", "checkout": true }`. Creates a new Git branch and optionally checks it out.
+- `POST /api/v1/git/checkout`: Request payload `{ "workspaceId": "...", "branchName": "..." }`. Checks out an existing local or tracking branch.
+- `POST /api/v1/git/stage`: Request payload `{ "workspaceId": "...", "files": ["..."], "stageAll": false }`. Stages specific files or all modified/untracked files.
+- `POST /api/v1/git/unstage`: Request payload `{ "workspaceId": "...", "files": ["..."], "unstageAll": false }`. Unstages specific files or all staged changes.
+- `POST /api/v1/git/commit`: Request payload `{ "workspaceId": "...", "message": "...", "stageAll": false }`. Creates a local Git commit with the specified message.
+- `POST /api/v1/git/push`: Request payload `{ "workspaceId": "...", "remote": "origin", "branch": "..." }`. Pushes local commits to the upstream remote repository.
+- `POST /api/v1/git/pull`: Request payload `{ "workspaceId": "...", "remote": "origin", "branch": "..." }`. Pulls changes from the upstream remote repository.
+- `POST /api/v1/git/fetch`: Request payload `{ "workspaceId": "..." }`. Fetches remote refs and branch updates without merging.
+- `POST /api/v1/git/stash`: Request payload `{ "workspaceId": "...", "action": "save"|"pop"|"apply"|"list", "message": "..." }`. Performs stash operations.
+- `GET /api/v1/git/history`: Returns list of recent commits `{ commitHash, shortHash, author, email, date, message }`.
 
 ---
 

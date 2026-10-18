@@ -309,6 +309,91 @@ public sealed class FilesystemService : IFilesystemService
         return addedCount;
     }
 
+    public async Task CreateFileAsync(string fullPath, string? content = null, CancellationToken cancellationToken = default)
+    {
+        var dir = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        {
+            _ = Directory.CreateDirectory(dir);
+        }
+
+        await File.WriteAllTextAsync(fullPath, content ?? string.Empty, cancellationToken);
+    }
+
+    public Task CreateDirectoryAsync(string fullPath, CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(fullPath))
+        {
+            _ = Directory.CreateDirectory(fullPath);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task RenameItemAsync(string oldFullPath, string newFullPath, CancellationToken cancellationToken = default)
+    {
+        if (File.Exists(oldFullPath))
+        {
+            var targetDir = Path.GetDirectoryName(newFullPath);
+            if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+            {
+                _ = Directory.CreateDirectory(targetDir);
+            }
+            File.Move(oldFullPath, newFullPath, overwrite: true);
+        }
+        else if (Directory.Exists(oldFullPath))
+        {
+            var targetDir = Path.GetDirectoryName(newFullPath);
+            if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+            {
+                _ = Directory.CreateDirectory(targetDir);
+            }
+            Directory.Move(oldFullPath, newFullPath);
+        }
+        else
+        {
+            throw new FileNotFoundException($"Item '{oldFullPath}' not found.");
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteItemAsync(string fullPath, CancellationToken cancellationToken = default)
+    {
+        if (File.Exists(fullPath))
+        {
+            File.Delete(fullPath);
+        }
+        else if (Directory.Exists(fullPath))
+        {
+            Directory.Delete(fullPath, recursive: true);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task MoveItemAsync(string sourceFullPath, string destinationDirectoryFullPath, CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(destinationDirectoryFullPath))
+        {
+            _ = Directory.CreateDirectory(destinationDirectoryFullPath);
+        }
+
+        var itemName = Path.GetFileName(sourceFullPath);
+        var targetFullPath = Path.Combine(destinationDirectoryFullPath, itemName);
+
+        if (File.Exists(sourceFullPath))
+        {
+            File.Move(sourceFullPath, targetFullPath, overwrite: true);
+        }
+        else if (Directory.Exists(sourceFullPath))
+        {
+            Directory.Move(sourceFullPath, targetFullPath);
+        }
+        else
+        {
+            throw new FileNotFoundException($"Item '{sourceFullPath}' not found.");
+        }
+        return Task.CompletedTask;
+    }
+
     public bool FileExists(string fullPath) => File.Exists(fullPath);
 
     public bool DirectoryExists(string fullPath) => Directory.Exists(fullPath);

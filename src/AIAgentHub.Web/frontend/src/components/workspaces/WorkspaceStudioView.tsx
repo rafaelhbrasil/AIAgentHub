@@ -6,8 +6,10 @@ import { ChangesOverviewBar } from './ChangesOverviewBar';
 import { useWorkspaceStudio } from './studio/useWorkspaceStudio';
 import { StudioHeader } from './studio/StudioHeader';
 import { StudioSidebar } from './studio/StudioSidebar';
+import { StudioGitPanel } from './studio/StudioGitPanel';
 import { StudioEmptyState } from './studio/StudioEmptyState';
 import { ConversationStatus } from '../../types/conversation';
+import { GitBranchIcon } from '../common/Icons';
 
 interface WorkspaceStudioViewProps {
   workspace: WorkspaceDto;
@@ -72,6 +74,10 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     handleAbort,
     handleSendPrompt,
     handleDownloadZip,
+    gitStatus,
+    isGitOpen,
+    setIsGitOpen,
+    handleOpenEditor,
   } = useWorkspaceStudio({
     workspace,
     initialConversationId,
@@ -91,6 +97,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         models={models}
         showActionsMenu={showActionsMenu}
         isStreaming={isStreaming}
+        gitStatus={gitStatus}
         onBack={onBack}
         onModelChange={handleModelChange}
         onToggleActionsMenu={() => setShowActionsMenu((prev) => !prev)}
@@ -101,9 +108,18 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         onSwitchProvider={handleOpenSwitchProvider}
         onEffortChange={handleEffortChange}
         onDeleteConversation={handleDeleteConversation}
+        onToggleGit={() => {
+          if (mobileTab === 'git') {
+            setMobileTab('chat');
+            setIsGitOpen(false);
+          } else {
+            setIsGitOpen((prev) => !prev);
+            setMobileTab('git');
+          }
+        }}
       />
 
-      {/* Mobile Switcher Tab (Chats vs Files) */}
+      {/* Mobile Switcher Tab (Chats vs Files vs Git) */}
       <div className="studio-mobile-nav">
         <button
           type="button"
@@ -111,7 +127,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
           style={{ flex: 1, justifyContent: 'center' }}
           onClick={() => setMobileTab('chat')}
         >
-          💬 Chat Studio
+          💬 Chat
         </button>
         <button
           type="button"
@@ -119,7 +135,18 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
           style={{ flex: 1, justifyContent: 'center' }}
           onClick={() => setMobileTab('sidebar')}
         >
-          📁 Files & Chats ({conversations.length})
+          📁 Files ({conversations.length})
+        </button>
+        <button
+          type="button"
+          className={`btn compact-btn ${mobileTab === 'git' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ flex: 1, justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+          onClick={() => {
+            setMobileTab('git');
+            setIsGitOpen(true);
+          }}
+        >
+          <GitBranchIcon size={13} /> Git {gitStatus?.currentBranch ? `(${gitStatus.currentBranch})` : ''}
         </button>
       </div>
 
@@ -127,6 +154,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         {/* Left Panel: Explorer & Conversations */}
         <StudioSidebar
           mobileTab={mobileTab}
+          workspaceId={workspace.id}
           treeData={treeData}
           conversations={conversations}
           activeConversation={activeConversation}
@@ -134,6 +162,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
           onDownloadZip={handleDownloadZip}
           onRefreshFiles={fetchFileTree}
           onPreviewFile={handlePreviewFile}
+          onOpenEditor={handleOpenEditor}
           onCreateConversation={handleCreateConversation}
           onSelectConversation={(id) => {
             selectConversationById(id);
@@ -145,7 +174,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
 
         {/* Right Panel: Conversation Studio */}
         <div
-          className={`chat-container glass ${mobileTab === 'sidebar' ? 'mobile-hidden' : ''}`}
+          className={`chat-container glass ${mobileTab !== 'chat' ? 'mobile-hidden' : ''}`}
           id="chatPanel"
         >
           {!activeConversation ? (
@@ -183,6 +212,20 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
             </>
           )}
         </div>
+
+        {/* Right Drawer / Git Panel */}
+        <StudioGitPanel
+          workspaceId={workspace.id}
+          isOpen={isGitOpen || mobileTab === 'git'}
+          mobileTab={mobileTab}
+          onClose={() => {
+            setIsGitOpen(false);
+            if (mobileTab === 'git') setMobileTab('chat');
+          }}
+          onFileSelect={(path) => {
+            handleOpenEditor(path);
+          }}
+        />
       </div>
     </div>
   );

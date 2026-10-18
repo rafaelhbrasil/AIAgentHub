@@ -1,0 +1,117 @@
+using AIAgentHub.Application.Filesystem;
+using AIAgentHub.Application.Git;
+using AIAgentHub.Application.Workspaces;
+using AIAgentHub.Domain.Workspaces;
+using AIAgentHub.Web.Controllers;
+
+using Microsoft.AspNetCore.Mvc;
+
+namespace AgentHub.UnitTests.Controllers;
+
+public sealed class GitAndFilesystemControllerTests
+{
+    private sealed class FakeWorkspaceService : IWorkspaceService
+    {
+        public WorkspaceDto? DefaultWorkspace { get; set; }
+
+        public Task<IReadOnlyList<WorkspaceDto>> GetAllAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<WorkspaceDto>>(DefaultWorkspace != null ? [DefaultWorkspace] : []);
+
+        public Task<WorkspaceDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult(DefaultWorkspace?.Id == id ? DefaultWorkspace : null);
+
+        public Task<WorkspaceDto> CreateAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(DefaultWorkspace!);
+
+        public Task<WorkspaceDto> CloneAsync(CloneWorkspaceRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new WorkspaceDto(Guid.NewGuid(), request.WorkspaceName ?? "Cloned", request.TargetDirectory, WorkspaceOrigin.Git, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0));
+
+        public Task<WorkspaceDto> UpdateAsync(Guid id, UpdateWorkspaceRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(DefaultWorkspace!);
+
+        public Task<WorkspaceDto> SetFavoriteAsync(Guid id, bool isFavorite, CancellationToken cancellationToken = default)
+            => Task.FromResult(DefaultWorkspace!);
+
+        public Task<WorkspaceDto> SetArchivedAsync(Guid id, bool isArchived, CancellationToken cancellationToken = default)
+            => Task.FromResult(DefaultWorkspace!);
+
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task TouchAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class FakeGitService : IGitService
+    {
+        public Task<GitStatusDto> GetStatusAsync(string workspacePath, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitStatusDto(true, true, "main", 0, 0, [], [], []));
+
+        public Task<IReadOnlyList<GitBranchDto>> GetBranchesAsync(string workspacePath, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<GitBranchDto>>([new GitBranchDto("main", true, false)]);
+
+        public Task<GitOperationResult> CreateBranchAsync(string workspacePath, string branchName, bool checkout = true, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Branch created"));
+
+        public Task<GitOperationResult> CheckoutBranchAsync(string workspacePath, string branchName, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Switched"));
+
+        public Task<GitOperationResult> StageAsync(string workspacePath, IReadOnlyList<string>? files = null, bool stageAll = false, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Staged"));
+
+        public Task<GitOperationResult> UnstageAsync(string workspacePath, IReadOnlyList<string>? files = null, bool unstageAll = false, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Unstaged"));
+
+        public Task<GitOperationResult> CommitAsync(string workspacePath, string message, bool stageAll = false, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Committed"));
+
+        public Task<GitOperationResult> PushAsync(string workspacePath, string? remote = null, string? branch = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Pushed"));
+
+        public Task<GitOperationResult> PullAsync(string workspacePath, string? remote = null, string? branch = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Pulled"));
+
+        public Task<GitOperationResult> FetchAsync(string workspacePath, string? remote = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Fetched"));
+
+        public Task<GitOperationResult> StashAsync(string workspacePath, string action = "save", string? message = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Stashed"));
+
+        public Task<IReadOnlyList<GitCommitDto>> GetHistoryAsync(string workspacePath, int maxCount = 50, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<GitCommitDto>>([]);
+
+        public Task<GitOperationResult> CloneAsync(string cloneUrl, string targetDirectory, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GitOperationResult(true, "Cloned"));
+    }
+
+    [Fact]
+    public async Task GitController_GetStatus_ReturnsStatus()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService
+        {
+            DefaultWorkspace = new WorkspaceDto(wsId, "Test WS", "C:\\test\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0)
+        };
+        var gitService = new FakeGitService();
+        var controller = new GitController(gitService, wsService);
+
+        var actionResult = await controller.GetStatus(wsId, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        var status = Assert.IsType<GitStatusDto>(okResult.Value);
+
+        Assert.True(status.IsRepository);
+        Assert.Equal("main", status.CurrentBranch);
+    }
+
+    [Fact]
+    public async Task GitController_CreateBranch_Succeeds()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService
+        {
+            DefaultWorkspace = new WorkspaceDto(wsId, "Test WS", "C:\\test\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0)
+        };
+        var gitService = new FakeGitService();
+        var controller = new GitController(gitService, wsService);
+
+        var actionResult = await controller.CreateBranch(new GitController.CreateBranchRequest(wsId, "feature/test"), CancellationToken.None);
+        Assert.IsType<OkObjectResult>(actionResult);
+    }
+}

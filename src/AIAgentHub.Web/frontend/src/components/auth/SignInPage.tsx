@@ -9,7 +9,7 @@ export const SignInPage: React.FC = () => {
   const { login, isSetupCompleted } = useAuth();
   const { showModal, hideModal } = useModal();
   const { showToast } = useToast();
-  const [username, setUsername] = useState<string>('admin');
+  const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -59,22 +59,27 @@ export const SignInPage: React.FC = () => {
           <h2>Sign In to AI Agent Hub</h2>
           <p>Enter your administrator credentials to proceed</p>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} method="post" autoComplete="on">
           <div className="form-group">
-            <label className="form-label">Username</label>
+            <label className="form-label" htmlFor="loginUsername">Username</label>
             <input
               type="text"
               id="loginUsername"
+              name="username"
+              autoComplete="username"
               className="form-input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username (e.g. admin)"
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label" htmlFor="loginPassword">Password</label>
             <input
               type="password"
               id="loginPassword"
+              name="password"
+              autoComplete="current-password"
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

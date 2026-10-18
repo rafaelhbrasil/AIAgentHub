@@ -15,6 +15,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setIsSetupCompleted: (val: boolean) => void;
   setIsAuthenticated: (val: boolean) => void;
+  setUsername: (val: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -135,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         setIsSetupCompleted,
         setIsAuthenticated,
+        setUsername,
       }}
     >
       {children}

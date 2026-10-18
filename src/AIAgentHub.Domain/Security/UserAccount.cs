@@ -72,6 +72,16 @@ public sealed class UserAccount : AggregateRoot
         FailedLoginAttempts = 0;
         LockoutEndUtc = null;
     }
+
+    public void UpdateUsername(string newUsername)
+    {
+        if (string.IsNullOrWhiteSpace(newUsername))
+        {
+            throw new ArgumentException("Username cannot be empty.", nameof(newUsername));
+        }
+
+        Username = newUsername.Trim();
+    }
 }
 
 public sealed class EncryptedSecret : Entity

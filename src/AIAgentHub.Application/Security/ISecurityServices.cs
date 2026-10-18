@@ -75,9 +75,13 @@ public interface ISetupService
     public Task<bool> WipeAllDataAsync(CancellationToken cancellationToken = default);
 }
 
+public sealed record UpdateAccountResult(bool Success, string? Error = null);
+
 public interface IAuthenticationService
 {
     public Task<AuthResult> LoginAsync(string username, string password, CancellationToken cancellationToken = default);
     public Task<UserAccount?> GetAdminAsync(CancellationToken cancellationToken = default);
     public Task<string?> GetAdminUsernameAsync(CancellationToken cancellationToken = default);
+    public Task<UpdateAccountResult> UpdateUsernameAsync(string currentPassword, string newUsername, CancellationToken cancellationToken = default);
+    public Task<UpdateAccountResult> UpdatePasswordAsync(string currentPassword, string newPassword, string confirmNewPassword, CancellationToken cancellationToken = default);
 }

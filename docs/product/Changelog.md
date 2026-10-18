@@ -53,9 +53,21 @@ Security-related improvements.
 
 ---
 
-# [Unreleased]
+# [0.3.0] - Workspace Developer Tools & Git
 
 ## Added
+
+- **Native Git Integration**: Added full repository status, branch listing/creation/checkout, staging, commits, remote operations (push, pull, fetch), stashing, and commit history.
+- **Git Clone to Workspace**: Added direct repository cloning into new workspaces (`POST /api/v1/workspaces/clone`) with `Origin = WorkspaceOrigin.Git`.
+- **Studio File Explorer**: Interactive file tree supporting file creation, folder creation, renaming, safe deletion, drag-and-drop reorganization, and real-time path search/filtering.
+- **Embedded Lightweight Code Editor**: In-browser code editor featuring syntax highlighting for popular languages, search & replace (`Ctrl+F`), quick file jump (`Ctrl+P`), read-only toggle, and inline diff comparison against saved disk state.
+- **Expanded File Previews**: Added server-side content renderers for Documents & Web (PDF, HTML), Structured Data (CSV, TSV rendered as interactive tables), and Logs & Config (LOG, INI, TOML, ENV).
+- **Single-User Account Management**: Settings panel to update login username and password with strict current password validation and automatic session cookie refreshment.
+- **Mobile Responsive Design**: Fully responsive layout optimizations across all new developer tools (mobile tabs, responsive modals, touch-friendly tree controls, and collapsible panels).
+
+---
+
+# [0.2.0] - Multi-Provider Flexibility & Chat DX
 
 - **GitHub Copilot Provider**: Added official GitHub Copilot CLI (`@github/copilot`, `copilot`) integration with dynamic CLI model discovery, authentication probe testing, and multi-turn session persistence.
 - **Configurable Detached Execution Trigger Words & Intent Gating**: Added configurable trigger words (`AgentHub:CliExecution:DetachedExecutionTriggerWords` and provider-level `DetachedExecutionTriggerWords`) to intelligently inject detached background process rules into GitHub Copilot CLI prompts only when execution intent is detected, eliminating CLI runner deadlocks when launching persistent services while consuming 0 extra tokens on non-execution prompts.

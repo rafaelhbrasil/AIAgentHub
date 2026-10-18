@@ -2,15 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../services/apiClient';
 import { ServerSettingsDto, NetworkInterfaceDto, UpdateServerSettingsRequest, normalizeNetworkMode, NetworkModeType } from '../../types/settings';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { LogsViewer } from './LogsViewer';
 
 export const SettingsView: React.FC = () => {
   const { showToast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<'network' | 'logs'>('network');
+  const { username, setUsername } = useAuth();
+  const [activeSubTab, setActiveSubTab] = useState<'network' | 'logs' | 'account'>('network');
   const [settings, setSettings] = useState<ServerSettingsDto | null>(null);
   const [nics, setNics] = useState<NetworkInterfaceDto[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  // Account management state
+  const [currentPasswordForUsername, setCurrentPasswordForUsername] = useState<string>('');
+  const [newUsernameInput, setNewUsernameInput] = useState<string>('');
+  const [isUpdatingUsername, setIsUpdatingUsername] = useState<boolean>(false);
+
+  const [currentPasswordForPass, setCurrentPasswordForPass] = useState<string>('');
+  const [newPasswordInput, setNewPasswordInput] = useState<string>('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState<string>('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -58,6 +70,77 @@ export const SettingsView: React.FC = () => {
     }
   };
 
+  const handleUpdateUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPasswordForUsername) {
+      showToast('Current password is required to change username.', 'warning');
+      return;
+    }
+    if (!newUsernameInput.trim()) {
+      showToast('Please enter a new username.', 'warning');
+      return;
+    }
+    setIsUpdatingUsername(true);
+    try {
+      const res = await apiFetch<{ success: boolean; username: string }>('/api/v1/auth/account/username', {
+        method: 'PUT',
+        body: {
+          currentPassword: currentPasswordForUsername,
+          newUsername: newUsernameInput.trim(),
+        },
+      });
+
+      if (res.ok && res.data?.success) {
+        showToast(`Username updated successfully to '${res.data.username}'.`, 'success');
+        setUsername(res.data.username);
+        setCurrentPasswordForUsername('');
+        setNewUsernameInput('');
+      } else {
+        showToast((res.data as any)?.message || res.error || 'Failed to update username. Verify current password.', 'error');
+      }
+    } finally {
+      setIsUpdatingUsername(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPasswordForPass) {
+      showToast('Current password is required.', 'warning');
+      return;
+    }
+    if (newPasswordInput.length < 8) {
+      showToast('New password must be at least 8 characters.', 'warning');
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      showToast('New passwords do not match.', 'warning');
+      return;
+    }
+    setIsUpdatingPassword(true);
+    try {
+      const res = await apiFetch<{ success: boolean }>('/api/v1/auth/account/password', {
+        method: 'PUT',
+        body: {
+          currentPassword: currentPasswordForPass,
+          newPassword: newPasswordInput,
+          confirmNewPassword: confirmPasswordInput,
+        },
+      });
+
+      if (res.ok && res.data?.success) {
+        showToast('Password updated successfully.', 'success');
+        setCurrentPasswordForPass('');
+        setNewPasswordInput('');
+        setConfirmPasswordInput('');
+      } else {
+        showToast((res.data as any)?.message || res.error || 'Failed to update password. Verify current password.', 'error');
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   if (isLoading || !settings) {
     return <div style={{ color: 'var(--text-muted)', padding: '20px' }}>Loading settings...</div>;
   }
@@ -68,24 +151,35 @@ export const SettingsView: React.FC = () => {
     <div>
       <h2>Server & Security Settings</h2>
       <p className="card-subtitle">
-        Manage HTTPS network interface listeners, TLS certificates, diagnostics and application logs.
+        Manage HTTPS network interface listeners, TLS certificates, admin credentials and application logs.
       </p>
 
       {/* Settings Sub-tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', marginBottom: '8px', flexWrap: 'wrap' }}>
         <button
           type="button"
           className={`btn compact-btn ${activeSubTab === 'network' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveSubTab('network')}
           style={{ padding: '7px 16px', fontSize: '0.88rem' }}
+          id="networkSettingsTabBtn"
         >
           🔒 Network & Security
+        </button>
+        <button
+          type="button"
+          className={`btn compact-btn ${activeSubTab === 'account' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveSubTab('account')}
+          style={{ padding: '7px 16px', fontSize: '0.88rem' }}
+          id="accountSettingsTabBtn"
+        >
+          👤 Account Management
         </button>
         <button
           type="button"
           className={`btn compact-btn ${activeSubTab === 'logs' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveSubTab('logs')}
           style={{ padding: '7px 16px', fontSize: '0.88rem' }}
+          id="logsSettingsTabBtn"
         >
           📜 Logs & Diagnostics
         </button>
@@ -177,6 +271,117 @@ export const SettingsView: React.FC = () => {
           >
             {isSaving ? 'Saving...' : 'Save Settings'}
           </button>
+        </div>
+      )}
+
+      {activeSubTab === 'account' && (
+        <div className="card glass" style={{ maxWidth: '800px', marginTop: '16px' }}>
+          <div className="card-title">Single-User Account Management</div>
+          <p className="card-subtitle">
+            Update your admin credentials. Current username: <strong>{username}</strong>
+          </p>
+
+          {/* Change Username Form */}
+          <form onSubmit={handleUpdateUsername} style={{ marginBottom: '28px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)' }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '8px', color: 'var(--text-heading)' }}>Change Username</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              Updating your username will refresh your authenticated session immediately.
+            </p>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label className="form-label" htmlFor="accCurrentPassUser">Current Password</label>
+              <input
+                type="password"
+                id="accCurrentPassUser"
+                name="current-password"
+                autoComplete="current-password"
+                className="form-control"
+                placeholder="Enter current password"
+                value={currentPasswordForUsername}
+                onChange={(e) => setCurrentPasswordForUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label className="form-label" htmlFor="accNewUsername">New Username</label>
+              <input
+                type="text"
+                id="accNewUsername"
+                name="username"
+                autoComplete="username"
+                className="form-control"
+                placeholder="Enter new username"
+                value={newUsernameInput}
+                onChange={(e) => setNewUsernameInput(e.target.value)}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary compact-btn"
+              id="updateUsernameBtn"
+              disabled={isUpdatingUsername || !currentPasswordForUsername || !newUsernameInput}
+            >
+              {isUpdatingUsername ? 'Updating Username...' : 'Update Username'}
+            </button>
+          </form>
+
+          {/* Change Password Form */}
+          <form onSubmit={handleUpdatePassword} method="post" autoComplete="on">
+            <h3 style={{ fontSize: '1rem', marginBottom: '8px', color: 'var(--text-heading)' }}>Change Password</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              Passwords must be at least 8 characters long.
+            </p>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label className="form-label" htmlFor="accCurrentPass">Current Password</label>
+              <input
+                type="password"
+                id="accCurrentPass"
+                name="current-password"
+                autoComplete="current-password"
+                className="form-control"
+                placeholder="Enter current password"
+                value={currentPasswordForPass}
+                onChange={(e) => setCurrentPasswordForPass(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label className="form-label" htmlFor="accNewPass">New Password</label>
+              <input
+                type="password"
+                id="accNewPass"
+                name="new-password"
+                autoComplete="new-password"
+                className="form-control"
+                placeholder="Enter new password (min. 8 characters)"
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label className="form-label" htmlFor="accConfirmPass">Confirm New Password</label>
+              <input
+                type="password"
+                id="accConfirmPass"
+                name="confirm-password"
+                autoComplete="new-password"
+                className="form-control"
+                placeholder="Confirm new password"
+                value={confirmPasswordInput}
+                onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary compact-btn"
+              id="updatePasswordBtn"
+              disabled={isUpdatingPassword || !currentPasswordForPass || !newPasswordInput || !confirmPasswordInput}
+            >
+              {isUpdatingPassword ? 'Updating Password...' : 'Update Password'}
+            </button>
+          </form>
         </div>
       )}
 

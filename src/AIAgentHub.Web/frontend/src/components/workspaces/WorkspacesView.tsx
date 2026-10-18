@@ -4,6 +4,7 @@ import { WorkspaceDto } from '../../types/workspace';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { FolderExplorerModal } from '../modals/FolderExplorerModal';
+import { CloneWorkspaceModal } from '../modals/CloneWorkspaceModal';
 import { WorkspaceStudioView } from './WorkspaceStudioView';
 
 interface WorkspacesViewProps {
@@ -90,6 +91,21 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
     showModal(
       'Open or Create Workspace',
       <FolderExplorerModal
+        onSuccess={(id: string) => {
+          hideModal();
+          fetchWorkspaces().then(() => {
+            onNavigateToWorkspace?.(id);
+          });
+        }}
+        onCancel={hideModal}
+      />
+    );
+  };
+
+  const handleShowCloneModal = () => {
+    showModal(
+      '🌿 Clone Workspace from Git',
+      <CloneWorkspaceModal
         onSuccess={(id: string) => {
           hideModal();
           fetchWorkspaces().then(() => {
@@ -266,14 +282,25 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
         }}
       >
         <h2>Workspaces</h2>
-        <button
-          type="button"
-          className="btn btn-primary"
-          id="createWsBtn"
-          onClick={handleShowCreateModal}
-        >
-          + Add Workspace
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            id="cloneWsBtn"
+            onClick={handleShowCloneModal}
+            title="Clone a remote Git repository as a workspace"
+          >
+            🌿 Clone from Git
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            id="createWsBtn"
+            onClick={handleShowCreateModal}
+          >
+            + Add Workspace
+          </button>
+        </div>
       </div>
 
       {isLoading ? (

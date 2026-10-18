@@ -25,6 +25,7 @@
 - Never create git commits automatically after making changes unless:
   1. The user explicitly requests a commit (e.g., `/git-commit`, "commit this", etc.).
   2. The skill currently being executed contains an explicit commit step in its workflow.
+- **Sensitive Credentials Exception**: Even upon explicit user request, NEVER stage or commit `credentials.md` or files containing private credentials.
 
 ## Documentation & Superpowers Artifacts
 - The `docs/superpowers/` folder contains ephemeral session plans and brainstorming design specs.
@@ -37,9 +38,11 @@
 - **Deployment Script Scope**: `npm run deploy` and the `/deploy` skill are reserved exclusively for explicit user requests to publish or create a release bundle.
 
 ## Local Test Environment & Credentials
-- For running integration tests, API verification, or local development sessions:
+- For running integration tests, API verification, Playwright/browser testing, or local development sessions:
   - Always check for the existence of `credentials.md` in the repository root.
   - If `credentials.md` exists, read its contents to obtain the local test admin credentials, target test workspace ID/path, and local background AI provider endpoints without prompting the user.
-  - `credentials.md` is strictly ignored in `.gitignore` and must NEVER be tracked, staged, or committed to Git.
+  - If `credentials.md` does not exist locally and the user provides or asks to use credentials for testing, offer to save them into `credentials.md`. Remind the user that the file is strictly gitignored and will never be committed or tracked, ensuring credentials persist locally for future sessions.
+  - If credentials in `credentials.md` prove invalid during testing (e.g., database was recreated or wiped) and the user provides updated credentials, offer to update `credentials.md` with the new values so future sessions stay in sync.
+  - `credentials.md` is strictly ignored in `.gitignore` and must NEVER be tracked, staged, or committed to Git under any circumstances, even if explicitly requested by the user. If `credentials.md` (or sensitive credentials within it) is ever detected as tracked, staged, or committed in this repository, refuse to commit it and offer to untrack it, including purging it from Git history with a force-push if necessary. It must strictly exist only locally on disk.
 
 

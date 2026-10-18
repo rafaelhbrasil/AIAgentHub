@@ -3,6 +3,7 @@ using AIAgentHub.Application.Diagnostics;
 using AIAgentHub.Application.Execution;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Filesystem;
+using AIAgentHub.Application.Git;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Realtime;
 using AIAgentHub.Application.Rendering;
@@ -13,6 +14,7 @@ using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Cryptography;
 using AIAgentHub.Infrastructure.Executors;
+using AIAgentHub.Infrastructure.Git;
 using AIAgentHub.Infrastructure.Logging;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Providers;
@@ -85,6 +87,10 @@ public static class DependencyInjection
         _ = services.AddSingleton<IContentRenderer, JsonContentRenderer>();
         _ = services.AddSingleton<IContentRenderer, XmlContentRenderer>();
         _ = services.AddSingleton<IContentRenderer, YamlContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, PdfContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, HtmlContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, DelimitedContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, ConfigLogContentRenderer>();
         _ = services.AddSingleton<IContentRenderingManager, ContentRenderingManager>();
 
         // 7. Provider Adapters & Manager (including Antigravity CLI / agy)
@@ -129,6 +135,7 @@ public static class DependencyInjection
         _ = services.AddScoped<IAppAuthService, AuthenticationService>();
         _ = services.AddScoped<IPermissionService, PermissionService>();
         _ = services.AddScoped<IExecutionOrchestrator, ExecutionOrchestrator>();
+        _ = services.AddScoped<IGitService, GitCliService>();
 
         // 9. Real-time (SignalR)
         _ = services.AddSignalR().AddJsonProtocol(options =>

@@ -26,11 +26,19 @@ public sealed record UpdateWorkspaceRequest(
     string Name,
     WorkspaceSettings Settings);
 
+public sealed record CloneWorkspaceRequest(
+    string CloneUrl,
+    string TargetDirectory,
+    string? WorkspaceName = null,
+    string? DefaultProviderId = null,
+    string? DefaultModelId = null);
+
 public interface IWorkspaceService
 {
     public Task<IReadOnlyList<WorkspaceDto>> GetAllAsync(CancellationToken cancellationToken = default);
     public Task<WorkspaceDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     public Task<WorkspaceDto> CreateAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken = default);
+    public Task<WorkspaceDto> CloneAsync(CloneWorkspaceRequest request, CancellationToken cancellationToken = default);
     public Task<WorkspaceDto> UpdateAsync(Guid id, UpdateWorkspaceRequest request, CancellationToken cancellationToken = default);
     public Task<WorkspaceDto> SetFavoriteAsync(Guid id, bool isFavorite, CancellationToken cancellationToken = default);
     public Task<WorkspaceDto> SetArchivedAsync(Guid id, bool isArchived, CancellationToken cancellationToken = default);

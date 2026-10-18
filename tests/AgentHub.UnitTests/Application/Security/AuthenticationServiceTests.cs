@@ -105,4 +105,64 @@ public sealed class AuthenticationServiceTests
         Assert.Equal(0, userRepo.Admin.FailedLoginAttempts);
         Assert.Null(userRepo.Admin.LockoutEndUtc);
     }
+
+    [Fact]
+    public async Task UpdateUsernameAsync_WithValidPassword_UpdatesUsername()
+    {
+        var userRepo = new FakeUserRepo
+        {
+            Admin = UserAccount.Create("admin", "correct_hash", "salt", "rec_hash")
+        };
+        var hasher = new FakeHasher();
+        var authService = new AuthenticationService(userRepo, hasher);
+
+        var result = await authService.UpdateUsernameAsync("CorrectPassword123!", "new_admin");
+        Assert.True(result.Success);
+        Assert.Equal("new_admin", userRepo.Admin.Username);
+    }
+
+    [Fact]
+    public async Task UpdateUsernameAsync_WithIncorrectPassword_Fails()
+    {
+        var userRepo = new FakeUserRepo
+        {
+            Admin = UserAccount.Create("admin", "correct_hash", "salt", "rec_hash")
+        };
+        var hasher = new FakeHasher();
+        var authService = new AuthenticationService(userRepo, hasher);
+
+        var result = await authService.UpdateUsernameAsync("wrong_pass", "new_admin");
+        Assert.False(result.Success);
+        Assert.Contains("incorrect", result.Error);
+        Assert.Equal("admin", userRepo.Admin.Username);
+    }
+
+    [Fact]
+    public async Task UpdatePasswordAsync_WithValidDetails_UpdatesPassword()
+    {
+        var userRepo = new FakeUserRepo
+        {
+            Admin = UserAccount.Create("admin", "correct_hash", "salt", "rec_hash")
+        };
+        var hasher = new FakeHasher();
+        var authService = new AuthenticationService(userRepo, hasher);
+
+        var result = await authService.UpdatePasswordAsync("CorrectPassword123!", "BrandNewPassword456!", "BrandNewPassword456!");
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task UpdatePasswordAsync_WithMismatchedConfirmation_Fails()
+    {
+        var userRepo = new FakeUserRepo
+        {
+            Admin = UserAccount.Create("admin", "correct_hash", "salt", "rec_hash")
+        };
+        var hasher = new FakeHasher();
+        var authService = new AuthenticationService(userRepo, hasher);
+
+        var result = await authService.UpdatePasswordAsync("CorrectPassword123!", "BrandNewPassword456!", "Mismatch!");
+        Assert.False(result.Success);
+        Assert.Contains("do not match", result.Error);
+    }
 }

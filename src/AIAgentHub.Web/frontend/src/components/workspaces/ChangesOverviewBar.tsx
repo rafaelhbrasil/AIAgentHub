@@ -136,7 +136,7 @@ export const ChangesOverviewBar: React.FC<ChangesOverviewBarProps> = ({
               </div>
             ) : (
               <>
-                {fileChanges.slice(0, 8).map((file) => (
+                {fileChanges.map((file) => (
                   <div
                     key={file.id}
                     className="changes-file-item"

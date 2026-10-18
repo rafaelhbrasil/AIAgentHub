@@ -56,4 +56,66 @@ public sealed class AuthenticationService(IUserAccountRepository userRepository,
         var admin = await _userRepository.GetAdminAsync(cancellationToken);
         return admin?.Username;
     }
+
+    public async Task<UpdateAccountResult> UpdateUsernameAsync(string currentPassword, string newUsername, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword))
+        {
+            return new UpdateAccountResult(false, "Current password is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(newUsername) || newUsername.Trim().Length < 3)
+        {
+            return new UpdateAccountResult(false, "New username must be at least 3 characters long.");
+        }
+
+        var admin = await _userRepository.GetAdminAsync(cancellationToken);
+        if (admin == null)
+        {
+            return new UpdateAccountResult(false, "Administrator account not found.");
+        }
+
+        if (!_passwordHasher.VerifyPassword(currentPassword, admin.PasswordHash, admin.PasswordSalt))
+        {
+            return new UpdateAccountResult(false, "Current password is incorrect.");
+        }
+
+        admin.UpdateUsername(newUsername.Trim());
+        await _userRepository.UpdateAsync(admin, cancellationToken);
+        return new UpdateAccountResult(true);
+    }
+
+    public async Task<UpdateAccountResult> UpdatePasswordAsync(string currentPassword, string newPassword, string confirmNewPassword, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword))
+        {
+            return new UpdateAccountResult(false, "Current password is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+        {
+            return new UpdateAccountResult(false, "New password must be at least 6 characters long.");
+        }
+
+        if (!string.Equals(newPassword, confirmNewPassword, StringComparison.Ordinal))
+        {
+            return new UpdateAccountResult(false, "New password and confirmation do not match.");
+        }
+
+        var admin = await _userRepository.GetAdminAsync(cancellationToken);
+        if (admin == null)
+        {
+            return new UpdateAccountResult(false, "Administrator account not found.");
+        }
+
+        if (!_passwordHasher.VerifyPassword(currentPassword, admin.PasswordHash, admin.PasswordSalt))
+        {
+            return new UpdateAccountResult(false, "Current password is incorrect.");
+        }
+
+        var (newHash, newSalt) = _passwordHasher.HashPassword(newPassword);
+        admin.UpdatePassword(newHash, newSalt);
+        await _userRepository.UpdateAsync(admin, cancellationToken);
+        return new UpdateAccountResult(true);
+    }
 }

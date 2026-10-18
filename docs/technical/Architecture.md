@@ -455,13 +455,48 @@ Features:
 
 ---
 
-## Unsupported Files
+### PDF & HTML (Version 0.3)
 
-If no renderer is available, the application should:
+Examples:
 
-- Offer file download.
-- Display basic file information.
-- Never fail the request.
+- .pdf
+- .html
+- .htm
+
+Features:
+
+- Native sandboxed preview
+- PDF embed / base64 object viewer
+
+---
+
+### Structured Data (Version 0.3)
+
+Examples:
+
+- .csv
+- .tsv
+
+Features:
+
+- Responsive tabular grid presentation
+- Column headers and cell formatting
+
+---
+
+### Config & Logs (Version 0.3)
+
+Examples:
+
+- .log
+- .ini
+- .toml
+- .env
+
+Features:
+
+- Key-value highlighting
+- Log stream timestamp formatting
 
 ---
 
@@ -478,14 +513,38 @@ Diff rendering is independent from preview rendering but shares the same renderi
 
 ---
 
+# Git Integration Architecture (Version 0.3)
+
+AI Agent Hub integrates native Git repository operations into the workspace environment without requiring third-party library dependencies (such as libgit2 binaries):
+
+- **Service Abstraction**: `IGitService` in the Application layer defines repository status, branch management, commit, push, pull, fetch, stash, history, and clone operations.
+- **Process-Based Execution**: `GitCliService` in the Infrastructure layer uses the host `git` command-line executable via `IProcessExecutor.RunCommandAsync`.
+- **Workspace Isolation**: Git commands execute strictly within `workspace.Path`.
+- **Optional Git Host**: If `git` is absent from the host machine, the service returns `isGitInstalled: false`, and the UI indicates that Git is optional without throwing exceptions.
+- **Repository Cloning**: `POST /api/v1/workspaces/clone` clones a remote Git repository into a target path and automatically registers a new workspace with `Origin = WorkspaceOrigin.Git`.
+
+---
+
+# Studio File Explorer & Embedded Code Editor (Version 0.3)
+
+Version 0.3 transforms the workspace studio into an integrated development environment:
+
+- **Filesystem Management**: Extends `IFilesystemService` with safe file creation, renaming, moving, deletion, and content reading/writing. Strict workspace containment validation is enforced against every path argument to eliminate path traversal attacks.
+- **Embedded Lightweight Editor**: An in-browser editor allowing developers to inspect and edit code without external IDEs.
+  - Client-side syntax highlighting for popular programming languages.
+  - Text search and replace (`Ctrl+F`).
+  - Quick file navigation (`Ctrl+P`).
+  - Read-only viewing mode toggle.
+  - Inline diff comparison against saved disk state.
+
+---
+
 ## Extensibility
 
 The rendering system is designed to be extensible.
 
 Future versions may introduce additional renderers, including:
 
-- PDF
-- CSV
 - Microsoft Office documents
 - Audio
 - Video
@@ -528,6 +587,14 @@ Security is enforced at multiple layers.
 - HTTPS
 
 No sensitive action bypasses authorization.
+
+## Single-User Account Management (Version 0.3)
+
+In Version 0.3, the authenticated administrator can update their username and password directly from the server settings interface:
+- Current password verification is strictly required for both username and password changes.
+- Cryptographic salts and hashes are regenerated using Argon2id/PBKDF2.
+- Session cookie claims are re-issued immediately to maintain the active session without unexpected logouts.
+- Endpoints are rate-limited via `AuthLimiter`.
 
 ---
 

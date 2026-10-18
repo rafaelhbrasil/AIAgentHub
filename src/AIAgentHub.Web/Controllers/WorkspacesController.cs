@@ -75,6 +75,20 @@ public sealed class WorkspacesController(IWorkspaceService workspaceService, ILo
         }
     }
 
+    [HttpPost("clone")]
+    public async Task<IActionResult> Clone([FromBody] CloneWorkspaceRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var cloned = await _workspaceService.CloneAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = cloned.Id }, cloned);
+        }
+        catch (Exception ex)
+        {
+            return BadRequestResponse("workspace_clone_failed", ex.Message);
+        }
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWorkspaceRequest request, CancellationToken cancellationToken)
     {

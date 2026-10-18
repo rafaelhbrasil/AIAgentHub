@@ -1,18 +1,42 @@
 export interface WorkspaceSettings {
   defaultProviderId?: string;
   defaultModelId?: string;
+  ignoredFiles?: string[];
+}
+
+export enum WorkspaceOrigin {
+  Server = 0,
+  Upload = 1,
+  Git = 2,
 }
 
 export interface WorkspaceDto {
   id: string;
   name: string;
   path: string;
+  origin?: WorkspaceOrigin;
   createdAtUtc: string;
   updatedAtUtc: string;
   conversationCount: number;
   isFavorite?: boolean;
   isArchived?: boolean;
   settings?: WorkspaceSettings;
+}
+
+export interface CloneWorkspaceRequest {
+  cloneUrl: string;
+  targetDirectory: string;
+  workspaceName?: string;
+  defaultProviderId?: string;
+  defaultModelId?: string;
+}
+
+export interface FileContentResponse {
+  path: string;
+  name: string;
+  content: string | null;
+  isBinary: boolean;
+  size: number;
 }
 
 export interface FileTreeNode {
@@ -47,4 +71,3 @@ export interface DirectoryBrowserResult {
 export interface ForbiddenPathsResponse {
   forbiddenPaths: string[];
 }
-

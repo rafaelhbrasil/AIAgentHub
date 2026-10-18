@@ -15,6 +15,7 @@
     "test:all": "npm run test && npm run test:integration",
     "deploy": "node scripts/deploy.mjs",
     "deploy:run": "node scripts/deploy.mjs --run",
+    "deploy:stop": "node scripts/stop.mjs",
     "release": "node scripts/release.mjs",
     "site:preview": "npx -y serve site"
   },

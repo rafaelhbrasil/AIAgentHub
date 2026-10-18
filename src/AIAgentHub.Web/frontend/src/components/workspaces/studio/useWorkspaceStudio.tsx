@@ -7,12 +7,14 @@ import { apiFetch } from '../../../services/apiClient';
 import { signalRService, StreamChunkPayload } from '../../../services/signalrService';
 import { useToast } from '../../../context/ToastContext';
 import { useModal } from '../../../context/ModalContext';
+import { GitStatusDto } from '../../../types/git';
 import { CreateConversationModal } from '../../modals/CreateConversationModal';
 import { SwitchProviderModal } from '../../modals/SwitchProviderModal';
 import { AbortMigrationModal } from '../../modals/AbortMigrationModal';
 import { FilePreviewModal } from '../../modals/FilePreviewModal';
 import { DiffViewerModal } from '../../modals/DiffViewerModal';
 import { PermissionModal } from '../../modals/PermissionModal';
+import { CodeEditorModal } from '../../modals/CodeEditorModal';
 
 export interface UseWorkspaceStudioProps {
   workspace: WorkspaceDto;
@@ -39,8 +41,10 @@ export const useWorkspaceStudio = ({
   const [heartbeatMessages, setHeartbeatMessages] = useState<string[]>([]);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isRefreshingTree, setIsRefreshingTree] = useState<boolean>(false);
-  const [mobileTab, setMobileTab] = useState<'chat' | 'sidebar'>('chat');
+  const [mobileTab, setMobileTab] = useState<'chat' | 'sidebar' | 'git'>('chat');
   const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
+  const [gitStatus, setGitStatus] = useState<GitStatusDto | null>(null);
+  const [isGitOpen, setIsGitOpen] = useState<boolean>(false);
 
   const onConversationChangedRef = useRef(onConversationChanged);
   useEffect(() => {
@@ -69,6 +73,17 @@ export const useWorkspaceStudio = ({
       }
     } finally {
       setIsRefreshingTree(false);
+    }
+  }, [workspace.id]);
+
+  const fetchGitStatus = useCallback(async () => {
+    try {
+      const res = await apiFetch<GitStatusDto>(`/api/v1/git/status?workspaceId=${workspace.id}`);
+      if (res.ok && res.data) {
+        setGitStatus(res.data);
+      }
+    } catch {
+      // Ignore
     }
   }, [workspace.id]);
 
@@ -117,12 +132,14 @@ export const useWorkspaceStudio = ({
 
   const fetchWorkspaceData = useCallback(async () => {
     try {
-      const [treeRes, convsRes] = await Promise.all([
+      const [treeRes, convsRes, gitRes] = await Promise.all([
         apiFetch<FileTreeNode>(`/api/v1/filesystem/tree?workspaceId=${workspace.id}`),
         apiFetch<ConversationDto[]>(`/api/v1/conversations?workspaceId=${workspace.id}`),
+        apiFetch<GitStatusDto>(`/api/v1/git/status?workspaceId=${workspace.id}`),
       ]);
 
       if (treeRes.ok && treeRes.data) setTreeData(treeRes.data);
+      if (gitRes.ok && gitRes.data) setGitStatus(gitRes.data);
       const loadedConvs = convsRes.ok && convsRes.data ? convsRes.data : [];
       const sortedConvs = [...loadedConvs].sort((a, b) => {
         const timeA = new Date(a.lastUserInteractionAtUtc || a.updatedAtUtc || a.createdAtUtc).getTime();
@@ -428,6 +445,45 @@ export const useWorkspaceStudio = ({
     );
   };
 
+  const extractFilePaths = (node: FileTreeNode | null): string[] => {
+    if (!node) return [];
+    const results: string[] = [];
+    const traverse = (current: FileTreeNode) => {
+      if (!current.isDirectory && current.relativePath) {
+        results.push(current.relativePath);
+      }
+      if (current.children) {
+        for (const child of current.children) {
+          traverse(child);
+        }
+      }
+    };
+    traverse(node);
+    return results;
+  };
+
+  const handleOpenEditor = useCallback(
+    (path: string) => {
+      const filePaths = extractFilePaths(treeData);
+      showModal(
+        `Code Editor: ${path}`,
+        <CodeEditorModal
+          workspaceId={workspace.id}
+          initialPath={path}
+          workspaceFiles={filePaths}
+          onClose={hideModal}
+          onSaved={() => {
+            fetchFileTree();
+            fetchGitStatus();
+          }}
+        />,
+        undefined,
+        'full'
+      );
+    },
+    [workspace.id, treeData, showModal, hideModal, fetchFileTree, fetchGitStatus]
+  );
+
   const handlePreviewFile = async (relPath: string) => {
     const res = await apiFetch<FilePreviewDto>(
       `/api/v1/preview?workspaceId=${workspace.id}&path=${encodeURIComponent(relPath)}`
@@ -439,6 +495,7 @@ export const useWorkspaceStudio = ({
           relativePath={relPath}
           preview={res.data}
           onClose={hideModal}
+          onOpenEditor={handleOpenEditor}
         />,
         undefined,
         'xl'
@@ -742,5 +799,10 @@ export const useWorkspaceStudio = ({
     handleAbort,
     handleSendPrompt,
     handleDownloadZip,
+    gitStatus,
+    isGitOpen,
+    setIsGitOpen,
+    fetchGitStatus,
+    handleOpenEditor,
   };
 };

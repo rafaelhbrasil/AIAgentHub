@@ -1,4 +1,5 @@
 using AIAgentHub.Application.Filesystem;
+using AIAgentHub.Application.Git;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Workspaces;
@@ -9,12 +10,14 @@ public sealed class WorkspaceService(
     IWorkspaceRepository workspaceRepository,
     IFilesystemService filesystemService,
     ISystemPathValidator systemPathValidator,
-    IProviderManager providerManager) : IWorkspaceService
+    IProviderManager providerManager,
+    IGitService? gitService = null) : IWorkspaceService
 {
     private readonly IWorkspaceRepository _workspaceRepository = workspaceRepository;
     private readonly IFilesystemService _filesystemService = filesystemService;
     private readonly ISystemPathValidator _systemPathValidator = systemPathValidator;
     private readonly IProviderManager _providerManager = providerManager;
+    private readonly IGitService? _gitService = gitService;
 
     public async Task<IReadOnlyList<WorkspaceDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -73,6 +76,69 @@ public sealed class WorkspaceService(
         };
 
         var workspace = Workspace.Create(name, fullPath, request.Origin, settings, request.IsFavorite);
+        await _workspaceRepository.AddAsync(workspace, cancellationToken);
+
+        return MapToDto(workspace);
+    }
+
+    public async Task<WorkspaceDto> CloneAsync(CloneWorkspaceRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.CloneUrl))
+        {
+            throw new ArgumentException("Clone URL cannot be empty.", nameof(request.CloneUrl));
+        }
+
+        var rawTarget = request.TargetDirectory?.Trim() ?? string.Empty;
+        if (_systemPathValidator.IsPathForbidden(rawTarget, out var reason))
+        {
+            throw new ArgumentException(reason ?? $"Directory '{rawTarget}' is not allowed as a workspace.");
+        }
+
+        var fullPath = Path.GetFullPath(rawTarget);
+        if (_gitService != null)
+        {
+            var cloneResult = await _gitService.CloneAsync(request.CloneUrl, fullPath, cancellationToken);
+            if (!cloneResult.Success)
+            {
+                throw new InvalidOperationException(cloneResult.Error ?? "Git clone failed.");
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException("Git service is not available.");
+        }
+
+        var existing = await _workspaceRepository.GetByPathAsync(fullPath, cancellationToken);
+        if (existing != null)
+        {
+            existing.Touch();
+            await _workspaceRepository.UpdateAsync(existing, cancellationToken);
+            return MapToDto(existing);
+        }
+
+        var name = string.IsNullOrWhiteSpace(request.WorkspaceName)
+            ? _filesystemService.SuggestWorkspaceName(fullPath)
+            : request.WorkspaceName.Trim();
+
+        string? defaultProviderId = null;
+        if (!string.IsNullOrWhiteSpace(request.DefaultProviderId))
+        {
+            defaultProviderId = request.DefaultProviderId.Trim();
+        }
+        else if (_providerManager != null)
+        {
+            var providers = await _providerManager.GetAllAsync(cancellationToken);
+            var firstReady = providers.FirstOrDefault(p => p.Status == Domain.Providers.ProviderStatus.Ready && !p.IsHidden);
+            defaultProviderId = firstReady?.Id;
+        }
+
+        var settings = new WorkspaceSettings
+        {
+            DefaultProviderId = defaultProviderId,
+            DefaultModelId = request.DefaultModelId
+        };
+
+        var workspace = Workspace.Create(name, fullPath, WorkspaceOrigin.Git, settings);
         await _workspaceRepository.AddAsync(workspace, cancellationToken);
 
         return MapToDto(workspace);

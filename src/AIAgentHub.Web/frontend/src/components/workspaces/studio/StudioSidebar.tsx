@@ -6,7 +6,8 @@ import { ConversationList } from '../ConversationList';
 import { Spinner } from '../../common/Spinner';
 
 interface StudioSidebarProps {
-  mobileTab: 'chat' | 'sidebar';
+  mobileTab: 'chat' | 'sidebar' | 'git';
+  workspaceId: string;
   treeData: FileTreeNode | null;
   conversations: ConversationDto[];
   activeConversation: ConversationDetailDto | null;
@@ -14,6 +15,7 @@ interface StudioSidebarProps {
   onDownloadZip: () => void;
   onRefreshFiles: () => void;
   onPreviewFile: (path: string) => void;
+  onOpenEditor?: (path: string) => void;
   onCreateConversation: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string, title: string) => void;
@@ -22,6 +24,7 @@ interface StudioSidebarProps {
 
 export const StudioSidebar: React.FC<StudioSidebarProps> = ({
   mobileTab,
+  workspaceId,
   treeData,
   conversations,
   activeConversation,
@@ -29,13 +32,14 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
   onDownloadZip,
   onRefreshFiles,
   onPreviewFile,
+  onOpenEditor,
   onCreateConversation,
   onSelectConversation,
   onDeleteConversation,
   onTogglePin,
 }) => {
   return (
-    <div className={`sidebar-panel glass ${mobileTab === 'chat' ? 'mobile-hidden' : ''}`}>
+    <div className={`sidebar-panel glass ${mobileTab !== 'sidebar' ? 'mobile-hidden' : ''}`}>
       <div
         className="sidebar-header"
         style={{
@@ -75,7 +79,13 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
           </button>
         </div>
       </div>
-      <FileTree node={treeData} onSelectFile={onPreviewFile} />
+      <FileTree
+        workspaceId={workspaceId}
+        node={treeData}
+        onSelectFile={onPreviewFile}
+        onOpenEditor={onOpenEditor}
+        onRefresh={onRefreshFiles}
+      />
 
       <div
         className="sidebar-header"
