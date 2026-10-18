@@ -12,6 +12,8 @@ namespace AIAgentHub.Web.Controllers;
 [Route("api/v1/diffs")]
 public sealed class DiffsController(IFileChangeService fileChangeService, IWorkspaceService workspaceService) : ControllerBase
 {
+    private const string DiffNotFoundCode = "diff_not_found";
+
     private readonly IFileChangeService _fileChangeService = fileChangeService;
     private readonly IWorkspaceService _workspaceService = workspaceService;
 
@@ -46,7 +48,7 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         var change = await _fileChangeService.GetByIdAsync(id, cancellationToken);
         if (change == null)
         {
-            return NotFound(new { code = "diff_not_found", message = $"File change {id} was not found." });
+            return NotFound(new { code = DiffNotFoundCode, message = $"File change {id} was not found." });
         }
 
         try
@@ -70,7 +72,7 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "diff_not_found", message = $"File change {id} was not found." });
+            return NotFound(new { code = DiffNotFoundCode, message = $"File change {id} was not found." });
         }
     }
 
@@ -79,31 +81,10 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
     {
         try
         {
-            if (!string.IsNullOrEmpty(request?.Content) && workspaceId.HasValue)
+            var errorResult = await WriteAcceptedContentAsync(id, workspaceId, request?.Content, cancellationToken);
+            if (errorResult != null)
             {
-                var change = await _fileChangeService.GetByIdAsync(id, cancellationToken);
-                if (change != null)
-                {
-                    var ws = await _workspaceService.GetByIdAsync(workspaceId.Value, cancellationToken);
-                    if (ws != null)
-                    {
-                        var workspaceRoot = Path.GetFullPath(ws.Path);
-                        var cleanRel = change.RelativePath.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar);
-                        var fullPath = Path.GetFullPath(Path.Combine(workspaceRoot, cleanRel));
-
-                        if (!fullPath.StartsWith(workspaceRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return BadRequest(new { code = "path_traversal", message = "Target path is outside workspace root." });
-                        }
-
-                        var dir = Path.GetDirectoryName(fullPath);
-                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                        {
-                            _ = Directory.CreateDirectory(dir);
-                        }
-                        await System.IO.File.WriteAllTextAsync(fullPath, request.Content, cancellationToken);
-                    }
-                }
+                return errorResult;
             }
 
             await _fileChangeService.AcceptAsync(id, cancellationToken);
@@ -111,8 +92,46 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "diff_not_found", message = $"File change {id} was not found." });
+            return NotFound(new { code = DiffNotFoundCode, message = $"File change {id} was not found." });
         }
+    }
+
+    private async Task<IActionResult?> WriteAcceptedContentAsync(Guid id, Guid? workspaceId, string? content, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(content) || !workspaceId.HasValue)
+        {
+            return null;
+        }
+
+        var change = await _fileChangeService.GetByIdAsync(id, cancellationToken);
+        if (change == null)
+        {
+            return null;
+        }
+
+        var ws = await _workspaceService.GetByIdAsync(workspaceId.Value, cancellationToken);
+        if (ws == null)
+        {
+            return null;
+        }
+
+        var workspaceRoot = Path.GetFullPath(ws.Path);
+        var cleanRel = change.RelativePath.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar);
+        var fullPath = Path.GetFullPath(Path.Combine(workspaceRoot, cleanRel));
+
+        if (!fullPath.StartsWith(workspaceRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { code = "path_traversal", message = "Target path is outside workspace root." });
+        }
+
+        var dir = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        {
+            _ = Directory.CreateDirectory(dir);
+        }
+
+        await System.IO.File.WriteAllTextAsync(fullPath, content, cancellationToken);
+        return null;
     }
 
     [HttpPost("{id:guid}/reject")]
@@ -131,7 +150,7 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { code = "diff_not_found", message = $"File change {id} was not found." });
+            return NotFound(new { code = DiffNotFoundCode, message = $"File change {id} was not found." });
         }
     }
 

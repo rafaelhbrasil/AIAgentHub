@@ -149,7 +149,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
           >
             {rawLines.map((line, idx) => (
               <div
-                key={idx}
+                key={`raw-line-${idx}`}
                 style={{
                   display: 'flex',
                   padding: '1px 12px',

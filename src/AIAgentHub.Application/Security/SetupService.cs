@@ -70,15 +70,10 @@ public sealed class SetupService(
     public async Task<bool> ResetToSetupModeAsync(string? recoveryCode, CancellationToken cancellationToken = default)
     {
         var admin = await _userRepository.GetAdminAsync(cancellationToken);
-        if (admin != null)
+        if (admin != null && recoveryCode != null &&
+            (string.IsNullOrWhiteSpace(recoveryCode) || !_passwordHasher.VerifyRecoveryCode(recoveryCode, admin.RecoveryCodeHash)))
         {
-            if (recoveryCode != null)
-            {
-                if (string.IsNullOrWhiteSpace(recoveryCode) || !_passwordHasher.VerifyRecoveryCode(recoveryCode, admin.RecoveryCodeHash))
-                {
-                    return false;
-                }
-            }
+            return false;
         }
 
         // Wipe existing admin and reset setup status

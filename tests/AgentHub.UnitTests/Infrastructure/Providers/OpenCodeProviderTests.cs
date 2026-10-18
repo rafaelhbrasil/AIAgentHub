@@ -45,11 +45,11 @@ public sealed class OpenCodeProviderTests
         Assert.Equal("opencode", provider.Id);
         Assert.Equal("opencode", provider.ExecutableName);
         Assert.Equal("OpenCode", provider.DisplayName);
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Streaming));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.ToolCalling));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Mcp));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.FileEditing));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.ModelSelection));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Streaming));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ToolCalling));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Mcp));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.FileEditing));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ModelSelection));
     }
 
     [Fact]

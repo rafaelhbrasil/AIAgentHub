@@ -13,7 +13,7 @@ export async function apiFetch<T = any>(url: string, options: ApiFetchOptions = 
   const fetchOptions: RequestInit = {
     ...options,
     headers: {
-      ...(options.headers || {}),
+      ...options.headers,
     },
     credentials: 'include',
     body: undefined,

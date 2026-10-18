@@ -20,7 +20,7 @@ export function isPathForbiddenForBrowsing(
       const regexPattern =
         '^' +
         normPattern
-          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
           .replace(/\\\*/g, '[^/]+') +
         '(/.*)?$';
       const re = new RegExp(regexPattern, 'i');

@@ -14,6 +14,8 @@ namespace AIAgentHub.Web.Startup;
 
 public static class StartupLifecycleHelper
 {
+    private const string LocalhostAuthority = "://localhost:";
+
     public static string NormalizeUrl(string rawUrl)
     {
         if (string.IsNullOrWhiteSpace(rawUrl))
@@ -39,10 +41,10 @@ public static class StartupLifecycleHelper
 
         // Fallback for non-standard URI strings like http://+:5000 or https://*:5001
         var normalized = trimmed
-            .Replace("://0.0.0.0:", "://localhost:")
-            .Replace("://[::]:", "://localhost:")
-            .Replace("://+:", "://localhost:")
-            .Replace("://*:", "://localhost:");
+            .Replace("://0.0.0.0:", LocalhostAuthority)
+            .Replace("://[::]:", LocalhostAuthority)
+            .Replace("://+:", LocalhostAuthority)
+            .Replace("://*:", LocalhostAuthority);
 
         return normalized;
     }

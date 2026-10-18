@@ -11,6 +11,8 @@ namespace AIAgentHub.Web.Controllers;
 [Route("api/v1/providers")]
 public sealed class ProvidersController(IProviderManager providerManager) : ApiControllerBase
 {
+    private const string ProviderNotFoundCode = "provider_not_found";
+
     private readonly IProviderManager _providerManager = providerManager;
 
     [HttpGet("refresh-stream")]
@@ -57,7 +59,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
     public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
     {
         var info = await _providerManager.GetProviderInfoAsync(id, cancellationToken);
-        return info == null ? NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.") : Ok(info);
+        return info == null ? NotFoundResponse(ProviderNotFoundCode, $"Provider '{id}' was not found.") : Ok(info);
     }
 
     [HttpGet("{id}/status")]
@@ -70,7 +72,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
+            return NotFoundResponse(ProviderNotFoundCode, $"Provider '{id}' was not found.");
         }
     }
 
@@ -84,7 +86,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
+            return NotFoundResponse(ProviderNotFoundCode, $"Provider '{id}' was not found.");
         }
     }
 
@@ -99,7 +101,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
+            return NotFoundResponse(ProviderNotFoundCode, $"Provider '{id}' was not found.");
         }
     }
 
@@ -116,7 +118,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
+            return NotFoundResponse(ProviderNotFoundCode, $"Provider '{id}' was not found.");
         }
     }
 
@@ -131,7 +133,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("provider_not_found", $"Provider '{id}' was not found.");
+            return NotFoundResponse(ProviderNotFoundCode, $"Provider '{id}' was not found.");
         }
     }
 }

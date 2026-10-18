@@ -50,7 +50,7 @@ public sealed class ConversationsController(
 
     public sealed record RenameConversationRequest(string Title);
     public sealed record UpdateConversationModelRequest(string? ModelId, string? ProviderId = null, string? Effort = null);
-    public sealed record SetConversationPinRequest(bool IsPinned);
+    public sealed record SetConversationPinRequest(bool? IsPinned);
 
     [HttpPut("{id:guid}/rename")]
     public async Task<IActionResult> Rename(Guid id, [FromBody] RenameConversationRequest request, CancellationToken cancellationToken)
@@ -62,7 +62,7 @@ public sealed class ConversationsController(
     [HttpPut("{id:guid}/pin")]
     public async Task<IActionResult> SetPin(Guid id, [FromBody] SetConversationPinRequest request, CancellationToken cancellationToken)
     {
-        var updated = await _conversationService.SetPinnedAsync(id, request.IsPinned, cancellationToken);
+        var updated = await _conversationService.SetPinnedAsync(id, request.IsPinned ?? false, cancellationToken);
         return Ok(updated);
     }
 

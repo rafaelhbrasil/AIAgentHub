@@ -102,20 +102,30 @@ export const ChatAutocompletePopover: React.FC<ChatAutocompletePopoverProps> = (
         <span>{mode === 'skill' ? '🧩 Skills (/)' : '📄 Workspace Files (@)'}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '0.68rem', opacity: 0.7 }}>↑↓ Navigate • Enter Select</span>
-          <span
+          <button
+            type="button"
             onClick={onClose}
             title="Dismiss"
-            style={{ cursor: 'pointer', opacity: 0.7, padding: '0 2px' }}
+            style={{
+              cursor: 'pointer',
+              opacity: 0.7,
+              padding: '0 2px',
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              font: 'inherit',
+            }}
           >
             ✕
-          </span>
+          </button>
         </div>
       </div>
 
       {items.map((item, index) => {
         const isSelected = index === selectedIndex;
         return (
-          <div
+          <button
+            type="button"
             key={item.id}
             onClick={() => onSelect(item)}
             style={{
@@ -125,6 +135,10 @@ export const ChatAutocompletePopover: React.FC<ChatAutocompletePopoverProps> = (
               display: 'flex',
               flexDirection: 'column',
               gap: '2px',
+              border: 'none',
+              textAlign: 'left',
+              font: 'inherit',
+              width: '100%',
               background: isSelected ? 'var(--bg-glass)' : 'transparent',
               color: isSelected ? 'var(--text-heading)' : 'var(--text-main)',
               borderLeft: isSelected ? '3px solid var(--accent-primary)' : '3px solid transparent',
@@ -152,7 +166,7 @@ export const ChatAutocompletePopover: React.FC<ChatAutocompletePopoverProps> = (
                 {item.detail}
               </div>
             )}
-          </div>
+          </button>
         );
       })}
     </div>

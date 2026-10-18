@@ -8,6 +8,7 @@ using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Permissions;
 using AIAgentHub.Domain.Repositories;
+using AIAgentHub.Domain.Workspaces;
 
 namespace AIAgentHub.Application.Execution;
 
@@ -111,17 +112,64 @@ public sealed class ExecutionOrchestrator(
         var stopwatch = Stopwatch.StartNew();
         var assistantResponseBuilder = new System.Text.StringBuilder();
 
-        // Retrieve existing session or start new session
+        await StartOrResumeProviderSessionAsync(conversation, provider, workspace.Path, userMsg.Id, cancellationToken);
+
+        var effectivePrompt = BuildEffectivePrompt(conversation, userMsg.Id, prompt);
+
+        var execContext = BuildExecutionContext(conversation, workspace, provider, effectivePrompt, assistantResponseBuilder, userMsg.Id, userId, token);
+
+        var (isSuccess, error, _) = await RunWithAutoResumeAsync(provider, execContext, assistantResponseBuilder, userId, token);
+
+
+        stopwatch.Stop();
+
+        IReadOnlyList<FileChange> detectedChanges = [];
+        try
+        {
+            detectedChanges = await _snapshotService.DetectAndRecordChangesAsync(
+                workspace.Id,
+                conversation.Id,
+                workspace.Path,
+                snapshotToken,
+                workspace.Settings.IgnoredFiles,
+                CancellationToken.None);
+
+            foreach (var change in detectedChanges)
+            {
+                conversation.AddFileChange(change);
+                await _broadcaster.SendDiffCreatedAsync(conversationId, change, userId, CancellationToken.None);
+            }
+        }
+        catch
+        {
+            // Snapshot comparison failure should not block recording assistant message or session checkpoint
+        }
+
+        await RecordAssistantResponseAsync(conversation, provider, assistantResponseBuilder, stopwatch, isSuccess, error, detectedChanges.Count, userId);
+    }
+    finally
+    {
+        _ = _activeExecutionTracker.TryStop(conversationId);
+    }
+}
+
+    private async Task StartOrResumeProviderSessionAsync(
+        Conversation conversation,
+        IProvider provider,
+        string workspacePath,
+        Guid userMsgId,
+        CancellationToken cancellationToken)
+    {
         var currentSession = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
         var activeSessionId = currentSession?.ProviderSessionId ?? conversation.ProviderSessionId;
 
         if (string.IsNullOrEmpty(activeSessionId))
         {
-            activeSessionId = await provider.StartSessionAsync(conversation.Id, workspace.Path, conversation.ModelId, cancellationToken);
+            activeSessionId = await provider.StartSessionAsync(conversation.Id, workspacePath, conversation.ModelId, cancellationToken);
             if (!string.IsNullOrEmpty(activeSessionId))
             {
                 conversation.SetProviderSessionId(activeSessionId);
-                _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, activeSessionId, userMsg.Id, currentSession?.LastSharedSequenceIndex ?? 0);
+                _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, activeSessionId, userMsgId, currentSession?.LastSharedSequenceIndex ?? 0);
                 await _conversationRepository.UpdateAsync(conversation, cancellationToken);
             }
         }
@@ -130,19 +178,21 @@ public sealed class ExecutionOrchestrator(
             conversation.SetProviderSessionId(activeSessionId);
             await _conversationRepository.UpdateAsync(conversation, cancellationToken);
         }
+    }
 
-        // 3b. Compile Context Handoff / Differential Replay for unshared history
-        currentSession = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
+    private string BuildEffectivePrompt(Conversation conversation, Guid userMsgId, string prompt)
+    {
+        var currentSession = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
         var lastSharedIndex = currentSession?.LastSharedSequenceIndex ?? 0;
         var unsharedMessages = conversation.Messages
-            .Where(m => m.Id != userMsg.Id && m.SequenceIndex > 0 && m.SequenceIndex > lastSharedIndex)
+            .Where(m => m.Id != userMsgId && m.SequenceIndex > 0 && m.SequenceIndex > lastSharedIndex)
             .OrderBy(m => m.SequenceIndex)
             .ToList();
 
-        var effectivePrompt = prompt;
         var hasForeignMessages = unsharedMessages.Any(m => !string.IsNullOrEmpty(m.OriginProviderId) &&
                                                            !m.OriginProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
 
+        var effectivePrompt = prompt;
         if (hasForeignMessages)
         {
             var contextBuilder = new System.Text.StringBuilder();
@@ -169,7 +219,20 @@ public sealed class ExecutionOrchestrator(
             hasForeignMessages,
             unsharedMessages.Count);
 
-        var execContext = new ProviderExecutionContext(
+        return effectivePrompt;
+    }
+
+    private ProviderExecutionContext BuildExecutionContext(
+        Conversation conversation,
+        Workspace workspace,
+        IProvider provider,
+        string effectivePrompt,
+        System.Text.StringBuilder assistantResponseBuilder,
+        Guid userMsgId,
+        string? userId,
+        CancellationToken cancellationToken)
+    {
+        return new ProviderExecutionContext(
             conversation.Id,
             workspace.Id,
             workspace.Path,
@@ -180,7 +243,7 @@ public sealed class ExecutionOrchestrator(
             async (token) =>
             {
                 _ = assistantResponseBuilder.Append(token);
-                await _broadcaster.SendMessageStreamChunkAsync(conversationId, token, userId, cancellationToken);
+                await _broadcaster.SendMessageStreamChunkAsync(conversation.Id, token, userId, cancellationToken);
             },
             async (actionType, target) =>
             {
@@ -191,7 +254,7 @@ public sealed class ExecutionOrchestrator(
                     "command" => PermissionType.CommandExecution,
                     _ => PermissionType.DirectoryAccess
                 };
-                var req = await _permissionService.RequestPermissionAsync(conversationId, provider.Id, permType, target, $"AI assistant requested {actionType} for {target}", userId, cancellationToken);
+                var req = await _permissionService.RequestPermissionAsync(conversation.Id, provider.Id, permType, target, $"AI assistant requested {actionType} for {target}", userId, cancellationToken);
                 return req.Decision == PermissionDecision.Approved;
             },
             cancellationToken,
@@ -202,7 +265,7 @@ public sealed class ExecutionOrchestrator(
                     conversation.SetProviderSessionId(newSessionId);
                     var existing = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
                     var preservedIndex = existing?.LastSharedSequenceIndex ?? 0;
-                    var preservedMsgId = existing?.LastSharedMessageId ?? userMsg.Id;
+                    var preservedMsgId = existing?.LastSharedMessageId ?? userMsgId;
                     _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, newSessionId, preservedMsgId, preservedIndex);
                     await _conversationRepository.UpdateAsync(conversation, CancellationToken.None);
                 }
@@ -210,17 +273,22 @@ public sealed class ExecutionOrchestrator(
             conversation.Effort,
             OnHeartbeat: async (msg, elapsedSecs) =>
             {
-                await _broadcaster.SendConversationEventAsync("conversation.heartbeat", conversationId, new
+                await _broadcaster.SendConversationEventAsync("conversation.heartbeat", conversation.Id, new
                 {
                     message = msg,
                     elapsedSeconds = elapsedSecs
                 }, userId, cancellationToken);
             }
         );
+    }
 
-        // 4. Run Execution through Provider (with bounded auto-resumption on timeout)
-        var isSuccess = true;
-        string? error = null;
+    private async Task<(bool IsSuccess, string? Error, ProviderExecutionContext Context)> RunWithAutoResumeAsync(
+        IProvider provider,
+        ProviderExecutionContext execContext,
+        System.Text.StringBuilder assistantResponseBuilder,
+        string? userId,
+        CancellationToken cancellationToken)
+    {
         var maxAutoResumes = _options?.AutoResumeOnTimeout == true ? Math.Max(0, _options.MaxAutoResumes) : 0;
         var resumeCount = 0;
 
@@ -229,82 +297,84 @@ public sealed class ExecutionOrchestrator(
             try
             {
                 await provider.ExecuteAsync(execContext);
-                isSuccess = true;
-                error = null;
-                break;
+                return (true, null, execContext);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                isSuccess = false;
-                error = "AI response was cancelled by the user.";
-                break;
+                return (false, "AI response was cancelled by the user.", execContext);
             }
             catch (TimeoutException tex)
             {
-                if (resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
+                var resume = await TryResumeOrFailAsync(tex.Message, true, resumeCount, maxAutoResumes, execContext, userId, cancellationToken);
+                if (resume.Continue)
                 {
-                    resumeCount++;
-                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", userId, cancellationToken);
-                    execContext = execContext with { Prompt = "Continue from where you left off." };
+                    resumeCount = resume.ResumeCount;
+                    execContext = resume.Context;
                     continue;
                 }
 
-                isSuccess = false;
-                error = tex.Message;
-                break;
+                return (false, resume.Error, execContext);
             }
             catch (Exception ex)
             {
-                var responseText = assistantResponseBuilder.ToString();
-                var isTimeout = ex is TimeoutException
-                    || ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
-                    || ex.Message.Contains("deadline exceeded", StringComparison.OrdinalIgnoreCase)
-                    || responseText.Contains("timeout waiting for response", StringComparison.OrdinalIgnoreCase)
-                    || responseText.Contains("context deadline exceeded", StringComparison.OrdinalIgnoreCase)
-                    || responseText.Contains("timed out", StringComparison.OrdinalIgnoreCase)
-                    || responseText.Contains("print-timeout", StringComparison.OrdinalIgnoreCase);
-
-                if (isTimeout && resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
+                var resume = await TryResumeOrFailAsync(ex.Message, IsTimeoutFailure(ex, assistantResponseBuilder.ToString()), resumeCount, maxAutoResumes, execContext, userId, cancellationToken);
+                if (resume.Continue)
                 {
-                    resumeCount++;
-                    await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", userId, cancellationToken);
-                    execContext = execContext with { Prompt = "Continue from where you left off." };
+                    resumeCount = resume.ResumeCount;
+                    execContext = resume.Context;
                     continue;
                 }
 
-                isSuccess = false;
-                error = ex.Message;
                 await _broadcaster.SendNotificationAsync("error", "AI Execution Failed", ex.Message, userId, cancellationToken);
-                break;
+                return (false, resume.Error, execContext);
             }
         }
+    }
 
-        stopwatch.Stop();
-
-        // 5. Post-execution Snapshot Comparison & Diff Generation
-        IReadOnlyList<FileChange> detectedChanges = [];
-        try
+    private async Task<(bool Continue, int ResumeCount, ProviderExecutionContext Context, string? Error)> TryResumeOrFailAsync(
+        string failureMessage,
+        bool retryable,
+        int resumeCount,
+        int maxAutoResumes,
+        ProviderExecutionContext execContext,
+        string? userId,
+        CancellationToken cancellationToken)
+    {
+        if (retryable && resumeCount < maxAutoResumes && !cancellationToken.IsCancellationRequested)
         {
-            detectedChanges = await _snapshotService.DetectAndRecordChangesAsync(
-                workspace.Id,
-                conversation.Id,
-                workspace.Path,
-                snapshotToken,
-                workspace.Settings.IgnoredFiles,
-                CancellationToken.None);
-
-            foreach (var change in detectedChanges)
-            {
-                conversation.AddFileChange(change);
-                await _broadcaster.SendDiffCreatedAsync(conversationId, change, userId, CancellationToken.None);
-            }
-        }
-        catch
-        {
-            // Snapshot comparison failure should not block recording assistant message or session checkpoint
+            await NotifyAutoResumeAsync(resumeCount + 1, maxAutoResumes, userId, cancellationToken);
+            return (true, resumeCount + 1, execContext with { Prompt = "Continue from where you left off." }, null);
         }
 
-        // 6. Record Assistant Message in History
+        return (false, resumeCount, execContext, failureMessage);
+    }
+
+    private async Task NotifyAutoResumeAsync(int resumeCount, int maxAutoResumes, string? userId, CancellationToken cancellationToken)
+    {
+        await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", userId, cancellationToken);
+    }
+
+    private static bool IsTimeoutFailure(Exception ex, string responseText)
+    {
+        return ex is TimeoutException
+            || ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("deadline exceeded", StringComparison.OrdinalIgnoreCase)
+            || responseText.Contains("timeout waiting for response", StringComparison.OrdinalIgnoreCase)
+            || responseText.Contains("context deadline exceeded", StringComparison.OrdinalIgnoreCase)
+            || responseText.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+            || responseText.Contains("print-timeout", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task RecordAssistantResponseAsync(
+        Conversation conversation,
+        IProvider provider,
+        System.Text.StringBuilder assistantResponseBuilder,
+        Stopwatch stopwatch,
+        bool isSuccess,
+        string? error,
+        int fileChangesCount,
+        string? userId)
+    {
         var metadata = new ExecutionMetadata
         {
             ProviderId = provider.Id,
@@ -332,24 +402,19 @@ public sealed class ExecutionOrchestrator(
         _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, conversation.ProviderSessionId, assistantMsg.Id, assistantMsg.SequenceIndex);
         await _conversationRepository.UpdateAsync(conversation, CancellationToken.None);
 
-        await _broadcaster.SendConversationEventAsync("conversation.completed", conversationId, new
+        await _broadcaster.SendConversationEventAsync("conversation.completed", conversation.Id, new
         {
             DurationMs = stopwatch.ElapsedMilliseconds,
-            FileChangesCount = detectedChanges.Count,
+            FileChangesCount = fileChangesCount,
             IsSuccess = isSuccess
         }, userId, CancellationToken.None);
     }
-    finally
-    {
-        _ = _activeExecutionTracker.TryStop(conversationId);
-    }
-}
 
     public async Task AbortAsync(Guid conversationId, string? userId = null)
     {
         if (_activeExecutionTracker.TryGetCancellationTokenSource(conversationId, out var cts))
         {
-            try { cts?.Cancel(); } catch { }
+            try { if (cts != null) await cts.CancelAsync(); } catch { /* Non-fatal: CTS already cancelled or disposed */ }
         }
 
         var conversation = await _conversationRepository.GetByIdAsync(conversationId);

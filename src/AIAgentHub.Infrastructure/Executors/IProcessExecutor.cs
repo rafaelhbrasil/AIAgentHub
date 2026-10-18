@@ -135,6 +135,39 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         return psi;
     }
 
+    protected static void TryKillQuietly(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch { /* Non-fatal: process already exited or terminated */ }
+    }
+
+    protected static void TryDeleteQuietly(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch { /* Non-fatal: file locked or already deleted */ }
+    }
+
+    protected static void TryCloseQuietly(StreamWriter writer)
+    {
+        try
+        {
+            writer.Close();
+        }
+        catch { /* Non-fatal: writer already closed or disposed */ }
+    }
+
     protected sealed class ProcessRegistrationScope(ConcurrentDictionary<Guid, Process> allProcesses, Guid conversationId, Process process) : IDisposable
     {
         private readonly ConcurrentDictionary<Guid, Process> _allProcesses = allProcesses;

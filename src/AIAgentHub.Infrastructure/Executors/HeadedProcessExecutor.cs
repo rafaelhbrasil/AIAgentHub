@@ -37,10 +37,10 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
             var runnerContent = isWindows
                 ? BuildWindowsRunnerScript(exePath, arguments, logFilePath, autoCloseScript)
                 : BuildLinuxRunnerScript(exePath, arguments, logFilePath, autoCloseScript).Replace("\r\n", "\n");
-            File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
+            await File.WriteAllTextAsync(runnerScriptPath, runnerContent, Encoding.UTF8, cancellationToken);
             if (!isWindows)
             {
-                try { File.SetUnixFileMode(runnerScriptPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); } catch { }
+                try { File.SetUnixFileMode(runnerScriptPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); } catch { /* Non-fatal */ }
             }
 
             var title = operationTitle ?? $"{executable} — {arguments}";
@@ -62,20 +62,13 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
         }
         catch
         {
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch { }
+            TryKillQuietly(process);
             throw;
         }
         finally
         {
-            try { if (File.Exists(logFilePath)) { File.Delete(logFilePath); } } catch { }
-            try { if (File.Exists(runnerScriptPath)) { File.Delete(runnerScriptPath); } } catch { }
+            TryDeleteQuietly(logFilePath);
+            TryDeleteQuietly(runnerScriptPath);
         }
     }
 
@@ -104,10 +97,10 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
             var runnerContent = isWindows
                 ? BuildWindowsRunnerScript(exePath, arguments, logFilePath, autoCloseScript)
                 : BuildLinuxRunnerScript(exePath, arguments, logFilePath, autoCloseScript, doneFilePath).Replace("\r\n", "\n");
-            File.WriteAllText(runnerScriptPath, runnerContent, Encoding.UTF8);
+            await File.WriteAllTextAsync(runnerScriptPath, runnerContent, Encoding.UTF8, context.CancellationToken);
             if (!isWindows)
             {
-                try { File.SetUnixFileMode(runnerScriptPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); } catch { }
+                try { File.SetUnixFileMode(runnerScriptPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); } catch { /* Non-fatal */ }
             }
 
             var startInfo = isWindows
@@ -145,29 +138,22 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
                 }
                 catch (OperationCanceledException)
                 {
-                    if (!processScope.HasExited)
-                    {
-                        try
-                        {
-                            processScope.Kill(entireProcessTree: true);
-                        }
-                        catch { }
-                    }
+                    TryKillQuietly(processScope);
                     throw;
                 }
             }
             finally
             {
-                await Task.Delay(300);
-                tailCts.Cancel();
-                try { await tailTask; } catch { }
+                await Task.Delay(300, CancellationToken.None);
+                await tailCts.CancelAsync();
+                try { await tailTask; } catch { /* Non-fatal: background tail streaming completed */ }
             }
         }
         finally
         {
-            try { if (File.Exists(logFilePath)) { File.Delete(logFilePath); } } catch { }
-            try { if (File.Exists(runnerScriptPath)) { File.Delete(runnerScriptPath); } } catch { }
-            try { if (File.Exists(doneFilePath)) { File.Delete(doneFilePath); } } catch { }
+            TryDeleteQuietly(logFilePath);
+            TryDeleteQuietly(runnerScriptPath);
+            TryDeleteQuietly(doneFilePath);
         }
     }
 
@@ -177,27 +163,7 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            if (File.Exists(logFilePath))
-            {
-                try
-                {
-                    using var fs = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                    if (fs.Length > lastReadPosition)
-                    {
-                        _ = fs.Seek(lastReadPosition, SeekOrigin.Begin);
-                        var buffer = new byte[fs.Length - lastReadPosition];
-                        var bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
-                        if (bytesRead > 0)
-                        {
-                            lastReadPosition += bytesRead;
-                            var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                            await context.OnStreamToken(text).ConfigureAwait(false);
-                        }
-                    }
-                }
-                catch (IOException) { }
-                catch (OperationCanceledException) { break; }
-            }
+            lastReadPosition = await ReadNewContentAsync(logFilePath, lastReadPosition, context, cancellationToken);
 
             try
             {
@@ -227,8 +193,8 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
                     }
                 }
             }
-            catch (IOException) { }
-            catch { }
+            catch (IOException) { /* Non-fatal: log file access contention during final read */ }
+            catch { /* Non-fatal: log file was already cleaned up */ }
         }
     }
 
@@ -392,6 +358,35 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
             {{autoCloseScript}}
             exit $EXIT_CODE
             """;
+    }
+
+    private static async Task<long> ReadNewContentAsync(string logFilePath, long lastReadPosition, ProviderExecutionContext context, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(logFilePath))
+        {
+            return lastReadPosition;
+        }
+
+        try
+        {
+            using var fs = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (fs.Length > lastReadPosition)
+            {
+                _ = fs.Seek(lastReadPosition, SeekOrigin.Begin);
+                var buffer = new byte[fs.Length - lastReadPosition];
+                var bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+                if (bytesRead > 0)
+                {
+                    lastReadPosition += bytesRead;
+                    var text = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    await context.OnStreamToken(text).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (IOException) { /* Non-fatal: log file locked by writer */ }
+        catch (OperationCanceledException) { /* Non-fatal: log tail reading cancelled */ }
+
+        return lastReadPosition;
     }
 }
 

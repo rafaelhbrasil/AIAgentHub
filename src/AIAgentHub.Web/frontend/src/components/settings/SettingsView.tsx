@@ -189,7 +189,7 @@ export const SettingsView: React.FC = () => {
         <div className="card glass" style={{ maxWidth: '800px', marginTop: '16px' }}>
           <div className="card-title">Network Configuration</div>
           <div className="form-group">
-            <label className="form-label">Network Mode</label>
+            <label className="form-label" htmlFor="netModeSelect">Network Mode</label>
             <select
               className="form-select"
               id="netModeSelect"

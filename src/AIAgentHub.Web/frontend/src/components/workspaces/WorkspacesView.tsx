@@ -317,7 +317,8 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
 
           {archivedWorkspaces.length > 0 && (
             <div style={{ marginTop: '32px' }}>
-              <div
+              <button
+                type="button"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -327,12 +328,18 @@ export const WorkspacesView: React.FC<WorkspacesViewProps> = ({
                   fontWeight: 600,
                   color: 'var(--text-muted)',
                   marginBottom: '12px',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                  width: '100%',
                 }}
                 onClick={() => setShowArchived((prev) => !prev)}
               >
                 <span>{showArchived ? '▼' : '▶'}</span>
                 <span>Archived Workspaces ({archivedWorkspaces.length})</span>
-              </div>
+              </button>
               {showArchived && (
                 <div className="grid-cols-3" style={{ opacity: 0.85 }}>
                   {archivedWorkspaces.map(renderCard)}

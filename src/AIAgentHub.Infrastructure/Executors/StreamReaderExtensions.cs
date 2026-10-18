@@ -19,8 +19,8 @@ public static class StreamReaderExtensions
                 await onChunk(chunk).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException) { }
-        catch (IOException) { }
-        catch (ObjectDisposedException) { }
+        catch (OperationCanceledException) { /* Non-fatal: reading stream chunks cancelled */ }
+        catch (IOException) { /* Non-fatal: process stream closed */ }
+        catch (ObjectDisposedException) { /* Non-fatal: reader already disposed */ }
     }
 }

@@ -50,7 +50,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           marginBottom: '2px',
         }}
       >
-        <div
+        <button
+          type="button"
           className="select-conv-btn"
           onClick={() => onSelectConversation(c.id)}
           style={{
@@ -60,11 +61,17 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             whiteSpace: 'nowrap',
             cursor: 'pointer',
             fontSize: '0.88rem',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            textAlign: 'left',
+            fontFamily: 'inherit',
+            color: 'inherit',
           }}
           title={c.title}
         >
           {c.isPinned ? '📌 ' : '💬 '}{c.title}
-        </div>
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
           {onTogglePin && (
             <button

@@ -27,7 +27,7 @@ public interface IProvider
     public string Id { get; }
     public string DisplayName { get; }
     public string Description { get; }
-    public ProviderCapability Capabilities { get; }
+    public ProviderCapabilities Capabilities { get; }
     public string? InstallInstructions { get; }
     public string? InstallCommand { get; }
     public string? AuthCommand { get; }

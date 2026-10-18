@@ -9,11 +9,13 @@ export const ToastContainer: React.FC = () => {
   return (
     <div id="toastContainer" className="toast-container">
       {toasts.map((toast) => (
-        <div
+        <button
+          type="button"
           key={toast.id}
           className={`toast ${toast.type}`}
+          aria-label="Dismiss notification"
           onClick={() => removeToast(toast.id)}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', textAlign: 'left', font: 'inherit' }}
         >
           <span>
             {toast.type === 'success'
@@ -25,7 +27,7 @@ export const ToastContainer: React.FC = () => {
               : 'ℹ️'}
           </span>
           <span>{toast.message}</span>
-        </div>
+        </button>
       ))}
     </div>
   );

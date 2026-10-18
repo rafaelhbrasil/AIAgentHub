@@ -377,3 +377,11 @@ archive/
 credentials.md
 credentials.*.md
 
+# SonarQube & Code Coverage
+.sonarqube/
+coverage/
+TestResults/
+*.trx
+coverage.opencover.xml
+sonarscan.bat
+

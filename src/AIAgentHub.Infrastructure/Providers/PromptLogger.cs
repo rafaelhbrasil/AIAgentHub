@@ -116,7 +116,6 @@ public sealed class PromptLogger : IPromptLogger
             case ProviderStatus.Discontinued:
                 _logger.LogWarning("Provider {ProviderName} status: Discontinued. {Details}", providerName, message ?? string.Empty);
                 break;
-            case ProviderStatus.Error:
             default:
                 _logger.LogError("Provider {ProviderName} status: Error. {Details}", providerName, message ?? string.Empty);
                 break;

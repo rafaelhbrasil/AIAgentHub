@@ -54,6 +54,6 @@ public class FastPreCheckTests
         public override string Id => "test";
         public override string ExecutableName => exeName;
         public override string? InstallCommand => null;
-        public override ProviderCapability Capabilities => ProviderCapability.None;
+        public override ProviderCapabilities Capabilities => ProviderCapabilities.None;
     }
 }

@@ -22,7 +22,7 @@ public sealed class GeminiCliProvider(
     protected override string? DefaultInstallInstructions => "Gemini CLI is no longer supported by Google for individuals. Please install and migrate to Antigravity CLI.";
     protected override string? DefaultAuthCommand => "auth login";
     protected override string? DefaultDocumentationUrl => "https://antigravity.google";
-    public override ProviderCapability Capabilities => ProviderCapability.None;
+    public override ProviderCapabilities Capabilities => ProviderCapabilities.None;
 
     public override async Task<ProviderInfo> DetectAsync(CancellationToken cancellationToken = default)
     {

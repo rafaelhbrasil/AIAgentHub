@@ -461,6 +461,31 @@ The script:
 
 ---
 
+# Static Analysis & Code Quality (SonarQube)
+
+Code quality, maintainability metrics, and test coverage are continuously verified using SonarQube and automated runner scripts.
+
+## Pipeline Architecture (`sonarscan.bat`)
+The automated runner `sonarscan.bat` provides a self-healing analysis workflow:
+1. **Dynamic Version Detection**: Extracts semantic versions from `Directory.Build.props` (`<BaseVersion>`).
+2. **Server Availability & Auto-Start**: Pings `http://localhost:9000/api/system/status`. If stopped, launches the local SonarQube instance (`StartSonar.bat`) and polls until UP.
+3. **Full Solution Build**: Executes clean MSBuild without incremental cache.
+4. **Unified Coverage Collection**:
+   - **Backend (.NET)**: Executes `AgentHub.UnitTests` collecting OpenCover reports (`coverage.opencover.xml`) via `coverlet.runsettings`.
+   - **Frontend (React/TypeScript)**: Executes `npm run test:js` (Vitest with v8 coverage) and normalizes paths via `tests/js/normalize-lcov.mjs` into `coverage/lcov.info`.
+5. **Quality Gate Upload**: Publishes metrics to SonarQube under project key `AIAgenthub`.
+
+## Usage
+```bash
+# Run analysis using default embedded token
+sonarscan.bat
+
+# Override token at runtime
+sonarscan.bat <token>
+```
+
+---
+
 # Continuous Improvement
 
 These standards evolve with the project.

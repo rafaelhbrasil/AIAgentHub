@@ -30,9 +30,7 @@ export const getChangeHunks = (
         (l.leftLineNumber != null && l.rightLineNumber == null);
 
       if (isChanged) {
-        if (currentStart === null) {
-          currentStart = idx;
-        }
+        currentStart ??= idx;
         currentEnd = idx;
       } else {
         if (currentStart !== null && currentEnd !== null) {
@@ -52,9 +50,7 @@ export const getChangeHunks = (
         (l.kind as any) === 'Deleted' ||
         (l.kind as any) === 'Deletion';
       if (isChanged) {
-        if (currentStart === null) {
-          currentStart = idx;
-        }
+        currentStart ??= idx;
         currentEnd = idx;
       } else {
         if (currentStart !== null && currentEnd !== null) {

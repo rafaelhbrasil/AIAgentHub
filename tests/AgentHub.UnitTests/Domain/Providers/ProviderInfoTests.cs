@@ -19,7 +19,7 @@ public sealed class ProviderInfoTests
             Message = "Msg",
             Version = "1.0",
             ExecutablePath = "/bin",
-            Capabilities = ProviderCapability.Streaming,
+            Capabilities = ProviderCapabilities.Streaming,
             SupportedModels = [new() { Id = "m1", DisplayName = "M1", Description = "Desc", ContextWindow = 100, IsDefault = true, IsDisplayed = true }],
             InstallInstructions = "inst",
             InstallCommand = "cmd",

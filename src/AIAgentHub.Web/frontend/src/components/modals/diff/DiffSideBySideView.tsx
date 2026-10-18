@@ -33,7 +33,7 @@ export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
       const isLeftEmpty = l.leftLineNumber == null;
       return (
         <div
-          key={i}
+          key={`diff-line-left-${i}`}
           id={`diff-line-left-${i}`}
           className={`diff-line ${isDel ? 'deleted' : isLeftEmpty ? 'empty' : 'unchanged'}`}
         >
@@ -51,7 +51,7 @@ export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
       const isRightEmpty = l.rightLineNumber == null;
       return (
         <div
-          key={i}
+          key={`diff-line-right-${i}`}
           id={`diff-line-right-${i}`}
           className={`diff-line ${isAdd ? 'added' : isRightEmpty ? 'empty' : 'unchanged'}`}
         >

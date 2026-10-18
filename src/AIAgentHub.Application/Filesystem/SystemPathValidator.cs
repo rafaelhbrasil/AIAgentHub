@@ -195,7 +195,7 @@ public sealed class SystemPathValidator : ISystemPathValidator
                 .Replace(@"\*", "[^/]+")
                 + "(/.*)?$";
 
-            regexes.Add(new Regex(pattern, options));
+            regexes.Add(new Regex(pattern, options, TimeSpan.FromSeconds(1)));
         }
 
         return regexes;

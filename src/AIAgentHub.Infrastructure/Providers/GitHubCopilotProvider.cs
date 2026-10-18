@@ -22,8 +22,8 @@ public sealed class GitHubCopilotProvider(
     protected override string? DefaultInstallInstructions => "Install GitHub Copilot CLI via official GitHub distribution.";
     protected override string? DefaultAuthCommand => "login";
     protected override string? DefaultDocumentationUrl => "https://github.com/features/copilot/cli/";
-    public override ProviderCapability Capabilities =>
-        ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.Skills | ProviderCapability.Mcp | ProviderCapability.FileEditing | ProviderCapability.Vision | ProviderCapability.ModelSelection;
+    public override ProviderCapabilities Capabilities =>
+        ProviderCapabilities.Streaming | ProviderCapabilities.ToolCalling | ProviderCapabilities.Skills | ProviderCapabilities.Mcp | ProviderCapabilities.FileEditing | ProviderCapabilities.Vision | ProviderCapabilities.ModelSelection;
 
     protected override async Task<TestCommandResult> RunTestCommandAsync(string exePath, CancellationToken cancellationToken)
     {
@@ -133,14 +133,14 @@ public sealed class GitHubCopilotProvider(
 
         try
         {
-            var match = Regex.Match(output, @"`model`:\s*AI model to use[^\r\n]*\r?\n((?:\s+-\s+""[^""]+""\r?\n)+)", RegexOptions.IgnoreCase);
+            var match = Regex.Match(output, @"`model`:\s*AI model to use[^\r\n]*\r?\n((?:\s+-\s+""[^""]+""\r?\n)+)", RegexOptions.IgnoreCase, RegexTimeout);
             if (!match.Success)
             {
                 return Array.Empty<ModelInfo>();
             }
 
             var rawList = match.Groups[1].Value;
-            var itemMatches = Regex.Matches(rawList, @"-\s+""([^""]+)""");
+            var itemMatches = Regex.Matches(rawList, @"-\s+""([^""]+)""", RegexOptions.None, RegexTimeout);
             if (itemMatches.Count == 0)
             {
                 return Array.Empty<ModelInfo>();

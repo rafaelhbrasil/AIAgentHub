@@ -74,7 +74,7 @@ export function ansiToHtml(input: string): string {
   if (!input) return '';
 
   // 1. Matches ANSI SGR color/style sequences: \x1b[...m or \u001b[...m
-  const ansiRegex = /(?:\x1b|\u001b)\[([0-9;]*)m/g;
+  const ansiRegex = /\x1b\[([0-9;]*)m/g;
   let openSpans = 0;
 
   let result = input.replace(ansiRegex, (_, codesStr: string) => {
@@ -114,7 +114,7 @@ export function ansiToHtml(input: string): string {
   });
 
   // 2. Clean any remaining non-color ANSI control sequences (cursor movement, clear line, etc.)
-  result = result.replace(/(?:\x1b|\u001b)\[[0-9;?]*[A-Za-z]/g, '');
+  result = result.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
 
   return result + '</span>'.repeat(openSpans);
 }
@@ -149,7 +149,7 @@ function isDiffLine(line: string): boolean {
     line.startsWith(' ') ||
     line.startsWith('*** ') ||
     line.startsWith('Binary files ') ||
-    line.startsWith('\\ No newline at end of file') ||
+    line.startsWith(String.raw`\ No newline at end of file`) ||
     line.startsWith('new file mode ') ||
     line.startsWith('deleted file mode ') ||
     line.startsWith('similarity index ') ||
@@ -191,7 +191,7 @@ function isTerminalBlock(lines: string[]): boolean {
     first.startsWith('Changes not staged for commit:') ||
     first.startsWith('Untracked files:') ||
     first.includes('files changed, ') ||
-    /^\[[a-zA-Z0-9_\-]+ [a-f0-9]{7,}\]/.test(first)
+    /^\[\w-]+ [a-f0-9]{7,}\]/.test(first)
   ) {
     return true;
   }
@@ -208,43 +208,43 @@ const CODE_SIGNATURES: CodeSignature[] = [
   {
     lang: 'csharp',
     patterns: [
-      /^\s*using\s+[A-Za-z0-9_.]+\s*;/m,
-      /^\s*namespace\s+[A-Za-z0-9_.]+/m,
-      /^\s*(?:public|private|protected|internal|sealed|abstract|static|async)\s+(?:class|interface|struct|record|enum|void|Task|IActionResult|[A-Za-z0-9_<>]+)\s+[A-Za-z0-9_]+/m,
-      /^\s*\[(?:HttpGet|HttpPost|HttpPut|HttpDelete|Route|Authorize|Fact|Theory|InlineData|Required|ApiController)[^\]]*\]/m,
+      /^\s*using\s+[\w.]+\s*;/m,
+      /^\s*namespace\s+[\w.]+/m,
+      /^\s*(?:public|private|protected|internal|sealed|abstract|static|async)\s+(?:class|interface|struct|record|enum|void|Task|IActionResult|[\w<>]+)\s+\w+/m,
+      /^\s*\[(?:HttpGet|HttpPost|HttpPut|HttpDelete|Route|Authorize|Fact|Theory|InlineData|Required|ApiController)[^]]*\]/m,
     ],
   },
   {
     lang: 'typescript',
     patterns: [
-      /^\s*import\s+(?:\{[^}]*\}|\*\s+as\s+[A-Za-z0-9_]+|[A-Za-z0-9_]+)\s+from\s+['"][^'"]+['"]/m,
-      /^\s*export\s+(?:default\s+|const\s+|let\s+|function\s+|class\s+|interface\s+|type\s+|enum\s+)/m,
-      /^\s*const\s+[A-Za-z0-9_$\s{},:]+\s*=\s*(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>/m,
-      /^\s*(?:interface|type)\s+[A-Za-z0-9_]+\s*(?:=\s*|\{)/m,
+      /^\s*import\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"][^'"]+['"]/m,
+      /^\s*export\s+(?:default|const|let|function|class|interface|type|enum)\s+/m,
+      /^\s*const\s+[\w$\s{},:]+\s*=\s*(?:\([^)]*\)|[\w$]+)\s*=>/m,
+      /^\s*(?:interface|type)\s+\w+\s*(?:=\s*|\{)/m,
     ],
   },
   {
     lang: 'javascript',
     patterns: [
-      /^\s*const\s+[A-Za-z0-9_$]+\s*=\s*require\(['"][^'"]+['"]\)/m,
+      /^\s*const\s+[\w$]+\s*=\s*require\(['"][^'"]+['"]\)/m,
       /^\s*module\.exports\s*=/m,
-      /^\s*function\s+[A-Za-z0-9_]+\s*\(/m,
+      /^\s*function\s+\w+\s*\(/m,
     ],
   },
   {
     lang: 'python',
     patterns: [
-      /^\s*def\s+[A-Za-z0-9_]+\s*\([^)]*\)\s*:/m,
-      /^\s*class\s+[A-Za-z0-9_]+(?:\([^)]*\))?\s*:/m,
-      /^\s*from\s+[A-Za-z0-9_.]+\s+import\s+/m,
-      /^\s*import\s+[A-Za-z0-9_.]+\s*(?:as\s+[A-Za-z0-9_]+)?$/m,
+      /^\s*def\s+\w+\s*\([^)]*\)\s*:/m,
+      /^\s*class\s+\w+(?:\([^)]*\))?\s*:/m,
+      /^\s*from\s+[\w.]+\s+import\s+/m,
+      /^\s*import\s+[\w.]+\s*(?:as\s+\w+)?$/m,
     ],
   },
   {
     lang: 'json',
     patterns: [
-      /^\s*\{\s*"[A-Za-z0-9_$-]+"\s*:/m,
-      /^\s*\[\s*\{\s*"[A-Za-z0-9_$-]+"\s*:/m,
+      /^\s*\{\s*"[\w$-]+"\s*:/m,
+      /^\s*\[\s*\{\s*"[\w$-]+"\s*:/m,
     ],
   },
   {
@@ -257,7 +257,7 @@ const CODE_SIGNATURES: CodeSignature[] = [
   {
     lang: 'sql',
     patterns: [
-      /^\s*(?:SELECT\s+.+\s+FROM|INSERT\s+INTO|UPDATE\s+.+\s+SET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE)\b/im,
+      /^\s*(?:SELECT\s+.*\sFROM|INSERT\s+INTO|UPDATE\s+.*\sSET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE)\b/im,
     ],
   },
 ];
@@ -300,7 +300,7 @@ function detectCodeLanguage(blockText: string, lines: string[]): string | null {
   }
 
   if (lines.length >= 4) {
-    const codeChars = (blockText.match(/[{};()=><\[\]]/g) || []).length;
+    const codeChars = (blockText.match(/[{}();=><[\]]/g) || []).length;
     const totalChars = blockText.replace(/\s+/g, '').length;
     if (totalChars > 30 && codeChars / totalChars > 0.12) {
       const codeLikeLines = lines.filter((l) => {
@@ -621,7 +621,7 @@ export function wrapCollapsibleCodeBlocks(html: string): string {
       }
 
       // Extract language if present from class="language-xyz"
-      const langMatch = codeAttr.match(/class="[^"]*language-([^"\s]+)/i);
+      const langMatch = /class="[^"]*language-([^"\s]+)/i.exec(codeAttr);
       const langLabel = langMatch ? ` (${langMatch[1]})` : '';
       const label = meaningfulLines.length > 1
         ? `Show ${meaningfulLines.length} lines of code${langLabel}`

@@ -25,14 +25,14 @@ public sealed class PermissionsController(IPermissionService permissionService) 
         return Ok(requests);
     }
 
-    public sealed record DecidePermissionRequest(bool Approve);
+    public sealed record DecidePermissionRequest(bool? Approve);
 
     [HttpPost("{id:guid}/decide")]
     public async Task<IActionResult> Decide(Guid id, [FromBody] DecidePermissionRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var updated = await _permissionService.DecideAsync(id, request.Approve, cancellationToken);
+            var updated = await _permissionService.DecideAsync(id, request.Approve ?? false, cancellationToken);
             return Ok(updated);
         }
         catch (KeyNotFoundException)
@@ -51,7 +51,7 @@ public sealed class SettingsController(IServerSettingsRepository settingsReposit
     private readonly IAppAuthService _authService = authService;
 
     public sealed record UpdateServerSettingsRequest(
-        NetworkMode NetworkMode,
+        NetworkMode? NetworkMode,
         int? ListeningPortHttps = null,
         int? ListeningPortHttp = null,
         List<string>? SelectedInterfaces = null,
@@ -73,7 +73,7 @@ public sealed class SettingsController(IServerSettingsRepository settingsReposit
             return NotFound(new { code = "settings_not_found", message = $"Server settings with ID '{id}' was not found." });
         }
 
-        existing.NetworkMode = request.NetworkMode;
+        existing.NetworkMode = request.NetworkMode ?? NetworkMode.Localhost;
         if (request.ListeningPortHttps.HasValue)
         {
             existing.ListeningPortHttps = request.ListeningPortHttps.Value;
@@ -100,6 +100,25 @@ public sealed class SettingsController(IServerSettingsRepository settingsReposit
         return Ok(existing);
     }
 
+    [HttpGet("recovery-code")]
+    public async Task<IActionResult> GetRecoveryCode(CancellationToken cancellationToken)
+    {
+        var admin = await _authService.GetAdminAsync(cancellationToken);
+        return admin == null
+            ? NotFound()
+            : Ok(new
+            {
+                username = admin.Username,
+                hasRecoveryCode = !string.IsNullOrEmpty(admin.RecoveryCodeHash)
+            });
+    }
+}
+
+[ApiController]
+[Authorize]
+[Route("api/v1/settings")]
+public sealed class NetworkSettingsController : ControllerBase
+{
     [HttpGet("network-interfaces")]
     public IActionResult GetNetworkInterfaces()
     {
@@ -127,19 +146,6 @@ public sealed class SettingsController(IServerSettingsRepository settingsReposit
             }
         }
         return Ok(list);
-    }
-
-    [HttpGet("recovery-code")]
-    public async Task<IActionResult> GetRecoveryCode(CancellationToken cancellationToken)
-    {
-        var admin = await _authService.GetAdminAsync(cancellationToken);
-        return admin == null
-            ? NotFound()
-            : Ok(new
-            {
-                username = admin.Username,
-                hasRecoveryCode = !string.IsNullOrEmpty(admin.RecoveryCodeHash)
-            });
     }
 }
 

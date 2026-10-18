@@ -734,8 +734,8 @@ export const useWorkspaceStudio = ({
                     border: '1px solid var(--border-color)',
                   }}
                 >
-                  {skippedFiles.map((file, idx) => (
-                    <div key={idx} style={{ color: '#fca5a5', padding: '2px 0' }}>
+                  {skippedFiles.map((file) => (
+                    <div key={file} style={{ color: '#fca5a5', padding: '2px 0' }}>
                       ⚠️ {file}
                     </div>
                   ))}
@@ -759,7 +759,7 @@ export const useWorkspaceStudio = ({
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
+      link.remove();
       showToast('Project ZIP downloaded successfully.', 'success');
     } catch (err: any) {
       showToast(err.message || 'Error downloading project ZIP.', 'error');

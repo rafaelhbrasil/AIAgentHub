@@ -23,8 +23,8 @@ public sealed class ClaudeCodeProvider(
     protected override string? DefaultInstallInstructions => "Install Claude Code CLI from official Anthropic distribution.";
     protected override string? DefaultAuthCommand => "/login";
     protected override string? DefaultDocumentationUrl => "https://code.claude.com/docs/en/quickstart";
-    public override ProviderCapability Capabilities =>
-        ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.Skills | ProviderCapability.ModelSelection;
+    public override ProviderCapabilities Capabilities =>
+        ProviderCapabilities.Streaming | ProviderCapabilities.ToolCalling | ProviderCapabilities.FileEditing | ProviderCapabilities.Skills | ProviderCapabilities.ModelSelection;
 
     protected override async Task<TestCommandResult> RunTestCommandAsync(string exePath, CancellationToken cancellationToken)
     {
@@ -120,80 +120,93 @@ public sealed class ClaudeCodeProvider(
         try
         {
             string? currentModel = null;
-            var currentMatch = Regex.Match(output, @"Current model:\s*([^\r\n]+)", RegexOptions.IgnoreCase);
+            var currentMatch = Regex.Match(output, @"Current model:\s*([^\r\n]+)", RegexOptions.IgnoreCase, RegexTimeout);
             if (currentMatch.Success)
             {
                 currentModel = currentMatch.Groups[1].Value.Trim();
             }
 
-            var availableMatch = Regex.Match(output, @"Available:\s*([^\r\n]+)", RegexOptions.IgnoreCase);
-            var modelIds = new List<string>();
-
-            if (availableMatch.Success)
-            {
-                var rawAvailable = availableMatch.Groups[1].Value.Trim().TrimEnd('.');
-                var parts = rawAvailable.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                foreach (var part in parts)
-                {
-                    var cleanPart = part;
-                    if (cleanPart.StartsWith("or ", StringComparison.OrdinalIgnoreCase))
-                    {
-                        cleanPart = cleanPart[3..].Trim();
-                    }
-
-                    if (string.IsNullOrWhiteSpace(cleanPart) ||
-                        cleanPart.Contains("full model ID", StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    if (!modelIds.Contains(cleanPart, StringComparer.OrdinalIgnoreCase))
-                    {
-                        modelIds.Add(cleanPart);
-                    }
-                }
-            }
+            var modelIds = ParseAvailableModelIds(output);
 
             if (!string.IsNullOrWhiteSpace(currentModel) && !modelIds.Contains(currentModel, StringComparer.OrdinalIgnoreCase))
             {
                 modelIds.Insert(0, currentModel);
             }
 
-            if (modelIds.Count == 0)
-            {
-                return Array.Empty<ModelInfo>();
-            }
-
-            var result = new List<ModelInfo>();
-            var defaultTarget = !string.IsNullOrWhiteSpace(currentModel) ? currentModel : "default";
-
-            foreach (var id in modelIds)
-            {
-                var isDefault = string.Equals(id, defaultTarget, StringComparison.OrdinalIgnoreCase);
-                var displayName = FormatDisplayName(id);
-
-                result.Add(new ModelInfo
-                {
-                    Id = id,
-                    DisplayName = displayName,
-                    Description = $"Claude Code model: {displayName}",
-                    ContextWindow = null,
-                    IsDefault = isDefault,
-                    IsDisplayed = true
-                });
-            }
-
-            if (result.Count > 0 && !result.Any(m => m.IsDefault))
-            {
-                result[0].IsDefault = true;
-            }
-
-            return result;
+            return BuildModelInfos(modelIds, currentModel);
         }
         catch
         {
             return Array.Empty<ModelInfo>();
         }
+    }
+
+    private static List<string> ParseAvailableModelIds(string output)
+    {
+        var modelIds = new List<string>();
+        var availableMatch = Regex.Match(output, @"Available:\s*([^\r\n]+)", RegexOptions.IgnoreCase, RegexTimeout);
+        if (!availableMatch.Success)
+        {
+            return modelIds;
+        }
+
+        var rawAvailable = availableMatch.Groups[1].Value.Trim().TrimEnd('.');
+        var parts = rawAvailable.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var part in parts)
+        {
+            var cleanPart = part;
+            if (cleanPart.StartsWith("or ", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanPart = cleanPart[3..].Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(cleanPart) ||
+                cleanPart.Contains("full model ID", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!modelIds.Contains(cleanPart, StringComparer.OrdinalIgnoreCase))
+            {
+                modelIds.Add(cleanPart);
+            }
+        }
+
+        return modelIds;
+    }
+
+    private static IReadOnlyList<ModelInfo> BuildModelInfos(List<string> modelIds, string? currentModel)
+    {
+        if (modelIds.Count == 0)
+        {
+            return Array.Empty<ModelInfo>();
+        }
+
+        var result = new List<ModelInfo>();
+        var defaultTarget = !string.IsNullOrWhiteSpace(currentModel) ? currentModel : "default";
+
+        foreach (var id in modelIds)
+        {
+            var isDefault = string.Equals(id, defaultTarget, StringComparison.OrdinalIgnoreCase);
+            var displayName = FormatDisplayName(id);
+
+            result.Add(new ModelInfo
+            {
+                Id = id,
+                DisplayName = displayName,
+                Description = $"Claude Code model: {displayName}",
+                ContextWindow = null,
+                IsDefault = isDefault,
+                IsDisplayed = true
+            });
+        }
+
+        if (result.Count > 0 && !result.Any(m => m.IsDefault))
+        {
+            result[0].IsDefault = true;
+        }
+
+        return result;
     }
 
     public static IReadOnlyList<string> ParseEffortOutput(string output)
@@ -205,7 +218,7 @@ public sealed class ClaudeCodeProvider(
 
         try
         {
-            var match = Regex.Match(output, @"Usage:\s*/effort\s*<([^>]+)>", RegexOptions.IgnoreCase);
+            var match = Regex.Match(output, @"Usage:\s*/effort\s*<([^>]+)>", RegexOptions.IgnoreCase, RegexTimeout);
             if (!match.Success)
             {
                 return Array.Empty<string>();
@@ -242,7 +255,7 @@ public sealed class ClaudeCodeProvider(
         var exePath = FindExecutable(ExecutableName);
         if (string.IsNullOrEmpty(exePath))
         {
-            return ["low", "medium", "high", "max"];
+            return DefaultEfforts;
         }
 
         try
@@ -253,17 +266,19 @@ public sealed class ClaudeCodeProvider(
             var result = await RunCommandAsync(exePath, "-p /effort", null, timeoutCts.Token, "Claude Code — List Efforts");
             if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Output))
             {
-                return ["low", "medium", "high", "max"];
+                return DefaultEfforts;
             }
 
             var efforts = ParseEffortOutput(result.Output);
-            return efforts.Count > 0 ? efforts : ["low", "medium", "high", "max"];
+            return efforts.Count > 0 ? efforts : DefaultEfforts;
         }
         catch
         {
-            return ["low", "medium", "high", "max"];
+            return DefaultEfforts;
         }
     }
+
+    private static readonly IReadOnlyList<string> DefaultEfforts = ["low", "medium", "high", "max"];
 
     private static string FormatDisplayName(string id)
     {

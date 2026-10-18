@@ -38,6 +38,7 @@ public class ThemeVerificationTests
         // 1. Navigate to running server
         _ = await page.GotoAsync(TargetUrl);
         await page.WaitForSelectorAsync("#root", new PageWaitForSelectorOptions { Timeout = 15000 });
+        Assert.True(await page.Locator("#root").IsVisibleAsync());
 
         // 2. Login if on sign in page
         var loginUser = page.Locator("#loginUsername");
@@ -63,6 +64,7 @@ public class ThemeVerificationTests
 
         // Wait for main app nav
         _ = await page.WaitForSelectorAsync("#mainNav, .theme-toggle-btn", new PageWaitForSelectorOptions { Timeout = 15000 });
+        Assert.True(await page.Locator("#mainNav, .theme-toggle-btn").First.IsVisibleAsync());
 
         // 3. Switch Theme to Light
         var themeBtn = page.Locator(".theme-toggle-btn");
@@ -175,5 +177,8 @@ public class ThemeVerificationTests
             await page.WaitForTimeoutAsync(400);
             await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "07-mobile-drawer-light.png") });
         }
+
+        Assert.True(File.Exists(Path.Combine(_screenshotDir, "01-dashboard-light.png")));
+        Assert.True(File.Exists(Path.Combine(_screenshotDir, "05-settings-light.png")));
     }
 }

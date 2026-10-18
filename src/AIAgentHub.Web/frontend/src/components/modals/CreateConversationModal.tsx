@@ -78,9 +78,10 @@ export const CreateConversationModal: React.FC<CreateConversationModalProps> = (
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-group">
-        <label className="form-label">Conversation Topic</label>
+        <label className="form-label" htmlFor="convTopicInput">Conversation Topic</label>
         <input
           type="text"
+          id="convTopicInput"
           className="form-input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -91,7 +92,7 @@ export const CreateConversationModal: React.FC<CreateConversationModalProps> = (
       </div>
 
       <div className="form-group">
-        <label className="form-label">AI Assistant Provider</label>
+        <label className="form-label" htmlFor="convProviderSelect">AI Assistant Provider</label>
         {isLoadingProviders ? (
           <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '6px 0' }}>
             Loading available providers...
@@ -144,8 +145,9 @@ export const CreateConversationModal: React.FC<CreateConversationModalProps> = (
 
       {models.length > 0 && (
         <div className="form-group">
-          <label className="form-label">Model (Optional)</label>
+          <label className="form-label" htmlFor="convModelSelect">Model (Optional)</label>
           <select
+            id="convModelSelect"
             className="form-select"
             value={modelId}
             onChange={(e) => setModelId(e.target.value)}

@@ -24,8 +24,8 @@ public sealed class OpenCodeProvider(
     protected override string? DefaultInstallInstructions => "Install OpenCode Terminal via official distribution.";
     protected override string? DefaultAuthCommand => "setup";
     protected override string? DefaultDocumentationUrl => "https://opencode.ai/download";
-    public override ProviderCapability Capabilities =>
-        ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.Mcp | ProviderCapability.ModelSelection;
+    public override ProviderCapabilities Capabilities =>
+        ProviderCapabilities.Streaming | ProviderCapabilities.ToolCalling | ProviderCapabilities.FileEditing | ProviderCapabilities.Mcp | ProviderCapabilities.ModelSelection;
 
     public override Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) =>
         // OpenCode sessions are created dynamically by the OpenCode CLI on first run unless pre-existing
@@ -72,46 +72,70 @@ public sealed class OpenCodeProvider(
             var normalizedWorkspace = Path.GetFullPath(workspacePath).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant();
             var titleTarget = $"agenthub-{conversationId}";
 
-            string? mostRecentMatchingWorkspace = null;
-            string? mostRecentOverall = null;
-
-            foreach (var item in doc.RootElement.EnumerateArray())
-            {
-                if (!item.TryGetProperty("id", out var idProp))
-                {
-                    continue;
-                }
-
-                var id = idProp.GetString();
-                if (string.IsNullOrEmpty(id) || !id.StartsWith("ses_", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                mostRecentOverall ??= id;
-
-                var title = item.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
-                if (!string.IsNullOrEmpty(title) && title.Contains(titleTarget, StringComparison.OrdinalIgnoreCase))
-                {
-                    return id;
-                }
-
-                var dir = item.TryGetProperty("directory", out var dirProp) ? dirProp.GetString() : null;
-                if (!string.IsNullOrEmpty(dir))
-                {
-                    var normalizedDir = Path.GetFullPath(dir).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant();
-                    if (normalizedDir == normalizedWorkspace)
-                    {
-                        mostRecentMatchingWorkspace ??= id;
-                    }
-                }
-            }
-
-            return mostRecentMatchingWorkspace ?? mostRecentOverall;
+            return SelectLatestSession(doc.RootElement, titleTarget, normalizedWorkspace);
         }
-        catch { }
+        catch { /* Non-fatal: session index file not found or corrupted */ }
 
         return null;
+    }
+
+    private static string? SelectLatestSession(JsonElement sessions, string titleTarget, string normalizedWorkspace)
+    {
+        string? mostRecentMatchingWorkspace = null;
+        string? mostRecentOverall = null;
+
+        foreach (var item in sessions.EnumerateArray())
+        {
+            var id = GetSessionId(item);
+            if (id == null)
+            {
+                continue;
+            }
+
+            mostRecentOverall ??= id;
+
+            if (IsTitleMatch(item, titleTarget))
+            {
+                return id;
+            }
+
+            var isWorkspaceMatch = IsWorkspaceMatch(item, normalizedWorkspace);
+            if (isWorkspaceMatch && mostRecentMatchingWorkspace == null)
+            {
+                mostRecentMatchingWorkspace = id;
+            }
+        }
+
+        return mostRecentMatchingWorkspace ?? mostRecentOverall;
+    }
+
+    private static string? GetSessionId(JsonElement item)
+    {
+        if (!item.TryGetProperty("id", out var idProp))
+        {
+            return null;
+        }
+
+        var id = idProp.GetString();
+        return string.IsNullOrEmpty(id) || !id.StartsWith("ses_", StringComparison.OrdinalIgnoreCase) ? null : id;
+    }
+
+    private static bool IsTitleMatch(JsonElement item, string titleTarget)
+    {
+        var title = item.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
+        return !string.IsNullOrEmpty(title) && title.Contains(titleTarget, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsWorkspaceMatch(JsonElement item, string normalizedWorkspace)
+    {
+        var dir = item.TryGetProperty("directory", out var dirProp) ? dirProp.GetString() : null;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return false;
+        }
+
+        var normalizedDir = Path.GetFullPath(dir).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant();
+        return normalizedDir == normalizedWorkspace;
     }
 
     public override string BuildArguments(ProviderExecutionContext context)

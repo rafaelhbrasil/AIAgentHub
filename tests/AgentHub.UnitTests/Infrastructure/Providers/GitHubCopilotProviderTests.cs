@@ -47,13 +47,13 @@ public sealed class GitHubCopilotProviderTests
         Assert.Equal("npm install -g @github/copilot", provider.InstallCommand);
         Assert.Equal("GitHub Copilot", provider.DisplayName);
         Assert.Equal("login", provider.AuthCommand);
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Streaming));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.ToolCalling));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Skills));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Mcp));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.FileEditing));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Vision));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.ModelSelection));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Streaming));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ToolCalling));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Skills));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Mcp));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.FileEditing));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Vision));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ModelSelection));
     }
 
     [Fact]

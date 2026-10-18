@@ -13,6 +13,7 @@
     "test:unit": "node scripts/dotnet.mjs test tests/AgentHub.UnitTests/AgentHub.UnitTests.csproj",
     "test:integration": "node scripts/dotnet.mjs test tests/AgentHub.IntegrationTests/AgentHub.IntegrationTests.csproj",
     "test:all": "npm run test && npm run test:integration",
+    "test:js": "npm run test:coverage -w aiagenthub-frontend && node tests/js/normalize-lcov.mjs",
     "deploy": "node scripts/deploy.mjs",
     "deploy:run": "node scripts/deploy.mjs --run",
     "deploy:stop": "node scripts/stop.mjs",

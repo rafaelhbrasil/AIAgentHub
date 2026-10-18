@@ -23,7 +23,7 @@ public sealed class TestDotnetCliProvider(
     public override string? InstallCommand => null;
     public override string? AuthCommand => null;
     public override string? DocumentationUrl => null;
-    public override ProviderCapability Capabilities => ProviderCapability.Streaming;
+    public override ProviderCapabilities Capabilities => ProviderCapabilities.Streaming;
 
     public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ModelInfo>>(Array.Empty<ModelInfo>());
 

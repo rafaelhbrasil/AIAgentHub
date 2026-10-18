@@ -284,7 +284,7 @@ public sealed class FilesystemService : IFilesystemService
                 var entry = archive.CreateEntry(relPath, System.IO.Compression.CompressionLevel.Optimal);
                 entry.LastWriteTime = file.LastWriteTimeUtc;
 
-                await using var entryStream = entry.Open();
+                await using var entryStream = await entry.OpenAsync(cancellationToken);
                 await using var fileStream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 await fileStream.CopyToAsync(entryStream, cancellationToken);
                 addedCount++;
