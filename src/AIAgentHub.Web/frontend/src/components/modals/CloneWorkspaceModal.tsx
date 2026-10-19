@@ -10,6 +10,15 @@ interface CloneWorkspaceModalProps {
   onCancel: () => void;
 }
 
+export const extractRepoName = (url: string): string => {
+  const trimmed = url.trim().replace(/[/\\]+$/, '');
+  if (!trimmed) return '';
+  const withoutGit = trimmed.toLowerCase().endsWith('.git') ? trimmed.slice(0, -4) : trimmed;
+  const clean = withoutGit.replace(/[/\\]+$/, '');
+  const lastDelim = Math.max(clean.lastIndexOf('/'), clean.lastIndexOf('\\'), clean.lastIndexOf(':'));
+  return lastDelim >= 0 ? clean.slice(lastDelim + 1) : clean;
+};
+
 export const CloneWorkspaceModal: React.FC<CloneWorkspaceModalProps> = ({ onSuccess, onCancel }) => {
   const { showToast } = useToast();
   const [cloneUrl, setCloneUrl] = useState<string>('');
@@ -45,13 +54,6 @@ export const CloneWorkspaceModal: React.FC<CloneWorkspaceModalProps> = ({ onSucc
         setWorkspaceName(suggested);
       }
     }
-  };
-
-  const extractRepoName = (url: string): string => {
-    if (!url) return '';
-    const clean = url.trim().replace(/\.git$/i, '').replace(/[/\\]+$/, '');
-    const parts = clean.split(/[/:/\\]/);
-    return parts[parts.length - 1] || '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

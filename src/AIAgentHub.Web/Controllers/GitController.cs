@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Git;
 using AIAgentHub.Application.Workspaces;
@@ -12,6 +13,9 @@ namespace AIAgentHub.Web.Controllers;
 [Route("api/v1/git")]
 public sealed class GitController(IGitService gitService, IWorkspaceService workspaceService, IDiffEngine? diffEngine = null) : ControllerBase
 {
+    private const string WorkspaceNotFoundCode = "workspace_not_found";
+    private const string WorkspaceNotFoundMessage = "Workspace not found.";
+
     private readonly IGitService _gitService = gitService;
     private readonly IWorkspaceService _workspaceService = workspaceService;
     private readonly IDiffEngine _diffEngine = diffEngine ?? new DiffEngine();
@@ -22,7 +26,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var status = await _gitService.GetStatusAsync(ws.Path, cancellationToken);
@@ -35,14 +39,14 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var branches = await _gitService.GetBranchesAsync(ws.Path, cancellationToken);
         return Ok(branches);
     }
 
-    public sealed record CreateBranchRequest(Guid WorkspaceId, string BranchName, bool Checkout = true);
+    public sealed record CreateBranchRequest([property: JsonRequired] Guid WorkspaceId, string BranchName, bool? Checkout = true);
 
     [HttpPost("branch")]
     public async Task<IActionResult> CreateBranch([FromBody] CreateBranchRequest request, CancellationToken cancellationToken)
@@ -50,10 +54,10 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
-        var result = await _gitService.CreateBranchAsync(ws.Path, request.BranchName, request.Checkout, cancellationToken);
+        var result = await _gitService.CreateBranchAsync(ws.Path, request.BranchName, request.Checkout ?? true, cancellationToken);
         if (!result.Success)
         {
             return BadRequest(new { code = "create_branch_failed", message = result.Error ?? "Failed to create branch." });
@@ -62,7 +66,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record CheckoutBranchRequest(Guid WorkspaceId, string BranchName);
+    public sealed record CheckoutBranchRequest([property: JsonRequired] Guid WorkspaceId, string BranchName);
 
     [HttpPost("checkout")]
     public async Task<IActionResult> CheckoutBranch([FromBody] CheckoutBranchRequest request, CancellationToken cancellationToken)
@@ -70,7 +74,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var result = await _gitService.CheckoutBranchAsync(ws.Path, request.BranchName, cancellationToken);
@@ -82,7 +86,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record StageRequest(Guid WorkspaceId, IReadOnlyList<string>? Files = null, bool StageAll = false);
+    public sealed record StageRequest([property: JsonRequired] Guid WorkspaceId, IReadOnlyList<string>? Files = null, bool? StageAll = false);
 
     [HttpPost("stage")]
     public async Task<IActionResult> Stage([FromBody] StageRequest request, CancellationToken cancellationToken)
@@ -90,10 +94,10 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
-        var result = await _gitService.StageAsync(ws.Path, request.Files, request.StageAll, cancellationToken);
+        var result = await _gitService.StageAsync(ws.Path, request.Files, request.StageAll ?? false, cancellationToken);
         if (!result.Success)
         {
             return BadRequest(new { code = "stage_failed", message = result.Error ?? "Failed to stage changes." });
@@ -102,7 +106,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record UnstageRequest(Guid WorkspaceId, IReadOnlyList<string>? Files = null, bool UnstageAll = false);
+    public sealed record UnstageRequest([property: JsonRequired] Guid WorkspaceId, IReadOnlyList<string>? Files = null, bool? UnstageAll = false);
 
     [HttpPost("unstage")]
     public async Task<IActionResult> Unstage([FromBody] UnstageRequest request, CancellationToken cancellationToken)
@@ -110,10 +114,10 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
-        var result = await _gitService.UnstageAsync(ws.Path, request.Files, request.UnstageAll, cancellationToken);
+        var result = await _gitService.UnstageAsync(ws.Path, request.Files, request.UnstageAll ?? false, cancellationToken);
         if (!result.Success)
         {
             return BadRequest(new { code = "unstage_failed", message = result.Error ?? "Failed to unstage changes." });
@@ -122,7 +126,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record CommitRequest(Guid WorkspaceId, string Message, bool StageAll = false);
+    public sealed record CommitRequest([property: JsonRequired] Guid WorkspaceId, string Message, bool? StageAll = false);
 
     [HttpPost("commit")]
     public async Task<IActionResult> Commit([FromBody] CommitRequest request, CancellationToken cancellationToken)
@@ -130,10 +134,10 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
-        var result = await _gitService.CommitAsync(ws.Path, request.Message, request.StageAll, cancellationToken);
+        var result = await _gitService.CommitAsync(ws.Path, request.Message, request.StageAll ?? false, cancellationToken);
         if (!result.Success)
         {
             return BadRequest(new { code = "commit_failed", message = result.Error ?? "Failed to create commit." });
@@ -142,7 +146,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record PushRequest(Guid WorkspaceId, string? Remote = null, string? Branch = null);
+    public sealed record PushRequest([property: JsonRequired] Guid WorkspaceId, string? Remote = null, string? Branch = null);
 
     [HttpPost("push")]
     public async Task<IActionResult> Push([FromBody] PushRequest request, CancellationToken cancellationToken)
@@ -150,7 +154,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var result = await _gitService.PushAsync(ws.Path, request.Remote, request.Branch, cancellationToken);
@@ -162,7 +166,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record PullRequest(Guid WorkspaceId, string? Remote = null, string? Branch = null);
+    public sealed record PullRequest([property: JsonRequired] Guid WorkspaceId, string? Remote = null, string? Branch = null);
 
     [HttpPost("pull")]
     public async Task<IActionResult> Pull([FromBody] PullRequest request, CancellationToken cancellationToken)
@@ -170,7 +174,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var result = await _gitService.PullAsync(ws.Path, request.Remote, request.Branch, cancellationToken);
@@ -182,7 +186,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record FetchRequest(Guid WorkspaceId, string? Remote = null);
+    public sealed record FetchRequest([property: JsonRequired] Guid WorkspaceId, string? Remote = null);
 
     [HttpPost("fetch")]
     public async Task<IActionResult> Fetch([FromBody] FetchRequest request, CancellationToken cancellationToken)
@@ -190,7 +194,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var result = await _gitService.FetchAsync(ws.Path, request.Remote, cancellationToken);
@@ -202,7 +206,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return Ok(new { success = true, message = result.Message });
     }
 
-    public sealed record StashRequest(Guid WorkspaceId, string Action = "save", string? Message = null);
+    public sealed record StashRequest([property: JsonRequired] Guid WorkspaceId, string Action = "save", string? Message = null);
 
     [HttpPost("stash")]
     public async Task<IActionResult> Stash([FromBody] StashRequest request, CancellationToken cancellationToken)
@@ -210,7 +214,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var result = await _gitService.StashAsync(ws.Path, request.Action, request.Message, cancellationToken);
@@ -228,7 +232,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         var commits = await _gitService.GetHistoryAsync(ws.Path, maxCount, cancellationToken);
@@ -241,7 +245,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         if (string.IsNullOrWhiteSpace(hash))
@@ -264,7 +268,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = WorkspaceNotFoundMessage });
         }
 
         if (string.IsNullOrWhiteSpace(hash) || string.IsNullOrWhiteSpace(filePath))
@@ -290,8 +294,8 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
                 newContent = (string?)null,
                 additionsCount = 0,
                 deletionsCount = 0,
-                sideBySideLines = Array.Empty<SideBySideLine>(),
-                unifiedLines = Array.Empty<DiffLine>()
+                sideBySideLines = (IReadOnlyList<SideBySideLine>)[],
+                unifiedLines = (IReadOnlyList<DiffLine>)[]
             });
         }
 

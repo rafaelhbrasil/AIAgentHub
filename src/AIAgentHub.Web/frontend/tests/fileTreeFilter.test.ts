@@ -1,36 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FileTreeNode } from '../src/types/workspace';
-
-function filterTree(node: FileTreeNode, query: string): FileTreeNode | null {
-  if (!query) return node;
-  const lowerQuery = query.toLowerCase();
-  const nameMatches =
-    node.name.toLowerCase().includes(lowerQuery) ||
-    (node.relativePath && node.relativePath.toLowerCase().includes(lowerQuery));
-
-  if (!node.isDirectory) {
-    return nameMatches ? node : null;
-  }
-
-  const filteredChildren: FileTreeNode[] = [];
-  if (node.children) {
-    for (const child of node.children) {
-      const filtered = filterTree(child, query);
-      if (filtered) {
-        filteredChildren.push(filtered);
-      }
-    }
-  }
-
-  if (nameMatches || filteredChildren.length > 0) {
-    return {
-      ...node,
-      children: filteredChildren,
-    };
-  }
-
-  return null;
-}
+import { filterTree, getFolderBackground, getFolderIcon } from '../src/components/workspaces/FileTree';
 
 describe('FileTree search filter logic', () => {
   const sampleTree: FileTreeNode = {
@@ -102,5 +72,26 @@ describe('FileTree search filter logic', () => {
   it('returns null when no file or folder matches the query', () => {
     const result = filterTree(sampleTree, 'nonexistent_pattern_xyz');
     expect(result).toBeNull();
+  });
+
+  describe('folder styling and icon helpers', () => {
+    it('returns drag over background when isDragOver is true', () => {
+      expect(getFolderBackground(true, false, false)).toBe('rgba(99, 102, 241, 0.25)');
+    });
+
+    it('returns hover background for non-root hovered item', () => {
+      expect(getFolderBackground(false, true, false)).toBe('rgba(255, 255, 255, 0.06)');
+    });
+
+    it('returns transparent for root hovered item or default state', () => {
+      expect(getFolderBackground(false, true, true)).toBe('transparent');
+      expect(getFolderBackground(false, false, false)).toBe('transparent');
+    });
+
+    it('returns correct folder icons', () => {
+      expect(getFolderIcon(true, false)).toBe('📁');
+      expect(getFolderIcon(false, true)).toBe('📂');
+      expect(getFolderIcon(false, false)).toBe('📁');
+    });
   });
 });

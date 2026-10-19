@@ -5,13 +5,23 @@ import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { LogsViewer } from './LogsViewer';
 
-export const SettingsView: React.FC = () => {
+interface SettingsViewProps {
+  initialSettings?: ServerSettingsDto;
+  initialNics?: NetworkInterfaceDto[];
+  initialSubTab?: 'network' | 'logs' | 'account';
+}
+
+export const SettingsView: React.FC<SettingsViewProps> = ({
+  initialSettings,
+  initialNics,
+  initialSubTab = 'network',
+}) => {
   const { showToast } = useToast();
   const { username, setUsername } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<'network' | 'logs' | 'account'>('network');
-  const [settings, setSettings] = useState<ServerSettingsDto | null>(null);
-  const [nics, setNics] = useState<NetworkInterfaceDto[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [activeSubTab, setActiveSubTab] = useState<'network' | 'logs' | 'account'>(initialSubTab);
+  const [settings, setSettings] = useState<ServerSettingsDto | null>(initialSettings ?? null);
+  const [nics, setNics] = useState<NetworkInterfaceDto[]>(initialNics ?? []);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialSettings);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // Account management state
@@ -25,6 +35,7 @@ export const SettingsView: React.FC = () => {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState<boolean>(false);
 
   useEffect(() => {
+    if (initialSettings) return;
     const fetchSettings = async () => {
       setIsLoading(true);
       try {
@@ -40,7 +51,7 @@ export const SettingsView: React.FC = () => {
       }
     };
     fetchSettings();
-  }, []);
+  }, [initialSettings]);
 
   const handleSave = async () => {
     if (!settings || !settings.id) return;

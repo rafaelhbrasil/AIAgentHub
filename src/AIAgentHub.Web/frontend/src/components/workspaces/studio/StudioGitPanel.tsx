@@ -14,75 +14,23 @@ interface StudioGitPanelProps {
   onFileSelect?: (path: string) => void;
 }
 
-export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
+function useGitOperations({
   workspaceId,
-  isOpen,
-  mobileTab,
-  onClose,
-  onFileSelect,
-}) => {
+  refreshAll,
+  fetchStatus,
+  commitMessage,
+  setCommitMessage,
+}: {
+  workspaceId: string;
+  refreshAll: () => void;
+  fetchStatus: () => void;
+  commitMessage: string;
+  setCommitMessage: (msg: string) => void;
+}) {
   const { showToast } = useToast();
   const { showModal, hideModal } = useModal();
-
-  const [status, setStatus] = useState<GitStatusDto | null>(null);
-  const [branches, setBranches] = useState<GitBranchDto[]>([]);
-  const [history, setHistory] = useState<GitCommitDto[]>([]);
-  const [commitMessage, setCommitMessage] = useState<string>('');
-  const [isLoadingStatus, setIsLoadingStatus] = useState<boolean>(false);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'changes' | 'history'>('changes');
 
-  const fetchStatus = useCallback(async () => {
-    setIsLoadingStatus(true);
-    try {
-      const res = await apiFetch<GitStatusDto>(`/api/v1/git/status?workspaceId=${workspaceId}`);
-      if (res.ok && res.data) {
-        setStatus(res.data);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setIsLoadingStatus(false);
-    }
-  }, [workspaceId]);
-
-  const fetchBranches = useCallback(async () => {
-    try {
-      const res = await apiFetch<GitBranchDto[]>(`/api/v1/git/branches?workspaceId=${workspaceId}`);
-      if (res.ok && res.data) {
-        setBranches(res.data);
-      }
-    } catch {
-      // Ignore
-    }
-  }, [workspaceId]);
-
-  const fetchHistory = useCallback(async () => {
-    try {
-      const res = await apiFetch<GitCommitDto[]>(`/api/v1/git/history?workspaceId=${workspaceId}&maxCount=30`);
-      if (res.ok && res.data) {
-        setHistory(res.data);
-      }
-    } catch {
-      // Ignore
-    }
-  }, [workspaceId]);
-
-  const refreshAll = useCallback(() => {
-    fetchStatus();
-    fetchBranches();
-    fetchHistory();
-  }, [fetchStatus, fetchBranches, fetchHistory]);
-
-  useEffect(() => {
-    if (isOpen) {
-      refreshAll();
-    }
-  }, [isOpen, refreshAll]);
-
-  if (!isOpen) return null;
-
-  // Git operations
   const handleCheckoutBranch = async (branchName: string) => {
     setIsExecuting(true);
     try {
@@ -254,6 +202,127 @@ export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
     }
   };
 
+  return {
+    isExecuting,
+    handleCheckoutBranch,
+    handleCreateBranch,
+    handleStage,
+    handleUnstage,
+    handleCommit,
+    handlePush,
+    handlePull,
+    handleFetch,
+    handleStash,
+  };
+}
+
+export const GitNotReadyNotice: React.FC<{ status: GitStatusDto }> = ({ status }) => {
+  if (!status.isGitInstalled) {
+    return (
+      <div style={{ padding: '16px', color: 'var(--text-muted)', textAlign: 'center' }}>
+        <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>⚠️ Git Not Detected</p>
+        <p style={{ fontSize: '0.85rem' }}>
+          Git is not installed on this server host machine or is not available on PATH.
+        </p>
+      </div>
+    );
+  }
+  if (!status.isRepository) {
+    return (
+      <div style={{ padding: '16px', color: 'var(--text-muted)', textAlign: 'center' }}>
+        <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>📁 Not a Git Repository</p>
+        <p style={{ fontSize: '0.85rem' }}>
+          This workspace directory has not been initialized as a Git repository.
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
+  workspaceId,
+  isOpen,
+  mobileTab,
+  onClose,
+  onFileSelect,
+}) => {
+  const [status, setStatus] = useState<GitStatusDto | null>(null);
+  const [branches, setBranches] = useState<GitBranchDto[]>([]);
+  const [history, setHistory] = useState<GitCommitDto[]>([]);
+  const [commitMessage, setCommitMessage] = useState<string>('');
+  const [isLoadingStatus, setIsLoadingStatus] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'changes' | 'history'>('changes');
+
+  const fetchStatus = useCallback(async () => {
+    setIsLoadingStatus(true);
+    try {
+      const res = await apiFetch<GitStatusDto>(`/api/v1/git/status?workspaceId=${workspaceId}`);
+      if (res.ok && res.data) {
+        setStatus(res.data);
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setIsLoadingStatus(false);
+    }
+  }, [workspaceId]);
+
+  const fetchBranches = useCallback(async () => {
+    try {
+      const res = await apiFetch<GitBranchDto[]>(`/api/v1/git/branches?workspaceId=${workspaceId}`);
+      if (res.ok && res.data) {
+        setBranches(res.data);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [workspaceId]);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await apiFetch<GitCommitDto[]>(`/api/v1/git/history?workspaceId=${workspaceId}&maxCount=30`);
+      if (res.ok && res.data) {
+        setHistory(res.data);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [workspaceId]);
+
+  const refreshAll = useCallback(() => {
+    fetchStatus();
+    fetchBranches();
+    fetchHistory();
+  }, [fetchStatus, fetchBranches, fetchHistory]);
+
+  const {
+    isExecuting,
+    handleCheckoutBranch,
+    handleCreateBranch,
+    handleStage,
+    handleUnstage,
+    handleCommit,
+    handlePush,
+    handlePull,
+    handleFetch,
+    handleStash,
+  } = useGitOperations({
+    workspaceId,
+    refreshAll,
+    fetchStatus,
+    commitMessage,
+    setCommitMessage,
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      refreshAll();
+    }
+  }, [isOpen, refreshAll]);
+
+  if (!isOpen) return null;
+
   return (
     <div
       className={`studio-git-drawer glass ${mobileTab && mobileTab !== 'git' ? 'mobile-hidden' : ''}`}
@@ -300,20 +369,8 @@ export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
 
       {/* Content */}
       <div className="studio-git-drawer-content">
-        {status && !status.isGitInstalled ? (
-          <div style={{ padding: '16px', color: 'var(--text-muted)', textAlign: 'center' }}>
-            <p style={{ fontSize: '1.2rem', marginBottom: '8px' }}>⚠️ Git Not Detected</p>
-            <p style={{ fontSize: '0.85rem' }}>
-              Git is not installed on this server host machine or is not available on PATH.
-            </p>
-          </div>
-        ) : status && !status.isRepository ? (
-          <div style={{ padding: '16px', color: 'var(--text-muted)', textAlign: 'center' }}>
-            <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>📁 Not a Git Repository</p>
-            <p style={{ fontSize: '0.85rem' }}>
-              This workspace directory has not been initialized as a Git repository.
-            </p>
-          </div>
+        {status && (!status.isGitInstalled || !status.isRepository) ? (
+          <GitNotReadyNotice status={status} />
         ) : (
           <>
             {/* Branch Switcher & Sync Row */}
@@ -510,13 +567,25 @@ export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
                             marginBottom: '2px',
                           }}
                         >
-                          <span
+                          <button
+                            type="button"
                             onClick={() => onFileSelect?.(f.path)}
-                            style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: 'inherit',
+                              font: 'inherit',
+                              cursor: 'pointer',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'left',
+                            }}
                             title={`Click to view: ${f.path}`}
                           >
                             📄 {f.path}
-                          </span>
+                          </button>
                           <button
                             type="button"
                             className="btn-icon-plain"
@@ -572,13 +641,25 @@ export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
                             marginBottom: '2px',
                           }}
                         >
-                          <span
+                          <button
+                            type="button"
                             onClick={() => onFileSelect?.(f.path)}
-                            style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: 'inherit',
+                              font: 'inherit',
+                              cursor: 'pointer',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'left',
+                            }}
                             title={`Click to view: ${f.path}`}
                           >
                             ✏️ {f.path}
-                          </span>
+                          </button>
                           <button
                             type="button"
                             className="btn-icon-plain"
@@ -618,13 +699,25 @@ export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
                             marginBottom: '2px',
                           }}
                         >
-                          <span
+                          <button
+                            type="button"
                             onClick={() => onFileSelect?.(path)}
-                            style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: 'inherit',
+                              font: 'inherit',
+                              cursor: 'pointer',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'left',
+                            }}
                             title={`Click to view: ${path}`}
                           >
                             ❓ {path}
-                          </span>
+                          </button>
                           <button
                             type="button"
                             className="btn-icon-plain"
@@ -651,7 +744,11 @@ export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
                     marginTop: '12px',
                   }}
                 >
-                  <label className="form-label" style={{ fontSize: '0.78rem', marginBottom: '4px' }}>
+                  <label
+                    htmlFor="gitCommitMessageInput"
+                    className="form-label"
+                    style={{ fontSize: '0.78rem', marginBottom: '4px' }}
+                  >
                     Commit Message
                   </label>
                   <textarea
@@ -722,7 +819,7 @@ export const StudioGitPanel: React.FC<StudioGitPanelProps> = ({
 };
 
 // Modal for Branch creation
-const CreateBranchModal: React.FC<{ onSubmit: (name: string) => void; onCancel: () => void }> = ({
+export const CreateBranchModal: React.FC<{ onSubmit: (name: string) => void; onCancel: () => void }> = ({
   onSubmit,
   onCancel,
 }) => {
@@ -736,8 +833,9 @@ const CreateBranchModal: React.FC<{ onSubmit: (name: string) => void; onCancel: 
       style={{ minWidth: '300px' }}
     >
       <div className="form-group" style={{ marginBottom: '14px' }}>
-        <label className="form-label">Branch Name</label>
+        <label htmlFor="gitModalBranchNameInput" className="form-label">Branch Name</label>
         <input
+          id="gitModalBranchNameInput"
           type="text"
           className="form-control"
           placeholder="e.g. feature/my-new-feature"

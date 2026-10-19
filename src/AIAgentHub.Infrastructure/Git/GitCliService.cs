@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using AIAgentHub.Application.Git;
 using AIAgentHub.Infrastructure.Executors;
@@ -7,6 +8,7 @@ namespace AIAgentHub.Infrastructure.Git;
 
 public sealed class GitCliService(IProcessExecutor processExecutor) : IGitService
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(500);
     private readonly IProcessExecutor _processExecutor = processExecutor;
 
     private static string? ResolveGitPath() => CliProviderBase.FindExecutable("git");
@@ -53,6 +55,12 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             .Select(l => l.TrimEnd('\r'))
             .Where(l => !string.IsNullOrEmpty(l));
 
+        var (ahead, behind, staged, modified, untracked) = ParsePorcelainStatus(lines);
+        return new GitStatusDto(true, true, currentBranch, ahead, behind, staged, modified, untracked);
+    }
+
+    private static (int Ahead, int Behind, List<GitFileStatusDto> Staged, List<GitFileStatusDto> Modified, List<string> Untracked) ParsePorcelainStatus(IEnumerable<string> lines)
+    {
         var ahead = 0;
         var behind = 0;
         List<GitFileStatusDto> staged = [];
@@ -63,11 +71,11 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         {
             if (rawLine.StartsWith("##", StringComparison.Ordinal))
             {
-                var aheadMatch = Regex.Match(rawLine, @"ahead\s+(\d+)");
-                if (aheadMatch.Success) ahead = int.Parse(aheadMatch.Groups[1].Value);
+                var aheadMatch = Regex.Match(rawLine, @"ahead\s+(\d+)", RegexOptions.None, RegexTimeout);
+                if (aheadMatch.Success) ahead = int.Parse(aheadMatch.Groups[1].Value, CultureInfo.InvariantCulture);
 
-                var behindMatch = Regex.Match(rawLine, @"behind\s+(\d+)");
-                if (behindMatch.Success) behind = int.Parse(behindMatch.Groups[1].Value);
+                var behindMatch = Regex.Match(rawLine, @"behind\s+(\d+)", RegexOptions.None, RegexTimeout);
+                if (behindMatch.Success) behind = int.Parse(behindMatch.Groups[1].Value, CultureInfo.InvariantCulture);
 
                 continue;
             }
@@ -95,7 +103,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             }
         }
 
-        return new GitStatusDto(true, true, currentBranch, ahead, behind, staged, modified, untracked);
+        return (ahead, behind, staged, modified, untracked);
     }
 
     private static string MapStatusCode(char c) => c switch
@@ -135,13 +143,24 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         return branches;
     }
 
+    private static GitOperationResult ToOperationResult(ProcessCommandResult res)
+    {
+        if (res.ExitCode == 0)
+        {
+            return new GitOperationResult(true, res.Output, null);
+        }
+
+        var error = string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error;
+        return new GitOperationResult(false, res.Output, error);
+    }
+
     public async Task<GitOperationResult> CreateBranchAsync(string workspacePath, string branchName, bool checkout = true, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(branchName)) return new GitOperationResult(false, null, "Branch name cannot be empty.");
         var cleanBranch = branchName.Trim();
         var args = checkout ? $"checkout -b \"{cleanBranch}\"" : $"branch \"{cleanBranch}\"";
         var res = await RunGitAsync(args, workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> CheckoutBranchAsync(string workspacePath, string branchName, CancellationToken cancellationToken = default)
@@ -149,7 +168,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         if (string.IsNullOrWhiteSpace(branchName)) return new GitOperationResult(false, null, "Branch name cannot be empty.");
         var cleanBranch = branchName.Trim();
         var res = await RunGitAsync($"checkout \"{cleanBranch}\"", workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> StageAsync(string workspacePath, IReadOnlyList<string>? files = null, bool stageAll = false, CancellationToken cancellationToken = default)
@@ -166,7 +185,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         }
 
         var res = await RunGitAsync(args, workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> UnstageAsync(string workspacePath, IReadOnlyList<string>? files = null, bool unstageAll = false, CancellationToken cancellationToken = default)
@@ -188,10 +207,10 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
                 ? $"rm --cached -- {escapedFiles}"
                 : "rm --cached -r --ignore-unmatch .";
             var fallbackRes = await RunGitAsync(fallback, workspacePath, cancellationToken);
-            return new GitOperationResult(fallbackRes.ExitCode == 0, fallbackRes.Output, fallbackRes.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(fallbackRes.Error) ? fallbackRes.Output : fallbackRes.Error));
+            return ToOperationResult(fallbackRes);
         }
 
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> CommitAsync(string workspacePath, string message, bool stageAll = false, CancellationToken cancellationToken = default)
@@ -203,13 +222,13 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             var stageRes = await RunGitAsync("add -A", workspacePath, cancellationToken);
             if (stageRes.ExitCode != 0)
             {
-                return new GitOperationResult(false, null, string.IsNullOrWhiteSpace(stageRes.Error) ? stageRes.Output : stageRes.Error);
+                return ToOperationResult(stageRes);
             }
         }
 
         var escapedMsg = message.Replace("\"", "\\\"").Replace("\r\n", "\n");
         var res = await RunGitAsync($"commit -m \"{escapedMsg}\"", workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> PushAsync(string workspacePath, string? remote = null, string? branch = null, CancellationToken cancellationToken = default)
@@ -217,7 +236,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         var targetRemote = string.IsNullOrWhiteSpace(remote) ? "origin" : remote.Trim();
         var args = string.IsNullOrWhiteSpace(branch) ? $"push {targetRemote}" : $"push -u {targetRemote} \"{branch.Trim()}\"";
         var res = await RunGitAsync(args, workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> PullAsync(string workspacePath, string? remote = null, string? branch = null, CancellationToken cancellationToken = default)
@@ -232,14 +251,14 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             }
         }
         var res = await RunGitAsync(args, workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> FetchAsync(string workspacePath, string? remote = null, CancellationToken cancellationToken = default)
     {
         var args = string.IsNullOrWhiteSpace(remote) ? "fetch --all" : $"fetch {remote.Trim()}";
         var res = await RunGitAsync(args, workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<GitOperationResult> StashAsync(string workspacePath, string action = "save", string? message = null, CancellationToken cancellationToken = default)
@@ -254,7 +273,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         };
 
         var res = await RunGitAsync(args, workspacePath, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 
     public async Task<IReadOnlyList<GitCommitDto>> GetHistoryAsync(string workspacePath, int maxCount = 50, CancellationToken cancellationToken = default)
@@ -272,7 +291,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             var parts = line.Split("|||", StringSplitOptions.None);
             if (parts.Length >= 6)
             {
-                _ = DateTimeOffset.TryParse(parts[4], out var dt);
+                _ = DateTimeOffset.TryParse(parts[4], CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt);
                 var parents = parts.Length >= 7 && !string.IsNullOrWhiteSpace(parts[6])
                     ? parts[6].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)
                     : [];
@@ -294,7 +313,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         }
 
         var cleanHash = commitHash.Trim();
-        if (!Regex.IsMatch(cleanHash, "^[a-fA-F0-9]{4,64}$"))
+        if (!Regex.IsMatch(cleanHash, "^[a-fA-F0-9]{4,64}$", RegexOptions.None, RegexTimeout))
         {
             return null;
         }
@@ -317,7 +336,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         var shortHash = parts[1].Trim();
         var author = parts[2].Trim();
         var email = parts[3].Trim();
-        _ = DateTimeOffset.TryParse(parts[4].Trim(), out var date);
+        _ = DateTimeOffset.TryParse(parts[4].Trim(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date);
         var message = parts[5].Trim();
         var parents = parts.Length >= 7 && !string.IsNullOrWhiteSpace(parts[6])
             ? parts[6].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -356,10 +375,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
                 {
                     var rawStatusCode = partsStatus[0].Trim();
                     var path = partsStatus[^1].Trim();
-                    var status = rawStatusCode.StartsWith("A", StringComparison.OrdinalIgnoreCase) ? "Added"
-                        : rawStatusCode.StartsWith("D", StringComparison.OrdinalIgnoreCase) ? "Deleted"
-                        : rawStatusCode.StartsWith("R", StringComparison.OrdinalIgnoreCase) ? "Renamed"
-                        : "Modified";
+                    var status = MapStatusCodeToName(rawStatusCode);
 
                     if (fileStats.TryGetValue(path, out var stat))
                     {
@@ -381,6 +397,14 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         return new GitCommitDetailDto(hash, shortHash, author, email, date, message, parents, refs, files);
     }
 
+    private static string MapStatusCodeToName(string rawStatusCode)
+    {
+        if (rawStatusCode.StartsWith("A", StringComparison.OrdinalIgnoreCase)) return "Added";
+        if (rawStatusCode.StartsWith("D", StringComparison.OrdinalIgnoreCase)) return "Deleted";
+        if (rawStatusCode.StartsWith("R", StringComparison.OrdinalIgnoreCase)) return "Renamed";
+        return "Modified";
+    }
+
     public async Task<GitCommitDiffDto?> GetCommitDiffAsync(string workspacePath, string commitHash, string filePath, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(workspacePath) || string.IsNullOrWhiteSpace(commitHash) || string.IsNullOrWhiteSpace(filePath))
@@ -390,7 +414,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
 
         var cleanHash = commitHash.Trim();
         var isWorkingTree = cleanHash.Equals("working-tree", StringComparison.OrdinalIgnoreCase);
-        if (!isWorkingTree && !Regex.IsMatch(cleanHash, "^[a-fA-F0-9]{4,64}$"))
+        if (!isWorkingTree && !Regex.IsMatch(cleanHash, "^[a-fA-F0-9]{4,64}$", RegexOptions.None, RegexTimeout))
         {
             return null;
         }
@@ -466,6 +490,6 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         }
 
         var res = await RunGitAsync($"clone -- \"{cloneUrl.Trim()}\" \"{fullTarget}\"", parent, cancellationToken);
-        return new GitOperationResult(res.ExitCode == 0, res.Output, res.ExitCode == 0 ? null : (string.IsNullOrWhiteSpace(res.Error) ? res.Output : res.Error));
+        return ToOperationResult(res);
     }
 }

@@ -85,7 +85,7 @@ public sealed class WorkspaceService(
     {
         if (string.IsNullOrWhiteSpace(request.CloneUrl))
         {
-            throw new ArgumentException("Clone URL cannot be empty.", nameof(request.CloneUrl));
+            throw new ArgumentException("Clone URL cannot be empty.", nameof(request));
         }
 
         var rawTarget = request.TargetDirectory?.Trim() ?? string.Empty;

@@ -22,11 +22,11 @@ interface TreeNodeProps {
   forceExpand?: boolean;
 }
 
-function filterTree(node: FileTreeNode, query: string): FileTreeNode | null {
+export function filterTree(node: FileTreeNode, query: string): FileTreeNode | null {
   if (!query) return node;
   const lowerQuery = query.toLowerCase();
   const nameMatches = node.name.toLowerCase().includes(lowerQuery) ||
-    (node.relativePath && node.relativePath.toLowerCase().includes(lowerQuery));
+    (node.relativePath?.toLowerCase().includes(lowerQuery) ?? false);
 
   if (!node.isDirectory) {
     return nameMatches ? node : null;
@@ -52,30 +52,27 @@ function filterTree(node: FileTreeNode, query: string): FileTreeNode | null {
   return null;
 }
 
-const TreeNode: React.FC<TreeNodeProps> = ({
-  workspaceId,
-  node,
-  onSelectFile,
-  onOpenEditor,
-  onRefresh,
-  level = 0,
-  forceExpand = false,
-}) => {
+export function getFolderBackground(isDragOver: boolean, isHovered: boolean, isRoot: boolean): string {
+  if (isDragOver) return 'rgba(99, 102, 241, 0.25)';
+  if (isHovered && !isRoot) return 'rgba(255, 255, 255, 0.06)';
+  return 'transparent';
+}
+
+export function getFolderIcon(isRoot: boolean, isExpanded: boolean): string {
+  if (isRoot) return '📁';
+  return isExpanded ? '📂' : '📁';
+}
+
+function useTreeItemActions(
+  workspaceId: string,
+  node: FileTreeNode,
+  onRefresh?: () => void,
+  onOpenEditor?: (relativePath: string) => void
+) {
   const { showToast } = useToast();
   const { showModal, hideModal } = useModal();
-  const isRoot = level === 0;
-  const [isExpanded, setIsExpanded] = useState<boolean>(isRoot || forceExpand);
-  const [isDragOver, setIsDragOver] = useState<boolean>(false);
-  const [isHovered, setIsHovered] = useState<boolean>(false);
-  const [showMenu, setShowMenu] = useState<boolean>(false);
 
-  // Sync expanded if forceExpand changes
-  React.useEffect(() => {
-    if (forceExpand) setIsExpanded(true);
-  }, [forceExpand]);
-
-  const handleCreateFile = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCreateFile = () => {
     const folderPath = node.relativePath || '';
     showModal(
       'Create New File',
@@ -103,8 +100,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     );
   };
 
-  const handleCreateDirectory = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCreateDirectory = () => {
     const folderPath = node.relativePath || '';
     showModal(
       'Create New Folder',
@@ -131,8 +127,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     );
   };
 
-  const handleRename = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleRename = () => {
     const oldPath = node.relativePath;
     const parts = oldPath.split(/[/\\]/);
     const oldName = parts[parts.length - 1];
@@ -164,8 +159,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     );
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = () => {
     showModal(
       `Delete ${node.isDirectory ? 'Folder' : 'File'}`,
       <div>
@@ -203,6 +197,33 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       </div>
     );
   };
+
+  return { handleCreateFile, handleCreateDirectory, handleRename, handleDelete };
+}
+
+const TreeNode: React.FC<TreeNodeProps> = ({
+  workspaceId,
+  node,
+  onSelectFile,
+  onOpenEditor,
+  onRefresh,
+  level = 0,
+  forceExpand = false,
+}) => {
+  const { showToast } = useToast();
+  const isRoot = level === 0;
+  const [isExpanded, setIsExpanded] = useState<boolean>(isRoot || forceExpand);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [showMenu, setShowMenu] = useState<boolean>(false);
+
+  const { handleCreateFile, handleCreateDirectory, handleRename, handleDelete } =
+    useTreeItemActions(workspaceId, node, onRefresh, onOpenEditor);
+
+  // Sync expanded if forceExpand changes
+  React.useEffect(() => {
+    if (forceExpand) setIsExpanded(true);
+  }, [forceExpand]);
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent) => {
@@ -262,9 +283,17 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     return (
       <div
         className="tree-item file-tree-node"
+        role="button"
+        tabIndex={0}
         draggable={true}
         onDragStart={handleDragStart}
         onClick={() => onSelectFile(node.relativePath)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelectFile(node.relativePath);
+          }
+        }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         title={node.relativePath}
@@ -292,15 +321,15 @@ const TreeNode: React.FC<TreeNodeProps> = ({
 
         {/* Action icons on hover */}
         {isHovered && (
-          <div
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             {onOpenEditor && (
               <button
                 type="button"
                 className="btn-icon-plain"
-                onClick={() => onOpenEditor(node.relativePath)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenEditor(node.relativePath);
+                }}
                 title="Open in Code Editor"
                 style={{ fontSize: '0.78rem', padding: '1px 3px' }}
               >
@@ -310,7 +339,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             <button
               type="button"
               className="btn-icon-plain"
-              onClick={handleRename}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRename();
+              }}
               title="Rename file"
               style={{ fontSize: '0.78rem', padding: '1px 3px' }}
             >
@@ -319,7 +351,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             <button
               type="button"
               className="btn-icon-plain"
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
               title="Delete file"
               style={{ fontSize: '0.78rem', padding: '1px 3px' }}
             >
@@ -344,12 +379,20 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     <div style={{ marginBottom: '2px' }}>
       <div
         className={`tree-item folder-tree-node ${isRoot ? 'tree-root-folder' : ''}`}
+        role="button"
+        tabIndex={isRoot ? -1 : 0}
         draggable={!isRoot}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={toggleExpand}
+        onKeyDown={(e) => {
+          if (!isRoot && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            toggleExpand();
+          }
+        }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         title={node.relativePath || node.name}
@@ -366,11 +409,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           color: isRoot ? 'var(--text-heading)' : 'var(--text-main)',
           userSelect: 'none',
           transition: 'background 0.15s ease, border 0.15s ease',
-          background: isDragOver
-            ? 'rgba(99, 102, 241, 0.25)'
-            : isHovered && !isRoot
-            ? 'rgba(255, 255, 255, 0.06)'
-            : 'transparent',
+          background: getFolderBackground(isDragOver, isHovered, isRoot),
           border: isDragOver ? '1px dashed var(--accent-primary)' : '1px solid transparent',
         }}
       >
@@ -392,7 +431,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             </span>
           )}
           <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>
-            {isRoot ? '📁' : isExpanded ? '📂' : '📁'}
+            {getFolderIcon(isRoot, isExpanded)}
           </span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {node.name}
@@ -400,10 +439,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         </div>
 
         {/* Directory Action Context Menu */}
-        <div
-          style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <button
             type="button"
             className="btn-icon-plain"
@@ -420,8 +456,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({
 
           {showMenu && (
             <>
-              <div
-                style={{ position: 'fixed', inset: 0, zIndex: 45 }}
+              <button
+                type="button"
+                aria-label="Close menu"
+                style={{ position: 'fixed', inset: 0, zIndex: 45, background: 'transparent', border: 'none', cursor: 'default' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowMenu(false);
@@ -432,8 +470,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   type="button"
                   className="tree-menu-item"
                   onClick={(e) => {
+                    e.stopPropagation();
                     setShowMenu(false);
-                    handleCreateFile(e);
+                    handleCreateFile();
                   }}
                 >
                   📄 New File
@@ -442,8 +481,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   type="button"
                   className="tree-menu-item"
                   onClick={(e) => {
+                    e.stopPropagation();
                     setShowMenu(false);
-                    handleCreateDirectory(e);
+                    handleCreateDirectory();
                   }}
                 >
                   📁 New Folder
@@ -454,8 +494,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                       type="button"
                       className="tree-menu-item"
                       onClick={(e) => {
+                        e.stopPropagation();
                         setShowMenu(false);
-                        handleRename(e);
+                        handleRename();
                       }}
                     >
                       ✏️ Rename
@@ -464,8 +505,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                       type="button"
                       className="tree-menu-item text-danger"
                       onClick={(e) => {
+                        e.stopPropagation();
                         setShowMenu(false);
-                        handleDelete(e);
+                        handleDelete();
                       }}
                     >
                       🗑️ Delete

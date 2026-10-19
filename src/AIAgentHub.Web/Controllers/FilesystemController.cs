@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AIAgentHub.Application.Filesystem;
 using AIAgentHub.Application.Workspaces;
 
@@ -14,6 +15,9 @@ public sealed class FilesystemController(
     IWorkspaceService workspaceService,
     ISystemPathValidator systemPathValidator) : ControllerBase
 {
+    private const string WorkspaceNotFoundCode = "workspace_not_found";
+    private const string ForbiddenPathCode = "forbidden_path";
+
     private readonly IFilesystemService _filesystemService = filesystemService;
     private readonly IWorkspaceService _workspaceService = workspaceService;
     private readonly ISystemPathValidator _systemPathValidator = systemPathValidator;
@@ -49,7 +53,7 @@ public sealed class FilesystemController(
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
         if (ws == null)
         {
-            return NotFound(new { code = "workspace_not_found", message = $"Workspace {workspaceId} was not found." });
+            return NotFound(new { code = WorkspaceNotFoundCode, message = $"Workspace {workspaceId} was not found." });
         }
 
         var tree = await _filesystemService.GetWorkspaceTreeAsync(ws.Path, ws.Settings.IgnoredFiles, cancellationToken);
@@ -74,11 +78,11 @@ public sealed class FilesystemController(
     public async Task<IActionResult> GetFile([FromQuery] Guid workspaceId, [FromQuery] string path, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
-        if (ws == null) return NotFound(new { code = "workspace_not_found", message = $"Workspace {workspaceId} was not found." });
+        if (ws == null) return NotFound(new { code = WorkspaceNotFoundCode, message = $"Workspace {workspaceId} was not found." });
 
         if (!TryResolveWorkspacePath(ws.Path, path, out var fullPath, out var error))
         {
-            return BadRequest(new { code = "forbidden_path", message = error });
+            return BadRequest(new { code = ForbiddenPathCode, message = error });
         }
 
         if (!_filesystemService.FileExists(fullPath))
@@ -100,17 +104,17 @@ public sealed class FilesystemController(
         });
     }
 
-    public sealed record FileContentRequest(Guid WorkspaceId, string Path, string? Content = null);
+    public sealed record FileContentRequest([property: JsonRequired] Guid WorkspaceId, string Path, string? Content = null);
 
     [HttpPost("file")]
     public async Task<IActionResult> CreateFile([FromBody] FileContentRequest request, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
-        if (ws == null) return NotFound(new { code = "workspace_not_found", message = $"Workspace {request.WorkspaceId} was not found." });
+        if (ws == null) return NotFound(new { code = WorkspaceNotFoundCode, message = $"Workspace {request.WorkspaceId} was not found." });
 
         if (!TryResolveWorkspacePath(ws.Path, request.Path, out var fullPath, out var error))
         {
-            return BadRequest(new { code = "forbidden_path", message = error });
+            return BadRequest(new { code = ForbiddenPathCode, message = error });
         }
 
         await _filesystemService.CreateFileAsync(fullPath, request.Content, cancellationToken);
@@ -121,40 +125,40 @@ public sealed class FilesystemController(
     public async Task<IActionResult> SaveFile([FromBody] FileContentRequest request, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
-        if (ws == null) return NotFound(new { code = "workspace_not_found", message = $"Workspace {request.WorkspaceId} was not found." });
+        if (ws == null) return NotFound(new { code = WorkspaceNotFoundCode, message = $"Workspace {request.WorkspaceId} was not found." });
 
         if (!TryResolveWorkspacePath(ws.Path, request.Path, out var fullPath, out var error))
         {
-            return BadRequest(new { code = "forbidden_path", message = error });
+            return BadRequest(new { code = ForbiddenPathCode, message = error });
         }
 
         await _filesystemService.WriteFileTextAsync(fullPath, request.Content ?? string.Empty, cancellationToken);
         return Ok(new { success = true, path = request.Path });
     }
 
-    public sealed record RenameItemRequest(Guid WorkspaceId, string OldPath, string NewPath);
+    public sealed record RenameItemRequest([property: JsonRequired] Guid WorkspaceId, string OldPath, string NewPath);
 
     [HttpPut("rename")]
     public async Task<IActionResult> RenameItem([FromBody] RenameItemRequest request, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
-        if (ws == null) return NotFound(new { code = "workspace_not_found", message = $"Workspace {request.WorkspaceId} was not found." });
+        if (ws == null) return NotFound(new { code = WorkspaceNotFoundCode, message = $"Workspace {request.WorkspaceId} was not found." });
 
         if (!TryResolveWorkspacePath(ws.Path, request.OldPath, out var oldFullPath, out var oldErr))
         {
-            return BadRequest(new { code = "forbidden_path", message = oldErr });
+            return BadRequest(new { code = ForbiddenPathCode, message = oldErr });
         }
 
         if (!TryResolveWorkspacePath(ws.Path, request.NewPath, out var newFullPath, out var newErr))
         {
-            return BadRequest(new { code = "forbidden_path", message = newErr });
+            return BadRequest(new { code = ForbiddenPathCode, message = newErr });
         }
 
         await _filesystemService.RenameItemAsync(oldFullPath, newFullPath, cancellationToken);
         return Ok(new { success = true, oldPath = request.OldPath, newPath = request.NewPath });
     }
 
-    public sealed record DeleteItemRequest(Guid WorkspaceId, string Path);
+    public sealed record DeleteItemRequest([property: JsonRequired] Guid WorkspaceId, string Path);
 
     [HttpDelete("item")]
     public async Task<IActionResult> DeleteItem([FromBody] DeleteItemRequest? bodyRequest, [FromQuery] Guid? workspaceId, [FromQuery] string? path, CancellationToken cancellationToken)
@@ -168,11 +172,11 @@ public sealed class FilesystemController(
         }
 
         var ws = await _workspaceService.GetByIdAsync(targetWsId, cancellationToken);
-        if (ws == null) return NotFound(new { code = "workspace_not_found", message = $"Workspace {targetWsId} was not found." });
+        if (ws == null) return NotFound(new { code = WorkspaceNotFoundCode, message = $"Workspace {targetWsId} was not found." });
 
         if (!TryResolveWorkspacePath(ws.Path, targetPath, out var fullPath, out var error))
         {
-            return BadRequest(new { code = "forbidden_path", message = error });
+            return BadRequest(new { code = ForbiddenPathCode, message = error });
         }
 
         if (fullPath.Equals(Path.GetFullPath(ws.Path), StringComparison.OrdinalIgnoreCase))
@@ -184,22 +188,22 @@ public sealed class FilesystemController(
         return Ok(new { success = true, path = targetPath });
     }
 
-    public sealed record MoveItemRequest(Guid WorkspaceId, string SourcePath, string DestinationDirectory);
+    public sealed record MoveItemRequest([property: JsonRequired] Guid WorkspaceId, string SourcePath, string DestinationDirectory);
 
     [HttpPost("move")]
     public async Task<IActionResult> MoveItem([FromBody] MoveItemRequest request, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId, cancellationToken);
-        if (ws == null) return NotFound(new { code = "workspace_not_found", message = $"Workspace {request.WorkspaceId} was not found." });
+        if (ws == null) return NotFound(new { code = WorkspaceNotFoundCode, message = $"Workspace {request.WorkspaceId} was not found." });
 
         if (!TryResolveWorkspacePath(ws.Path, request.SourcePath, out var sourceFullPath, out var srcErr))
         {
-            return BadRequest(new { code = "forbidden_path", message = srcErr });
+            return BadRequest(new { code = ForbiddenPathCode, message = srcErr });
         }
 
         if (!TryResolveWorkspacePath(ws.Path, request.DestinationDirectory, out var destFullPath, out var destErr))
         {
-            return BadRequest(new { code = "forbidden_path", message = destErr });
+            return BadRequest(new { code = ForbiddenPathCode, message = destErr });
         }
 
         await _filesystemService.MoveItemAsync(sourceFullPath, destFullPath, cancellationToken);
@@ -220,11 +224,11 @@ public sealed class FilesystemController(
         if (request.WorkspaceId.HasValue && request.WorkspaceId.Value != Guid.Empty)
         {
             var ws = await _workspaceService.GetByIdAsync(request.WorkspaceId.Value, cancellationToken);
-            if (ws == null) return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+            if (ws == null) return NotFound(new { code = WorkspaceNotFoundCode, message = "Workspace not found." });
 
             if (!TryResolveWorkspacePath(ws.Path, request.Path, out normalized, out var err))
             {
-                return BadRequest(new { code = "forbidden_path", message = err });
+                return BadRequest(new { code = ForbiddenPathCode, message = err });
             }
         }
         else

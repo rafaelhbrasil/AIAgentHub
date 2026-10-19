@@ -115,10 +115,10 @@ public sealed class ExecutionOrchestrator(
 
             var effectivePrompt = BuildEffectivePrompt(conversation, userMsg.Id, prompt);
 
-            var execContext = BuildExecutionContext(conversation, workspace, provider, effectivePrompt, assistantResponseBuilder, userMsg.Id, userId, token);
+            var promptContext = new ExecutionPromptContext(effectivePrompt, assistantResponseBuilder, userMsg.Id, userId);
+            var execContext = BuildExecutionContext(conversation, workspace, provider, promptContext, token);
 
             var (isSuccess, error, _) = await RunWithAutoResumeAsync(provider, execContext, assistantResponseBuilder, userId, token);
-
 
             stopwatch.Stop();
 
@@ -144,7 +144,8 @@ public sealed class ExecutionOrchestrator(
                 // Snapshot comparison failure should not block recording assistant message or session checkpoint
             }
 
-            await RecordAssistantResponseAsync(conversation, provider, assistantResponseBuilder, stopwatch, isSuccess, error, detectedChanges.Count, userId);
+            var executionResult = new AssistantExecutionResult(isSuccess, error, stopwatch.ElapsedMilliseconds, detectedChanges.Count);
+            await RecordAssistantResponseAsync(conversation, provider, assistantResponseBuilder, executionResult, userId);
         }
         finally
         {
@@ -225,24 +226,21 @@ public sealed class ExecutionOrchestrator(
         Conversation conversation,
         Workspace workspace,
         IProvider provider,
-        string effectivePrompt,
-        System.Text.StringBuilder assistantResponseBuilder,
-        Guid userMsgId,
-        string? userId,
+        ExecutionPromptContext promptContext,
         CancellationToken cancellationToken)
     {
         return new ProviderExecutionContext(
             conversation.Id,
             workspace.Id,
             workspace.Path,
-            effectivePrompt,
+            promptContext.EffectivePrompt,
             conversation.ModelId,
             conversation.ProviderSessionId,
             workspace.Settings.IgnoredFiles,
             async (token) =>
             {
-                _ = assistantResponseBuilder.Append(token);
-                await _broadcaster.SendMessageStreamChunkAsync(conversation.Id, token, userId, cancellationToken);
+                _ = promptContext.AssistantResponseBuilder.Append(token);
+                await _broadcaster.SendMessageStreamChunkAsync(conversation.Id, token, promptContext.UserId, cancellationToken);
             },
             async (actionType, target) =>
             {
@@ -253,7 +251,7 @@ public sealed class ExecutionOrchestrator(
                     "command" => PermissionType.CommandExecution,
                     _ => PermissionType.DirectoryAccess
                 };
-                var req = await _permissionService.RequestPermissionAsync(conversation.Id, provider.Id, permType, target, $"AI assistant requested {actionType} for {target}", userId, cancellationToken);
+                var req = await _permissionService.RequestPermissionAsync(conversation.Id, provider.Id, permType, target, $"AI assistant requested {actionType} for {target}", promptContext.UserId, cancellationToken);
                 return req.Decision == PermissionDecision.Approved;
             },
             cancellationToken,
@@ -264,7 +262,7 @@ public sealed class ExecutionOrchestrator(
                     conversation.SetProviderSessionId(newSessionId);
                     var existing = conversation.ProviderSessions.FirstOrDefault(s => s.ProviderId.Equals(conversation.ProviderId, StringComparison.OrdinalIgnoreCase));
                     var preservedIndex = existing?.LastSharedSequenceIndex ?? 0;
-                    var preservedMsgId = existing?.LastSharedMessageId ?? userMsgId;
+                    var preservedMsgId = existing?.LastSharedMessageId ?? promptContext.UserMsgId;
                     _ = conversation.AddOrUpdateProviderSession(conversation.ProviderId, newSessionId, preservedMsgId, preservedIndex);
                     await _conversationRepository.UpdateAsync(conversation, CancellationToken.None);
                 }
@@ -276,7 +274,7 @@ public sealed class ExecutionOrchestrator(
                 {
                     message = msg,
                     elapsedSeconds = elapsedSecs
-                }, userId, cancellationToken);
+                }, promptContext.UserId, cancellationToken);
             }
         );
     }
@@ -368,10 +366,7 @@ public sealed class ExecutionOrchestrator(
         Conversation conversation,
         IProvider provider,
         System.Text.StringBuilder assistantResponseBuilder,
-        Stopwatch stopwatch,
-        bool isSuccess,
-        string? error,
-        int fileChangesCount,
+        AssistantExecutionResult result,
         string? userId)
     {
         var metadata = new ExecutionMetadata
@@ -380,21 +375,21 @@ public sealed class ExecutionOrchestrator(
             ModelId = conversation.ModelId,
             ProviderSessionId = conversation.ProviderSessionId,
             Timestamp = DateTimeOffset.UtcNow,
-            DurationMs = stopwatch.ElapsedMilliseconds,
-            IsSuccess = isSuccess,
-            ErrorMessage = error
+            DurationMs = result.ElapsedMilliseconds,
+            IsSuccess = result.IsSuccess,
+            ErrorMessage = result.Error
         };
 
         var finalAssistantText = assistantResponseBuilder.ToString().Trim();
-        if (error == "AI response was cancelled by the user." || (!isSuccess && error != null && error.Contains("cancel", StringComparison.OrdinalIgnoreCase)))
+        if (result.Error == "AI response was cancelled by the user." || (!result.IsSuccess && result.Error != null && result.Error.Contains("cancel", StringComparison.OrdinalIgnoreCase)))
         {
             finalAssistantText = string.IsNullOrWhiteSpace(finalAssistantText)
                 ? "*(AI response was cancelled by the user.)*"
                 : $"{finalAssistantText}\n\n*(AI response was cancelled by the user.)*";
         }
-        else if (string.IsNullOrWhiteSpace(finalAssistantText) && !string.IsNullOrWhiteSpace(error))
+        else if (string.IsNullOrWhiteSpace(finalAssistantText) && !string.IsNullOrWhiteSpace(result.Error))
         {
-            finalAssistantText = $"Error: {error}";
+            finalAssistantText = $"Error: {result.Error}";
         }
 
         var assistantMsg = conversation.AddMessage(MessageRole.Assistant, finalAssistantText, metadata, provider.Id, conversation.ModelId);
@@ -403,9 +398,9 @@ public sealed class ExecutionOrchestrator(
 
         await _broadcaster.SendConversationEventAsync("conversation.completed", conversation.Id, new
         {
-            DurationMs = stopwatch.ElapsedMilliseconds,
-            FileChangesCount = fileChangesCount,
-            IsSuccess = isSuccess
+            DurationMs = result.ElapsedMilliseconds,
+            FileChangesCount = result.FileChangesCount,
+            IsSuccess = result.IsSuccess
         }, userId, CancellationToken.None);
     }
 
@@ -429,4 +424,16 @@ public sealed class ExecutionOrchestrator(
 
         _ = _activeExecutionTracker.TryStop(conversationId);
     }
+
+    private sealed record ExecutionPromptContext(
+        string EffectivePrompt,
+        System.Text.StringBuilder AssistantResponseBuilder,
+        Guid UserMsgId,
+        string? UserId);
+
+    private sealed record AssistantExecutionResult(
+        bool IsSuccess,
+        string? Error,
+        long ElapsedMilliseconds,
+        int FileChangesCount);
 }

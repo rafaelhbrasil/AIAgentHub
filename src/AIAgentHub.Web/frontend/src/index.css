@@ -2363,11 +2363,6 @@ select option:not(:disabled),
     display: none !important;
   }
 
-  .studio-git-drawer {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-left: none !important;
-  }
 
   .code-editor-container {
     height: 85vh !important;

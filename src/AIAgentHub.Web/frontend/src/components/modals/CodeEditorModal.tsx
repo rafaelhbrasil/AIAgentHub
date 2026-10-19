@@ -19,7 +19,15 @@ interface DiffLine {
   newLineNum?: number;
 }
 
-function computeSimpleDiff(origText: string, newText: string): DiffLine[] {
+function findLookaheadMatch(origLine: string, newLines: string[], start: number, lookahead = 15): number {
+  const limit = Math.min(start + lookahead, newLines.length);
+  for (let j = start; j < limit; j++) {
+    if (newLines[j] === origLine) return j;
+  }
+  return -1;
+}
+
+export function computeSimpleDiff(origText: string, newText: string): DiffLine[] {
   const origLines = origText.split(/\r?\n/);
   const newLines = newText.split(/\r?\n/);
   const result: DiffLine[] = [];
@@ -37,47 +45,166 @@ function computeSimpleDiff(origText: string, newText: string): DiffLine[] {
       });
       oIdx++;
       nIdx++;
-    } else {
-      // Lookahead match
-      let matchInNew = -1;
-      for (let j = nIdx + 1; j < Math.min(nIdx + 15, newLines.length); j++) {
-        if (oIdx < origLines.length && newLines[j] === origLines[oIdx]) {
-          matchInNew = j;
-          break;
-        }
-      }
+      continue;
+    }
 
-      if (matchInNew !== -1) {
-        while (nIdx < matchInNew) {
-          result.push({
-            type: 'added',
-            text: newLines[nIdx],
-            newLineNum: nIdx + 1,
-          });
-          nIdx++;
-        }
-      } else {
-        if (oIdx < origLines.length) {
-          result.push({
-            type: 'removed',
-            text: origLines[oIdx],
-            originalLineNum: oIdx + 1,
-          });
-          oIdx++;
-        }
-        if (nIdx < newLines.length && (oIdx >= origLines.length || origLines[oIdx] !== newLines[nIdx])) {
-          result.push({
-            type: 'added',
-            text: newLines[nIdx],
-            newLineNum: nIdx + 1,
-          });
-          nIdx++;
-        }
+    const matchInNew = oIdx < origLines.length ? findLookaheadMatch(origLines[oIdx], newLines, nIdx + 1) : -1;
+    if (matchInNew !== -1) {
+      while (nIdx < matchInNew) {
+        result.push({
+          type: 'added',
+          text: newLines[nIdx],
+          newLineNum: nIdx + 1,
+        });
+        nIdx++;
       }
+      continue;
+    }
+
+    if (oIdx < origLines.length) {
+      result.push({
+        type: 'removed',
+        text: origLines[oIdx],
+        originalLineNum: oIdx + 1,
+      });
+      oIdx++;
+    }
+    if (nIdx < newLines.length && (oIdx >= origLines.length || origLines[oIdx] !== newLines[nIdx])) {
+      result.push({
+        type: 'added',
+        text: newLines[nIdx],
+        newLineNum: nIdx + 1,
+      });
+      nIdx++;
     }
   }
 
   return result;
+}
+
+export function getDiffLineStyle(type: 'added' | 'removed' | 'unchanged') {
+  if (type === 'added') {
+    return { bg: 'rgba(34, 197, 94, 0.15)', sign: '+', color: '#4ade80' };
+  }
+  if (type === 'removed') {
+    return { bg: 'rgba(239, 68, 68, 0.15)', sign: '-', color: '#f87171' };
+  }
+  return { bg: 'transparent', sign: ' ', color: 'inherit' };
+}
+
+export function formatMatchCount(query: string, count: number): string {
+  if (!query) return '';
+  return `${count} match${count === 1 ? '' : 'es'}`;
+}
+
+export interface EditorDiffViewProps {
+  diffLines: DiffLine[];
+}
+
+export const EditorDiffView: React.FC<EditorDiffViewProps> = ({ diffLines }) => {
+  if (diffLines.length === 0) {
+    return <div style={{ padding: '16px', color: 'var(--text-muted)' }}>No differences from disk.</div>;
+  }
+  return (
+    <div
+      className="editor-diff-view"
+      style={{
+        height: '100%',
+        overflow: 'auto',
+        fontFamily: 'var(--font-mono, monospace)',
+        fontSize: '0.84rem',
+        lineHeight: '1.5',
+        padding: '8px 0',
+        color: 'var(--text-main)',
+      }}
+    >
+      {diffLines.map((line, idx) => {
+        const { bg, sign, color } = getDiffLineStyle(line.type);
+        const lineKey = `${line.type}-${line.originalLineNum ?? 0}-${line.newLineNum ?? 0}-${line.text.slice(0, 15)}-${idx}`;
+        return (
+          <div
+            key={lineKey}
+            style={{
+              display: 'flex',
+              background: bg,
+              padding: '1px 8px',
+              whiteSpace: 'pre',
+            }}
+          >
+            <span
+              style={{
+                width: '38px',
+                color: 'var(--text-muted)',
+                textAlign: 'right',
+                paddingRight: '8px',
+                userSelect: 'none',
+                opacity: 0.6,
+              }}
+            >
+              {line.originalLineNum || ''}
+            </span>
+            <span
+              style={{
+                width: '38px',
+                color: 'var(--text-muted)',
+                textAlign: 'right',
+                paddingRight: '8px',
+                userSelect: 'none',
+                opacity: 0.6,
+              }}
+            >
+              {line.newLineNum || ''}
+            </span>
+            <span style={{ width: '16px', color, userSelect: 'none', textAlign: 'center' }}>
+              {sign}
+            </span>
+            <span style={{ flex: 1, color, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              {line.text || ' '}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+function useEditorKeyboardShortcuts({
+  onSave,
+  onToggleFind,
+  onToggleSwitcher,
+  onCloseOverlays,
+}: {
+  onSave: () => void;
+  onToggleFind: () => void;
+  onToggleSwitcher: () => void;
+  onCloseOverlays: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+      if (isCmdOrCtrl && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        onSave();
+        return;
+      }
+      if (isCmdOrCtrl && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        onToggleFind();
+        return;
+      }
+      if (isCmdOrCtrl && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        onToggleSwitcher();
+        return;
+      }
+      if (e.key === 'Escape') {
+        onCloseOverlays();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onSave, onToggleFind, onToggleSwitcher, onCloseOverlays]);
 }
 
 export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
@@ -163,7 +290,7 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
       return;
     }
     try {
-      const regex = new RegExp(findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      const regex = new RegExp(findQuery.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`), 'g');
       const matches = content.match(regex);
       setMatchCount(matches ? matches.length : 0);
     } catch {
@@ -216,36 +343,19 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
     showToast(`Replaced all occurrences of "${findQuery}".`, 'info');
   };
 
-  // Keyboard shortcut listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S / Cmd+S
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-      // Ctrl+F / Cmd+F
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-        e.preventDefault();
-        setShowFindReplace((prev) => !prev);
-      }
-      // Ctrl+P / Cmd+P
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        setShowQuickSwitcher((prev) => !prev);
-      }
-      // Escape
-      else if (e.key === 'Escape') {
-        if (showQuickSwitcher) {
-          setShowQuickSwitcher(false);
-        } else if (showFindReplace) {
-          setShowFindReplace(false);
-        }
-      }
-    };
+  const handleCloseOverlays = useCallback(() => {
+    if (showQuickSwitcher) {
+      setShowQuickSwitcher(false);
+    } else if (showFindReplace) {
+      setShowFindReplace(false);
+    }
+  }, [showQuickSwitcher, showFindReplace]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+  useEditorKeyboardShortcuts({
+    onSave: handleSave,
+    onToggleFind: () => setShowFindReplace((prev) => !prev),
+    onToggleSwitcher: () => setShowQuickSwitcher((prev) => !prev),
+    onCloseOverlays: handleCloseOverlays,
   });
 
   // Focus quick filter when opened
@@ -290,6 +400,82 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
   );
 
   const diffLines = showDiff ? computeSimpleDiff(originalContent, content) : [];
+  const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
+
+  const renderWorkspaceContent = () => {
+    if (isLoading) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
+          <Spinner size={24} isSpinning={true} />
+          <span style={{ marginLeft: '10px' }}>Loading {currentPath}...</span>
+        </div>
+      );
+    }
+    if (isBinary) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>⚠️ Binary File</p>
+          <p style={{ fontSize: '0.85rem' }}>This file contains binary data and cannot be displayed in the text editor.</p>
+        </div>
+      );
+    }
+    if (showDiff) {
+      return <EditorDiffView diffLines={diffLines} />;
+    }
+    return (
+      <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+        <div
+          ref={lineNumbersRef}
+          style={{
+            width: '48px',
+            background: '#181825',
+            color: '#6c7086',
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '0.84rem',
+            lineHeight: '1.5',
+            textAlign: 'right',
+            padding: '8px 8px 8px 0',
+            userSelect: 'none',
+            overflowY: 'hidden',
+            borderRight: '1px solid rgba(255,255,255,0.07)',
+            flexShrink: 0,
+          }}
+        >
+          {lineNumbers.map((num) => (
+            <div key={`line-num-${num}`}>{num}</div>
+          ))}
+        </div>
+
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          onScroll={handleScroll}
+          onKeyDown={handleKeyDownInEditor}
+          readOnly={isReadOnly}
+          spellCheck={false}
+          id="editorMainTextarea"
+          style={{
+            flex: 1,
+            height: '100%',
+            background: '#1e1e2e',
+            color: '#cdd6f4',
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '0.84rem',
+            lineHeight: '1.5',
+            padding: '8px 12px',
+            border: 'none',
+            outline: 'none',
+            resize: 'none',
+            whiteSpace: 'pre',
+            overflowWrap: 'normal',
+            overflowX: 'auto',
+            tabSize: 2,
+          }}
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="code-editor-container" style={{ display: 'flex', flexDirection: 'column', height: '80vh', minHeight: '500px' }}>
@@ -379,7 +565,7 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
               onChange={(e) => setIsReadOnly(e.target.checked)}
               id="editorReadOnlyCheckbox"
             />
-            Read-only
+            <span>Read-only</span>
           </label>
 
           <button
@@ -438,7 +624,7 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
               autoFocus
             />
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', minWidth: '60px' }}>
-              {findQuery ? `${matchCount} match${matchCount === 1 ? '' : 'es'}` : ''}
+              {formatMatchCount(findQuery, matchCount)}
             </span>
           </div>
 
@@ -514,7 +700,8 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
               </div>
             ) : (
               filteredQuickFiles.slice(0, 30).map((f) => (
-                <div
+                <button
+                  type="button"
                   key={f}
                   onClick={() => handleSelectQuickFile(f)}
                   style={{
@@ -524,8 +711,12 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
+                    width: '100%',
+                    border: 'none',
                     borderBottom: '1px solid rgba(255,255,255,0.04)',
                     background: f === currentPath ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                    color: 'inherit',
+                    textAlign: 'left',
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
                   onMouseLeave={(e) =>
@@ -536,7 +727,7 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {f}
                   </span>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -545,145 +736,7 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
 
       {/* Main Workspace Area */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#1e1e2e' }}>
-        {isLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
-            <Spinner size={24} isSpinning={true} />
-            <span style={{ marginLeft: '10px' }}>Loading {currentPath}...</span>
-          </div>
-        ) : isBinary ? (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
-            <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>⚠️ Binary File</p>
-            <p style={{ fontSize: '0.85rem' }}>This file contains binary data and cannot be displayed in the text editor.</p>
-          </div>
-        ) : showDiff ? (
-          /* Inline Disk Diff View */
-          <div
-            className="editor-diff-view"
-            style={{
-              height: '100%',
-              overflow: 'auto',
-              fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '0.84rem',
-              lineHeight: '1.5',
-              padding: '8px 0',
-              color: 'var(--text-main)',
-            }}
-          >
-            {diffLines.length === 0 ? (
-              <div style={{ padding: '16px', color: 'var(--text-muted)' }}>No differences from disk.</div>
-            ) : (
-              diffLines.map((line, idx) => {
-                const bg =
-                  line.type === 'added'
-                    ? 'rgba(34, 197, 94, 0.15)'
-                    : line.type === 'removed'
-                    ? 'rgba(239, 68, 68, 0.15)'
-                    : 'transparent';
-                const sign = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ';
-                const color =
-                  line.type === 'added' ? '#4ade80' : line.type === 'removed' ? '#f87171' : 'inherit';
-
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      background: bg,
-                      padding: '1px 8px',
-                      whiteSpace: 'pre',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: '38px',
-                        color: 'var(--text-muted)',
-                        textAlign: 'right',
-                        paddingRight: '8px',
-                        userSelect: 'none',
-                        opacity: 0.6,
-                      }}
-                    >
-                      {line.originalLineNum || ''}
-                    </span>
-                    <span
-                      style={{
-                        width: '38px',
-                        color: 'var(--text-muted)',
-                        textAlign: 'right',
-                        paddingRight: '8px',
-                        userSelect: 'none',
-                        opacity: 0.6,
-                      }}
-                    >
-                      {line.newLineNum || ''}
-                    </span>
-                    <span style={{ width: '16px', color, userSelect: 'none', textAlign: 'center' }}>
-                      {sign}
-                    </span>
-                    <span style={{ flex: 1, color, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                      {line.text || ' '}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        ) : (
-          /* Main Text Editor with Line Numbers Gutter */
-          <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-            {/* Gutter: Line Numbers */}
-            <div
-              ref={lineNumbersRef}
-              style={{
-                width: '48px',
-                background: '#181825',
-                color: '#6c7086',
-                fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '0.84rem',
-                lineHeight: '1.5',
-                textAlign: 'right',
-                padding: '8px 8px 8px 0',
-                userSelect: 'none',
-                overflowY: 'hidden',
-                borderRight: '1px solid rgba(255,255,255,0.07)',
-                flexShrink: 0,
-              }}
-            >
-              {Array.from({ length: lineCount }).map((_, i) => (
-                <div key={i}>{i + 1}</div>
-              ))}
-            </div>
-
-            {/* Editable Text Area */}
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onScroll={handleScroll}
-              onKeyDown={handleKeyDownInEditor}
-              readOnly={isReadOnly}
-              spellCheck={false}
-              id="editorMainTextarea"
-              style={{
-                flex: 1,
-                height: '100%',
-                background: '#1e1e2e',
-                color: '#cdd6f4',
-                fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '0.84rem',
-                lineHeight: '1.5',
-                padding: '8px 12px',
-                border: 'none',
-                outline: 'none',
-                resize: 'none',
-                whiteSpace: 'pre',
-                overflowWrap: 'normal',
-                overflowX: 'auto',
-                tabSize: 2,
-              }}
-            />
-          </div>
-        )}
+        {renderWorkspaceContent()}
       </div>
 
       {/* Editor Status Bar */}
