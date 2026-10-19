@@ -77,6 +77,15 @@ public sealed class GitAndFilesystemControllerTests
         public Task<IReadOnlyList<GitCommitDto>> GetHistoryAsync(string workspacePath, int maxCount = 50, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<GitCommitDto>>([]);
 
+        public Func<string, string, GitCommitDetailDto?>? OnGetCommitDetails { get; set; }
+        public Func<string, string, string, GitCommitDiffDto?>? OnGetCommitDiff { get; set; }
+
+        public Task<GitCommitDetailDto?> GetCommitDetailsAsync(string workspacePath, string commitHash, CancellationToken cancellationToken = default)
+            => Task.FromResult(OnGetCommitDetails != null ? OnGetCommitDetails(workspacePath, commitHash) : null);
+
+        public Task<GitCommitDiffDto?> GetCommitDiffAsync(string workspacePath, string commitHash, string filePath, CancellationToken cancellationToken = default)
+            => Task.FromResult(OnGetCommitDiff != null ? OnGetCommitDiff(workspacePath, commitHash, filePath) : null);
+
         public Task<GitOperationResult> CloneAsync(string cloneUrl, string targetDirectory, CancellationToken cancellationToken = default)
             => Task.FromResult(new GitOperationResult(true, "Cloned"));
     }
@@ -113,5 +122,80 @@ public sealed class GitAndFilesystemControllerTests
 
         var actionResult = await controller.CreateBranch(new GitController.CreateBranchRequest(wsId, "feature/test"), CancellationToken.None);
         Assert.IsType<OkObjectResult>(actionResult);
+    }
+
+    [Fact]
+    public async Task GitController_GetCommitDetails_WhenFound_ReturnsOk()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService
+        {
+            DefaultWorkspace = new WorkspaceDto(wsId, "Test WS", "C:\\test\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0)
+        };
+        var gitService = new FakeGitService
+        {
+            OnGetCommitDetails = (path, hash) => new GitCommitDetailDto(hash, "short", "Rafael", "r@b.com", DateTimeOffset.UtcNow, "feat: commit", [], null, [])
+        };
+        var controller = new GitController(gitService, wsService);
+
+        var actionResult = await controller.GetCommitDetails(wsId, "1234abcd", CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        var details = Assert.IsType<GitCommitDetailDto>(okResult.Value);
+        Assert.Equal("1234abcd", details.Hash);
+    }
+
+    [Fact]
+    public async Task GitController_GetCommitDetails_WhenNotFound_ReturnsNotFound()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService
+        {
+            DefaultWorkspace = new WorkspaceDto(wsId, "Test WS", "C:\\test\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0)
+        };
+        var gitService = new FakeGitService();
+        var controller = new GitController(gitService, wsService);
+
+        var actionResult = await controller.GetCommitDetails(wsId, "1234abcd", CancellationToken.None);
+        Assert.IsType<NotFoundObjectResult>(actionResult);
+    }
+
+    [Fact]
+    public async Task GitController_GetCommitDiff_WhenFound_ReturnsOk()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService
+        {
+            DefaultWorkspace = new WorkspaceDto(wsId, "Test WS", "C:\\test\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0)
+        };
+        var gitService = new FakeGitService
+        {
+            OnGetCommitDiff = (path, hash, file) => new GitCommitDiffDto(file, "old", "new", false)
+        };
+        var controller = new GitController(gitService, wsService);
+
+        var actionResult = await controller.GetCommitDiff(wsId, "1234abcd", "src/File.cs", CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        Assert.NotNull(okResult.Value);
+        var relativePath = okResult.Value.GetType().GetProperty("relativePath")?.GetValue(okResult.Value)?.ToString();
+        var oldContent = okResult.Value.GetType().GetProperty("oldContent")?.GetValue(okResult.Value)?.ToString();
+        var newContent = okResult.Value.GetType().GetProperty("newContent")?.GetValue(okResult.Value)?.ToString();
+        Assert.Equal("src/File.cs", relativePath);
+        Assert.Equal("old", oldContent);
+        Assert.Equal("new", newContent);
+    }
+
+    [Fact]
+    public async Task GitController_GetCommitDiff_WhenNotFound_ReturnsNotFound()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService
+        {
+            DefaultWorkspace = new WorkspaceDto(wsId, "Test WS", "C:\\test\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0)
+        };
+        var gitService = new FakeGitService();
+        var controller = new GitController(gitService, wsService);
+
+        var actionResult = await controller.GetCommitDiff(wsId, "1234abcd", "missing.cs", CancellationToken.None);
+        Assert.IsType<NotFoundObjectResult>(actionResult);
     }
 }

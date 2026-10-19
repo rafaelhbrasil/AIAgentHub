@@ -28,6 +28,34 @@ export interface GitCommitDto {
   email: string;
   date: string;
   message: string;
+  parents?: string[];
+  refs?: string | null;
+}
+
+export interface GitCommitFileChangeDto {
+  path: string;
+  status: string;
+  additions: number;
+  deletions: number;
+}
+
+export interface GitCommitDetailDto {
+  hash: string;
+  shortHash: string;
+  author: string;
+  email: string;
+  date: string;
+  message: string;
+  parents: string[];
+  refs?: string | null;
+  files: GitCommitFileChangeDto[];
+}
+
+export interface GitCommitDiffDto {
+  path: string;
+  originalContent?: string | null;
+  modifiedContent?: string | null;
+  isBinary: boolean;
 }
 
 export interface GitOperationResult {

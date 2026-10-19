@@ -20,7 +20,32 @@ public sealed record GitCommitDto(
     string Author,
     string Email,
     DateTimeOffset Date,
-    string Message);
+    string Message,
+    IReadOnlyList<string>? Parents = null,
+    string? Refs = null);
+
+public sealed record GitCommitFileChangeDto(
+    string Path,
+    string Status,
+    int Additions,
+    int Deletions);
+
+public sealed record GitCommitDetailDto(
+    string Hash,
+    string ShortHash,
+    string Author,
+    string Email,
+    DateTimeOffset Date,
+    string Message,
+    IReadOnlyList<string> Parents,
+    string? Refs,
+    IReadOnlyList<GitCommitFileChangeDto> Files);
+
+public sealed record GitCommitDiffDto(
+    string Path,
+    string? OriginalContent,
+    string? ModifiedContent,
+    bool IsBinary);
 
 public sealed record GitOperationResult(bool Success, string? Message = null, string? Error = null);
 
@@ -38,5 +63,7 @@ public interface IGitService
     Task<GitOperationResult> FetchAsync(string workspacePath, string? remote = null, CancellationToken cancellationToken = default);
     Task<GitOperationResult> StashAsync(string workspacePath, string action = "save", string? message = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GitCommitDto>> GetHistoryAsync(string workspacePath, int maxCount = 50, CancellationToken cancellationToken = default);
+    Task<GitCommitDetailDto?> GetCommitDetailsAsync(string workspacePath, string commitHash, CancellationToken cancellationToken = default);
+    Task<GitCommitDiffDto?> GetCommitDiffAsync(string workspacePath, string commitHash, string filePath, CancellationToken cancellationToken = default);
     Task<GitOperationResult> CloneAsync(string cloneUrl, string targetDirectory, CancellationToken cancellationToken = default);
 }

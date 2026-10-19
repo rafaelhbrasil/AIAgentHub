@@ -517,11 +517,21 @@ Diff rendering is independent from preview rendering but shares the same renderi
 
 AI Agent Hub integrates native Git repository operations into the workspace environment without requiring third-party library dependencies (such as libgit2 binaries):
 
-- **Service Abstraction**: `IGitService` in the Application layer defines repository status, branch management, commit, push, pull, fetch, stash, history, and clone operations.
+- **Service Abstraction**: `IGitService` in the Application layer defines repository status, branch management, commit, push, pull, fetch, stash, history, commit details, commit diff, and clone operations.
 - **Process-Based Execution**: `GitCliService` in the Infrastructure layer uses the host `git` command-line executable via `IProcessExecutor.RunCommandAsync`.
 - **Workspace Isolation**: Git commands execute strictly within `workspace.Path`.
 - **Optional Git Host**: If `git` is absent from the host machine, the service returns `isGitInstalled: false`, and the UI indicates that Git is optional without throwing exceptions.
 - **Repository Cloning**: `POST /api/v1/workspaces/clone` clones a remote Git repository into a target path and automatically registers a new workspace with `Origin = WorkspaceOrigin.Git`.
+- **Git Workbench & TortoiseGit Log Model**:
+  - **Desktop Studio Mode Toggle**: Studio Header provides a top-level segmented switch between `[ 💬 Chat Studio ]` and `[ 🌿 Git Workbench ]`, dedicating the full 70% central desktop viewport to version control without drawer clutter.
+  - **Log & Graph Explorer (Top Pane)**:
+    - **Row 0 (Live Working Tree)**: Interactive head row representing uncommitted changes (staged, modified, untracked). Selecting it directs the bottom pane to the staging and commit form.
+    - **Rows 1..N (Commit History)**: Chronological commit table with branch/tag pills, short hash, commit message, author, and timestamp.
+    - **Pure SVG Lane Allocation Algorithm**: A lightweight, zero-dependency lane calculation algorithm renders branch lanes, commit nodes (`●`), and merge/fork bezier curves (`<path>`) aligning with each table row, providing high-fidelity visual history without heavy charting dependencies.
+  - **Context-Sensitive Inspector (Bottom Pane)**:
+    - *When Working Tree is selected*: Staged / Unstaged lists, file staging/unstaging controls, commit message input, and Commit/Stash buttons.
+    - *When a Historical Commit is selected*: Commit metadata card, full multi-line commit message, and changed files list with additions/deletions.
+  - **Read-Only Diff Viewer Reuse**: Reuses `DiffViewerModal` and its side-by-side / unified renderers with a `readOnly={true}` flag, disabling editing and acceptance controls to inspect file diffs safely.
 
 ---
 

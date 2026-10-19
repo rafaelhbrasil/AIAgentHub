@@ -162,4 +162,127 @@ public sealed class GitCliServiceTests
         Assert.Equal("rafael@example.com", commit.Email);
         Assert.Equal("feat: add git support", commit.Message);
     }
+
+    [Fact]
+    public async Task GetHistoryAsync_ParsesParentsAndRefs()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                var logLine = "abcd1234efgh5678|||abcd123|||Rafael|||rafael@example.com|||2026-10-05T12:00:00+00:00|||merge: pr 42|||parent1 parent2||| (HEAD -> develop, origin/develop)\n";
+                return new ProcessCommandResult(0, logLine, "");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var history = await service.GetHistoryAsync("C:\\dummy");
+
+        Assert.Single(history);
+        var commit = history[0];
+        Assert.NotNull(commit.Parents);
+        Assert.Equal(2, commit.Parents.Count);
+        Assert.Equal("parent1", commit.Parents[0]);
+        Assert.Equal("parent2", commit.Parents[1]);
+        Assert.Equal("(HEAD -> develop, origin/develop)", commit.Refs);
+    }
+
+    [Fact]
+    public async Task GetCommitDetailsAsync_ValidCommit_ParsesMetadataAndFiles()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                if (args.Contains("show -s --format="))
+                {
+                    var meta = "1234567890abcdef|||1234567|||Rafael|||rafael@example.com|||2026-10-18T12:00:00+00:00|||feat: support git log\nDetailed body description|||parent123||| (HEAD -> develop)";
+                    return new ProcessCommandResult(0, meta, "");
+                }
+                if (args.Contains("show --numstat"))
+                {
+                    var numstat = "15\t3\tsrc/FileA.cs\n-\t-\tassets/logo.png\n";
+                    return new ProcessCommandResult(0, numstat, "");
+                }
+                if (args.Contains("show --name-status"))
+                {
+                    var nameStatus = "M\tsrc/FileA.cs\nA\tassets/logo.png\n";
+                    return new ProcessCommandResult(0, nameStatus, "");
+                }
+                return new ProcessCommandResult(0, "", "");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var details = await service.GetCommitDetailsAsync("C:\\dummy", "1234567890abcdef");
+
+        Assert.NotNull(details);
+        Assert.Equal("1234567890abcdef", details.Hash);
+        Assert.Equal("1234567", details.ShortHash);
+        Assert.Equal("Rafael", details.Author);
+        Assert.Equal("feat: support git log\nDetailed body description", details.Message);
+        Assert.Single(details.Parents);
+        Assert.Equal("parent123", details.Parents[0]);
+        Assert.Equal(2, details.Files.Count);
+
+        var fileA = details.Files.First(f => f.Path == "src/FileA.cs");
+        Assert.Equal("Modified", fileA.Status);
+        Assert.Equal(15, fileA.Additions);
+        Assert.Equal(3, fileA.Deletions);
+
+        var logo = details.Files.First(f => f.Path == "assets/logo.png");
+        Assert.Equal("Added", logo.Status);
+        Assert.Equal(0, logo.Additions);
+        Assert.Equal(0, logo.Deletions);
+    }
+
+    [Fact]
+    public async Task GetCommitDetailsAsync_InvalidHashOrPath_ReturnsNull()
+    {
+        var fakeExecutor = new FakeProcessExecutor();
+        var service = new GitCliService(fakeExecutor);
+
+        Assert.Null(await service.GetCommitDetailsAsync("", "123456"));
+        Assert.Null(await service.GetCommitDetailsAsync("C:\\dummy", ""));
+        Assert.Null(await service.GetCommitDetailsAsync("C:\\dummy", "not a valid hash! ; rm -rf"));
+    }
+
+    [Fact]
+    public async Task GetCommitDiffAsync_ValidFile_ReturnsOriginalAndModifiedContent()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                if (args.Contains("~1:src/FileA.cs"))
+                {
+                    return new ProcessCommandResult(0, "old content", "");
+                }
+                if (args.Contains(":src/FileA.cs"))
+                {
+                    return new ProcessCommandResult(0, "new content", "");
+                }
+                return new ProcessCommandResult(1, "", "not found");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var diff = await service.GetCommitDiffAsync("C:\\dummy", "1234abcd", "src/FileA.cs");
+
+        Assert.NotNull(diff);
+        Assert.Equal("src/FileA.cs", diff.Path);
+        Assert.Equal("old content", diff.OriginalContent);
+        Assert.Equal("new content", diff.ModifiedContent);
+        Assert.False(diff.IsBinary);
+    }
+
+    [Fact]
+    public async Task GetCommitDiffAsync_PathTraversal_ReturnsNull()
+    {
+        var fakeExecutor = new FakeProcessExecutor();
+        var service = new GitCliService(fakeExecutor);
+
+        var diff = await service.GetCommitDiffAsync("C:\\dummy", "1234abcd", "../../../etc/passwd");
+        Assert.Null(diff);
+    }
 }

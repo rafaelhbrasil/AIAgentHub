@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { WorkspaceDto, FileTreeNode } from '../../types/workspace';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputBar } from './ChatInputBar';
@@ -6,7 +6,7 @@ import { ChangesOverviewBar } from './ChangesOverviewBar';
 import { useWorkspaceStudio } from './studio/useWorkspaceStudio';
 import { StudioHeader } from './studio/StudioHeader';
 import { StudioSidebar } from './studio/StudioSidebar';
-import { StudioGitPanel } from './studio/StudioGitPanel';
+import { GitWorkbench } from './studio/git/GitWorkbench';
 import { StudioEmptyState } from './studio/StudioEmptyState';
 import { ConversationStatus } from '../../types/conversation';
 import { GitBranchIcon } from '../common/Icons';
@@ -75,8 +75,6 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     handleSendPrompt,
     handleDownloadZip,
     gitStatus,
-    isGitOpen,
-    setIsGitOpen,
     handleOpenEditor,
   } = useWorkspaceStudio({
     workspace,
@@ -85,6 +83,7 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
     onRemoveWorkspace,
   });
 
+  const [studioMode, setStudioMode] = useState<'chat' | 'git'>('chat');
   const workspaceFiles = useMemo(() => extractFilePaths(treeData), [treeData]);
   const isSwitching = activeConversation?.status === ConversationStatus.SwitchingProvider || activeConversation?.status === 1;
 
@@ -98,6 +97,8 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         showActionsMenu={showActionsMenu}
         isStreaming={isStreaming}
         gitStatus={gitStatus}
+        studioMode={studioMode}
+        onSwitchStudioMode={(mode) => setStudioMode(mode)}
         onBack={onBack}
         onModelChange={handleModelChange}
         onToggleActionsMenu={() => setShowActionsMenu((prev) => !prev)}
@@ -111,10 +112,11 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         onToggleGit={() => {
           if (mobileTab === 'git') {
             setMobileTab('chat');
-            setIsGitOpen(false);
+            setStudioMode('chat');
           } else {
-            setIsGitOpen((prev) => !prev);
-            setMobileTab('git');
+            const nextMode = studioMode === 'git' ? 'chat' : 'git';
+            setStudioMode(nextMode);
+            if (nextMode === 'git') setMobileTab('git');
           }
         }}
       />
@@ -123,9 +125,12 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
       <div className="studio-mobile-nav">
         <button
           type="button"
-          className={`btn compact-btn ${mobileTab === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn compact-btn ${mobileTab === 'chat' && studioMode === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ flex: 1, justifyContent: 'center' }}
-          onClick={() => setMobileTab('chat')}
+          onClick={() => {
+            setMobileTab('chat');
+            setStudioMode('chat');
+          }}
         >
           💬 Chat
         </button>
@@ -139,11 +144,11 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
         </button>
         <button
           type="button"
-          className={`btn compact-btn ${mobileTab === 'git' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn compact-btn ${mobileTab === 'git' || studioMode === 'git' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ flex: 1, justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
           onClick={() => {
             setMobileTab('git');
-            setIsGitOpen(true);
+            setStudioMode('git');
           }}
         >
           <GitBranchIcon size={13} /> Git {gitStatus?.currentBranch ? `(${gitStatus.currentBranch})` : ''}
@@ -167,65 +172,65 @@ export const WorkspaceStudioView: React.FC<WorkspaceStudioViewProps> = ({
           onSelectConversation={(id) => {
             selectConversationById(id);
             setMobileTab('chat');
+            setStudioMode('chat');
           }}
           onDeleteConversation={handleDeleteConversation}
           onTogglePin={handleTogglePin}
         />
 
-        {/* Right Panel: Conversation Studio */}
-        <div
-          className={`chat-container glass ${mobileTab !== 'chat' ? 'mobile-hidden' : ''}`}
-          id="chatPanel"
-        >
-          {!activeConversation ? (
-            <StudioEmptyState onCreateConversation={handleCreateConversation} />
-          ) : (
-            <>
-              <ChatMessageList
-                messages={activeConversation.messages || []}
-                providerId={activeConversation.providerId}
-                streamingContent={streamingContent}
-                isStreaming={isStreaming}
-                heartbeatMessages={heartbeatMessages}
-                status={activeConversation.status}
-              />
-
-              <div className="chat-bottom-dock">
-                <ChangesOverviewBar
-                  fileChanges={fileChanges}
-                  isOpen={isChangesOverviewOpen}
-                  onToggleOpen={() => setIsChangesOverviewOpen((prev) => !prev)}
-                  onSelectFile={(fileChangeId) => handleOpenDiffs(fileChangeId)}
-                  onOpenFullDiff={() => handleOpenDiffs()}
-                  onAcceptAll={handleAcceptAllChanges}
-                  onRejectAll={handleRejectAllChanges}
-                />
-
-                <ChatInputBar
-                  onSend={handleSendPrompt}
-                  disabled={isSwitching}
+        {/* Right Panel: Conversation Studio OR Git Workbench */}
+        {studioMode === 'git' || mobileTab === 'git' ? (
+          <div
+            className={`git-workbench-container glass ${mobileTab !== 'git' && mobileTab !== 'chat' ? 'mobile-hidden' : ''}`}
+            id="gitWorkbenchPanel"
+            style={{ flex: 1, height: '100%', overflow: 'hidden' }}
+          >
+            <GitWorkbench
+              workspaceId={workspace.id}
+              onFileSelect={handleOpenEditor}
+            />
+          </div>
+        ) : (
+          <div
+            className={`chat-container glass ${mobileTab !== 'chat' ? 'mobile-hidden' : ''}`}
+            id="chatPanel"
+          >
+            {!activeConversation ? (
+              <StudioEmptyState onCreateConversation={handleCreateConversation} />
+            ) : (
+              <>
+                <ChatMessageList
+                  messages={activeConversation.messages || []}
+                  providerId={activeConversation.providerId}
+                  streamingContent={streamingContent}
                   isStreaming={isStreaming}
-                  onAbort={handleAbort}
-                  workspaceFiles={workspaceFiles}
+                  heartbeatMessages={heartbeatMessages}
+                  status={activeConversation.status}
                 />
-              </div>
-            </>
-          )}
-        </div>
 
-        {/* Right Drawer / Git Panel */}
-        <StudioGitPanel
-          workspaceId={workspace.id}
-          isOpen={isGitOpen || mobileTab === 'git'}
-          mobileTab={mobileTab}
-          onClose={() => {
-            setIsGitOpen(false);
-            if (mobileTab === 'git') setMobileTab('chat');
-          }}
-          onFileSelect={(path) => {
-            handleOpenEditor(path);
-          }}
-        />
+                <div className="chat-bottom-dock">
+                  <ChangesOverviewBar
+                    fileChanges={fileChanges}
+                    isOpen={isChangesOverviewOpen}
+                    onToggleOpen={() => setIsChangesOverviewOpen((prev) => !prev)}
+                    onSelectFile={(fileChangeId) => handleOpenDiffs(fileChangeId)}
+                    onOpenFullDiff={() => handleOpenDiffs()}
+                    onAcceptAll={handleAcceptAllChanges}
+                    onRejectAll={handleRejectAllChanges}
+                  />
+
+                  <ChatInputBar
+                    onSend={handleSendPrompt}
+                    disabled={isSwitching}
+                    isStreaming={isStreaming}
+                    onAbort={handleAbort}
+                    workspaceFiles={workspaceFiles}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

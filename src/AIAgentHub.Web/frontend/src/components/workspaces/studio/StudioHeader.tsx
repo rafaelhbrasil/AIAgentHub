@@ -23,6 +23,8 @@ interface StudioHeaderProps {
   onEffortChange: (effort: string) => void;
   onDeleteConversation: (id: string, title: string) => void;
   onToggleGit?: () => void;
+  studioMode?: 'chat' | 'git';
+  onSwitchStudioMode?: (mode: 'chat' | 'git') => void;
 }
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({
@@ -43,6 +45,8 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onEffortChange,
   onDeleteConversation,
   onToggleGit,
+  studioMode = 'chat',
+  onSwitchStudioMode,
 }) => {
   return (
     <div className="studio-compact-header glass">
@@ -135,6 +139,43 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
             </button>
           )}
         </div>
+
+        {onSwitchStudioMode && (
+          <div className="segmented-switch desktop-only" style={{ display: 'inline-flex', marginLeft: '12px' }} role="group" aria-label="Studio View Mode">
+            <button
+              type="button"
+              className={`btn compact-btn ${studioMode === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => onSwitchStudioMode('chat')}
+              id="studioModeChatBtn"
+              style={{
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+                fontSize: '0.78rem',
+                padding: '3px 10px',
+              }}
+            >
+              💬 Chat
+            </button>
+            <button
+              type="button"
+              className={`btn compact-btn ${studioMode === 'git' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => onSwitchStudioMode('git')}
+              id="studioModeGitBtn"
+              style={{
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                fontSize: '0.78rem',
+                padding: '3px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <GitBranchIcon size={12} style={{ color: studioMode === 'git' ? '#fff' : '#4ade80' }} />
+              <span>Git Workbench</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="studio-header-right">
@@ -163,18 +204,6 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
             </select>
           );
         })()}
-
-        {onToggleGit && (
-          <button
-            type="button"
-            className="btn btn-secondary compact-btn desktop-only"
-            id="openGitPanelBtn"
-            onClick={onToggleGit}
-            title="Open Git Control Panel"
-          >
-            <GitBranchIcon size={14} style={{ marginRight: '4px' }} /> <span className="hide-on-mobile">Git</span>
-          </button>
-        )}
 
         {/* Quick Actions Menu Trigger */}
         <div className="studio-actions-dropdown-wrap">

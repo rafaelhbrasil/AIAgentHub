@@ -2399,6 +2399,58 @@ select option:not(:disabled),
     border-right: none !important;
     border-bottom: 1px solid var(--border-color);
   }
+
+  /* Git Workbench Responsive Rules */
+  .git-working-tree-inspector,
+  .git-commit-detail-inspector {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+
+  .git-inspector-files-pane {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-height: 200px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+
+  .git-inspector-commit-pane {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-height: 180px !important;
+    border-top: none !important;
+  }
+
+  .git-inspector-meta-pane {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+
+  .git-inspector-changes-pane {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-height: 200px !important;
+  }
+
+  .git-working-tree-summary {
+    display: block !important;
+    margin-top: 2px;
+    font-size: 0.72rem !important;
+  }
+
+  .git-workbench-filter-input {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    min-width: 110px !important;
+  }
+
+  .git-workbench-toolbar {
+    gap: 6px !important;
+    padding: 6px 8px !important;
+  }
 }
 
 /* Extra Small Phones (<= 480px) */
@@ -2708,6 +2760,108 @@ select option:not(:disabled),
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding-right: 2px;
+}
+
+/* Git Workbench */
+.git-workbench {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--bg-surface);
+  position: relative;
+  overflow: hidden;
+}
+
+.git-workbench-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.git-workbench-container.mobile-hidden {
+  display: none !important;
+}
+
+.git-log-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.git-log-row:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.git-log-row.selected {
+  background: rgba(56, 189, 248, 0.12) !important;
+}
+
+.git-workbench-splitter:hover {
+  background: var(--accent-primary) !important;
+}
+
+.git-working-tree-inspector {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.git-inspector-files-pane {
+  flex: 1 1 60%;
+  overflow-y: auto;
+  padding: 12px 16px;
+  border-right: 1px solid var(--border-color);
+  min-width: 0;
+}
+
+.git-inspector-commit-pane {
+  flex: 0 0 320px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-subtle);
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.git-commit-detail-inspector {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.git-inspector-meta-pane {
+  flex: 0 0 380px;
+  padding: 14px 16px;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  background: var(--bg-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.git-inspector-changes-pane {
+  flex: 1 1 auto;
+  padding: 14px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.git-workbench-filter-input {
+  width: 220px;
+  font-size: 0.78rem;
+  padding: 3px 8px;
 }
 
 .changes-file-item {

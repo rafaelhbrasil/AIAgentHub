@@ -12,11 +12,13 @@ import { DiffBinaryView } from './diff/DiffBinaryView';
 import { DiffViewerFooter } from './diff/DiffViewerFooter';
 
 interface DiffViewerModalProps {
-  conversationId: string;
+  conversationId?: string;
   workspaceId: string;
   initialFileChangeId?: string;
   onClose: () => void;
   onRefreshWorkspace?: () => void;
+  readOnly?: boolean;
+  customChanges?: FileChangeDto[];
 }
 
 export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
@@ -25,6 +27,8 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
   initialFileChangeId,
   onClose,
   onRefreshWorkspace,
+  readOnly = false,
+  customChanges,
 }) => {
   const { showToast } = useToast();
   const [changes, setChanges] = useState<FileChangeDto[]>([]);
@@ -209,6 +213,23 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
   };
 
   useEffect(() => {
+    if (customChanges) {
+      if (customChanges.length > 0) {
+        setChanges(customChanges);
+        const initialId =
+          initialFileChangeId && customChanges.some((d) => d.id === initialFileChangeId)
+            ? initialFileChangeId
+            : customChanges[0].id;
+        setActiveChangeId(initialId);
+      } else {
+        setChanges([]);
+        showToast('No file changes to display.', 'info');
+        onClose();
+      }
+      setIsLoading(false);
+      return;
+    }
+
     const fetchChanges = async () => {
       setIsLoading(true);
       try {
@@ -230,10 +251,21 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
       }
     };
     fetchChanges();
-  }, [conversationId, initialFileChangeId]);
+  }, [conversationId, initialFileChangeId, customChanges]);
 
   useEffect(() => {
     if (!activeChangeId) return;
+
+    if (customChanges) {
+      const item = customChanges.find((c) => c.id === activeChangeId);
+      if (item) {
+        setActiveDiff(item);
+        setEditedContent(item.newContent || '');
+        setIsEditing(false);
+      }
+      return;
+    }
+
     const fetchDiffDetail = async () => {
       const res = await apiFetch<FileChangeDto>(`/api/v1/diffs/${activeChangeId}?workspaceId=${workspaceId}`);
       if (res.ok && res.data) {
@@ -249,7 +281,7 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
       }
     };
     fetchDiffDetail();
-  }, [activeChangeId, workspaceId, changes]);
+  }, [activeChangeId, workspaceId, changes, customChanges]);
 
   const handleAccept = async () => {
     if (!activeChangeId) return;
@@ -420,7 +452,7 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
             bottomPaneRef={bottomPaneRef}
             onTopScroll={handleTopScroll}
             onBottomScroll={handleBottomScroll}
-            onStartEditing={() => setIsEditing(true)}
+            onStartEditing={readOnly ? undefined : () => setIsEditing(true)}
           />
         )}
       </div>
@@ -431,6 +463,8 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
           changeCount={changes.length}
           isEditing={isEditing}
           isProcessing={isProcessing}
+          readOnly={readOnly}
+          onClose={onClose}
           onRejectAll={handleRejectAll}
           onAcceptAll={handleAcceptAll}
           onReject={handleReject}

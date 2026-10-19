@@ -1,3 +1,4 @@
+using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Git;
 using AIAgentHub.Application.Workspaces;
 
@@ -9,10 +10,11 @@ namespace AIAgentHub.Web.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/git")]
-public sealed class GitController(IGitService gitService, IWorkspaceService workspaceService) : ControllerBase
+public sealed class GitController(IGitService gitService, IWorkspaceService workspaceService, IDiffEngine? diffEngine = null) : ControllerBase
 {
     private readonly IGitService _gitService = gitService;
     private readonly IWorkspaceService _workspaceService = workspaceService;
+    private readonly IDiffEngine _diffEngine = diffEngine ?? new DiffEngine();
 
     [HttpGet("status")]
     public async Task<IActionResult> GetStatus([FromQuery] Guid workspaceId, CancellationToken cancellationToken)
@@ -231,5 +233,81 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
 
         var commits = await _gitService.GetHistoryAsync(ws.Path, maxCount, cancellationToken);
         return Ok(commits);
+    }
+
+    [HttpGet("commit-details")]
+    public async Task<IActionResult> GetCommitDetails([FromQuery] Guid workspaceId, [FromQuery] string hash, CancellationToken cancellationToken = default)
+    {
+        var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
+        if (ws == null)
+        {
+            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(hash))
+        {
+            return BadRequest(new { code = "invalid_hash", message = "Commit hash cannot be empty." });
+        }
+
+        var details = await _gitService.GetCommitDetailsAsync(ws.Path, hash, cancellationToken);
+        if (details == null)
+        {
+            return NotFound(new { code = "commit_not_found", message = "Commit not found or invalid." });
+        }
+
+        return Ok(details);
+    }
+
+    [HttpGet("commit-diff")]
+    public async Task<IActionResult> GetCommitDiff([FromQuery] Guid workspaceId, [FromQuery] string hash, [FromQuery] string filePath, CancellationToken cancellationToken = default)
+    {
+        var ws = await _workspaceService.GetByIdAsync(workspaceId, cancellationToken);
+        if (ws == null)
+        {
+            return NotFound(new { code = "workspace_not_found", message = "Workspace not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(hash) || string.IsNullOrWhiteSpace(filePath))
+        {
+            return BadRequest(new { code = "invalid_arguments", message = "Commit hash and file path cannot be empty." });
+        }
+
+        var diff = await _gitService.GetCommitDiffAsync(ws.Path, hash, filePath, cancellationToken);
+        if (diff == null)
+        {
+            return NotFound(new { code = "diff_not_found", message = "Diff not found for specified commit and file." });
+        }
+
+        if (diff.IsBinary)
+        {
+            return Ok(new
+            {
+                id = $"{hash}:{filePath}",
+                relativePath = diff.Path,
+                changeType = diff.OriginalContent == null ? "Created" : (diff.ModifiedContent == null ? "Deleted" : "Modified"),
+                isBinary = true,
+                oldContent = (string?)null,
+                newContent = (string?)null,
+                additionsCount = 0,
+                deletionsCount = 0,
+                sideBySideLines = Array.Empty<SideBySideLine>(),
+                unifiedLines = Array.Empty<DiffLine>()
+            });
+        }
+
+        var textDiff = _diffEngine.CalculateTextDiff(diff.Path, diff.OriginalContent, diff.ModifiedContent);
+        return Ok(new
+        {
+            id = $"{hash}:{filePath}",
+            relativePath = diff.Path,
+            changeType = diff.OriginalContent == null ? "Created" : (diff.ModifiedContent == null ? "Deleted" : "Modified"),
+            isBinary = false,
+            oldContent = diff.OriginalContent,
+            newContent = diff.ModifiedContent,
+            additionsCount = textDiff.AdditionsCount,
+            deletionsCount = textDiff.DeletionsCount,
+            sideBySideLines = textDiff.SideBySideLines,
+            unifiedLines = textDiff.UnifiedLines
+        });
     }
 }

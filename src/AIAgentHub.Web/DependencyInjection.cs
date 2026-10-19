@@ -145,10 +145,23 @@ public static class DependencyInjection
         _ = services.AddScoped<IAgentRealtimeBroadcaster, SignalRAgentRealtimeBroadcaster>();
 
         // 10. Authentication & Cookie Sessions
+        var cookieName = configuration["Authentication:CookieName"];
+        if (string.IsNullOrWhiteSpace(cookieName))
+        {
+            var isDev = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+            cookieName = isDev ? "AIAgentHub.Session.Dev" : "AIAgentHub.Session";
+        }
+
+        _ = services.Configure<AuthenticationOptions>(options =>
+        {
+            options.CookieName = cookieName;
+        });
+        _ = services.AddSingleton(sp => sp.GetRequiredService<IOptions<AuthenticationOptions>>().Value);
+
         _ = services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
             {
-                options.Cookie.Name = "AIAgentHub.Session";
+                options.Cookie.Name = cookieName;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Strict;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;

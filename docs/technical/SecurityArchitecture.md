@@ -142,6 +142,7 @@ Session cookies must be configured as:
 * Secure
 * HttpOnly
 * SameSite=Strict
+* Configurable Cookie Name via `Authentication:CookieName` in `appsettings.json` (defaults to `AIAgentHub.Session` in Production/Published environments, and `AIAgentHub.Session.Dev` in `appsettings.Development.json` to prevent local browser cookie collisions when debugging on port 5432 alongside published instances on port 5001 on `localhost`).
 
 Sessions should:
 

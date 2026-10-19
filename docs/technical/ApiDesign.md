@@ -439,6 +439,10 @@ POST /api/v1/git/fetch
 POST /api/v1/git/stash
 
 GET /api/v1/git/history?workspaceId={workspaceId}&maxCount={maxCount}
+
+GET /api/v1/git/commit-details?workspaceId={workspaceId}&hash={hash}
+
+GET /api/v1/git/commit-diff?workspaceId={workspaceId}&hash={hash}&filePath={filePath}
 ```
 
 Endpoint contracts:
@@ -453,7 +457,9 @@ Endpoint contracts:
 - `POST /api/v1/git/pull`: Request payload `{ "workspaceId": "...", "remote": "origin", "branch": "..." }`. Pulls changes from the upstream remote repository.
 - `POST /api/v1/git/fetch`: Request payload `{ "workspaceId": "..." }`. Fetches remote refs and branch updates without merging.
 - `POST /api/v1/git/stash`: Request payload `{ "workspaceId": "...", "action": "save"|"pop"|"apply"|"list", "message": "..." }`. Performs stash operations.
-- `GET /api/v1/git/history`: Returns list of recent commits `{ commitHash, shortHash, author, email, date, message }`.
+- `GET /api/v1/git/history`: Returns list of recent commits `{ commitHash, shortHash, author, email, date, message, parents: string[], refs: string? }`.
+- `GET /api/v1/git/commit-details`: Returns `{ hash, shortHash, author, email, date, message, parents: string[], files: [{ path, status, additions, deletions }] }`.
+- `GET /api/v1/git/commit-diff`: Returns `{ path, originalContent, modifiedContent, isBinary }` for side-by-side or unified read-only diff inspection.
 
 ---
 
