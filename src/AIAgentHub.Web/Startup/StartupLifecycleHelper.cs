@@ -1,14 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 
 namespace AIAgentHub.Web.Startup;
 
@@ -87,7 +81,7 @@ public static class StartupLifecycleHelper
         var sb = new StringBuilder();
         sb.AppendLine("==============================================================");
         sb.AppendLine("  AI Agent Hub is running!");
-        
+
         var primary = SelectPrimaryBrowserUrl(urlList);
         if (primary != null)
         {

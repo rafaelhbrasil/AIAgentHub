@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace AgentHub.UnitTests.Domain.Security;
 
@@ -47,14 +46,14 @@ public sealed class AuthenticationOptionsTests
         var cookieOptions = sp.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
             .Get(CookieAuthenticationDefaults.AuthenticationScheme);
         Assert.False(string.IsNullOrWhiteSpace(cookieOptions.Cookie.Name));
-        Assert.StartsWith("AIAgentHub.Session", cookieOptions.Cookie.Name);
+        Assert.StartsWith("AIAgentHub.Session", cookieOptions.Cookie.Name, StringComparison.Ordinal);
     }
 
     [Fact]
     public void AddAgentHubServices_WhenCookieNameProvided_ShouldConfigureCookieAndOptions()
     {
         // Arrange
-        var expectedCookieName = "AIAgentHub.Session.Dev";
+        const string expectedCookieName = "AIAgentHub.Session.Dev";
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {

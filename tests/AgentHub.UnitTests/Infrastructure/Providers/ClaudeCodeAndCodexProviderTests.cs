@@ -1,7 +1,6 @@
 using System.Text;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
-using AIAgentHub.Domain.Providers;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
 

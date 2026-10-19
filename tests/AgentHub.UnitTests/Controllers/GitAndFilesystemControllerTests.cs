@@ -1,4 +1,3 @@
-using AIAgentHub.Application.Filesystem;
 using AIAgentHub.Application.Git;
 using AIAgentHub.Application.Workspaces;
 using AIAgentHub.Domain.Workspaces;
@@ -81,10 +80,10 @@ public sealed class GitAndFilesystemControllerTests
         public Func<string, string, string, GitCommitDiffDto?>? OnGetCommitDiff { get; set; }
 
         public Task<GitCommitDetailDto?> GetCommitDetailsAsync(string workspacePath, string commitHash, CancellationToken cancellationToken = default)
-            => Task.FromResult(OnGetCommitDetails != null ? OnGetCommitDetails(workspacePath, commitHash) : null);
+            => Task.FromResult(OnGetCommitDetails?.Invoke(workspacePath, commitHash));
 
         public Task<GitCommitDiffDto?> GetCommitDiffAsync(string workspacePath, string commitHash, string filePath, CancellationToken cancellationToken = default)
-            => Task.FromResult(OnGetCommitDiff != null ? OnGetCommitDiff(workspacePath, commitHash, filePath) : null);
+            => Task.FromResult(OnGetCommitDiff?.Invoke(workspacePath, commitHash, filePath));
 
         public Task<GitOperationResult> CloneAsync(string cloneUrl, string targetDirectory, CancellationToken cancellationToken = default)
             => Task.FromResult(new GitOperationResult(true, "Cloned"));

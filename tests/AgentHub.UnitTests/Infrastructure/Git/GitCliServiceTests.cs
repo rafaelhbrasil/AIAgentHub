@@ -1,4 +1,3 @@
-using AIAgentHub.Application.Git;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Executors;
@@ -38,7 +37,7 @@ public sealed class GitCliServiceTests
             {
                 OnRunCommand = (exe, args, dir) =>
                 {
-                    if (args.Contains("rev-parse --is-inside-work-tree"))
+                    if (args.Contains("rev-parse --is-inside-work-tree", StringComparison.Ordinal))
                     {
                         return new ProcessCommandResult(128, "", "fatal: not a git repository");
                     }
@@ -70,15 +69,15 @@ public sealed class GitCliServiceTests
             {
                 OnRunCommand = (exe, args, dir) =>
                 {
-                    if (args.Contains("rev-parse --is-inside-work-tree"))
+                    if (args.Contains("rev-parse --is-inside-work-tree", StringComparison.Ordinal))
                     {
                         return new ProcessCommandResult(0, "true\n", "");
                     }
-                    if (args.Contains("branch --show-current"))
+                    if (args.Contains("branch --show-current", StringComparison.Ordinal))
                     {
                         return new ProcessCommandResult(0, "feature/v0.3\n", "");
                     }
-                    if (args.Contains("status --porcelain"))
+                    if (args.Contains("status --porcelain", StringComparison.Ordinal))
                     {
                         var porcelain = "## feature/v0.3...origin/feature/v0.3 [ahead 2, behind 1]\n" +
                                         "M  src/file1.cs\n" +
@@ -194,17 +193,17 @@ public sealed class GitCliServiceTests
         {
             OnRunCommand = (exe, args, dir) =>
             {
-                if (args.Contains("show -s --format="))
+                if (args.Contains("show -s --format=", StringComparison.Ordinal))
                 {
                     var meta = "1234567890abcdef|||1234567|||Rafael|||rafael@example.com|||2026-10-18T12:00:00+00:00|||feat: support git log\nDetailed body description|||parent123||| (HEAD -> develop)";
                     return new ProcessCommandResult(0, meta, "");
                 }
-                if (args.Contains("show --numstat"))
+                if (args.Contains("show --numstat", StringComparison.Ordinal))
                 {
                     var numstat = "15\t3\tsrc/FileA.cs\n-\t-\tassets/logo.png\n";
                     return new ProcessCommandResult(0, numstat, "");
                 }
-                if (args.Contains("show --name-status"))
+                if (args.Contains("show --name-status", StringComparison.Ordinal))
                 {
                     var nameStatus = "M\tsrc/FileA.cs\nA\tassets/logo.png\n";
                     return new ProcessCommandResult(0, nameStatus, "");
@@ -254,11 +253,11 @@ public sealed class GitCliServiceTests
         {
             OnRunCommand = (exe, args, dir) =>
             {
-                if (args.Contains("~1:src/FileA.cs"))
+                if (args.Contains("~1:src/FileA.cs", StringComparison.Ordinal))
                 {
                     return new ProcessCommandResult(0, "old content", "");
                 }
-                if (args.Contains(":src/FileA.cs"))
+                if (args.Contains(":src/FileA.cs", StringComparison.Ordinal))
                 {
                     return new ProcessCommandResult(0, "new content", "");
                 }

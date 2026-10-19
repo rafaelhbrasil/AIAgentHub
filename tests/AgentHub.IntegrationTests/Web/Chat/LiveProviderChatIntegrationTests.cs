@@ -10,7 +10,6 @@ using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Domain.Providers;
 using AIAgentHub.Domain.Workspaces;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AgentHub.IntegrationTests.Web.Chat;
 

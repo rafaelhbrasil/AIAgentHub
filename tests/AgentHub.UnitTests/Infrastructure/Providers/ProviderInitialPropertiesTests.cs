@@ -5,7 +5,6 @@ using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Infrastructure.Providers;
 

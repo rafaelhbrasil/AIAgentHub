@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 using AIAgentHub.Application.Git;
 using AIAgentHub.Infrastructure.Executors;
@@ -56,13 +55,13 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
 
         var ahead = 0;
         var behind = 0;
-        var staged = new List<GitFileStatusDto>();
-        var modified = new List<GitFileStatusDto>();
-        var untracked = new List<string>();
+        List<GitFileStatusDto> staged = [];
+        List<GitFileStatusDto> modified = [];
+        List<string> untracked = [];
 
         foreach (var rawLine in lines)
         {
-            if (rawLine.StartsWith("##"))
+            if (rawLine.StartsWith("##", StringComparison.Ordinal))
             {
                 var aheadMatch = Regex.Match(rawLine, @"ahead\s+(\d+)");
                 if (aheadMatch.Success) ahead = int.Parse(aheadMatch.Groups[1].Value);
@@ -113,18 +112,18 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
 
     public async Task<IReadOnlyList<GitBranchDto>> GetBranchesAsync(string workspacePath, CancellationToken cancellationToken = default)
     {
-        var branches = new List<GitBranchDto>();
+        List<GitBranchDto> branches = [];
         var res = await RunGitAsync("branch -a --no-color", workspacePath, cancellationToken);
         if (res.ExitCode != 0) return branches;
 
         var lines = res.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var line in lines)
         {
-            if (line.Contains("->")) continue;
+            if (line.Contains("->", StringComparison.Ordinal)) continue;
 
             var isCurrent = line.StartsWith('*');
             var cleanName = line.TrimStart('*', ' ').Trim();
-            var isRemote = cleanName.StartsWith("remotes/");
+            var isRemote = cleanName.StartsWith("remotes/", StringComparison.Ordinal);
             if (isRemote)
             {
                 cleanName = cleanName["remotes/".Length..];
@@ -260,7 +259,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
 
     public async Task<IReadOnlyList<GitCommitDto>> GetHistoryAsync(string workspacePath, int maxCount = 50, CancellationToken cancellationToken = default)
     {
-        var commits = new List<GitCommitDto>();
+        List<GitCommitDto> commits = [];
         var safeCount = Math.Clamp(maxCount, 1, 200);
         var format = "%H|||%h|||%an|||%ae|||%aI|||%s|||%p|||%d";
         var res = await RunGitAsync($"log -n {safeCount} --pretty=format:\"{format}\"", workspacePath, cancellationToken);
@@ -331,7 +330,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         var numstatRes = await RunGitAsync($"show --numstat --format=\"\" {cleanHash}", workspacePath, cancellationToken);
         var nameStatusRes = await RunGitAsync($"show --name-status --format=\"\" {cleanHash}", workspacePath, cancellationToken);
 
-        var fileStats = new Dictionary<string, (int Additions, int Deletions, string Status)>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, (int Additions, int Deletions, string Status)> fileStats = new(StringComparer.OrdinalIgnoreCase);
 
         if (numstatRes.ExitCode == 0 && !string.IsNullOrWhiteSpace(numstatRes.Output))
         {

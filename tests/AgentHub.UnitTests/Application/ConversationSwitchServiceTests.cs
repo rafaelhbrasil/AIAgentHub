@@ -6,7 +6,6 @@ using AIAgentHub.Domain.Providers;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Workspaces;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Application;
 

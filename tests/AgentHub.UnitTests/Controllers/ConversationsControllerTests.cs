@@ -3,7 +3,6 @@ using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Web.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Controllers;
 

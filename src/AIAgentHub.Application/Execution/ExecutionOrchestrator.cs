@@ -75,10 +75,9 @@ public sealed class ExecutionOrchestrator(
 
     public async Task ExecuteAsync(Guid conversationId, string prompt, string? userId = null, CancellationToken cancellationToken = default)
     {
-        CancellationTokenSource? localCts = null;
         if (!_activeExecutionTracker.TryGetCancellationTokenSource(conversationId, out var activeCts) || activeCts == null)
         {
-            localCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var localCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             if (!_activeExecutionTracker.TryStart(conversationId, localCts))
             {
                 localCts.Dispose();
@@ -99,59 +98,59 @@ public sealed class ExecutionOrchestrator(
             await _conversationRepository.UpdateAsync(conversation, token);
             await _broadcaster.SendConversationEventAsync("conversation.started", conversationId, new { Prompt = prompt }, userId, token);
 
-        // 2. Pre-execution Snapshot for change detection and atomic rollback
-        var snapshotToken = await _snapshotService.CaptureWorkspaceSnapshotAsync(
-            workspace.Id,
-            conversation.Id,
-            workspace.Path,
-            workspace.Settings.IgnoredFiles,
-            cancellationToken);
-
-        // 3. Prepare Provider Execution Context
-        var provider = _providerManager.GetProvider(conversation.ProviderId);
-        var stopwatch = Stopwatch.StartNew();
-        var assistantResponseBuilder = new System.Text.StringBuilder();
-
-        await StartOrResumeProviderSessionAsync(conversation, provider, workspace.Path, userMsg.Id, cancellationToken);
-
-        var effectivePrompt = BuildEffectivePrompt(conversation, userMsg.Id, prompt);
-
-        var execContext = BuildExecutionContext(conversation, workspace, provider, effectivePrompt, assistantResponseBuilder, userMsg.Id, userId, token);
-
-        var (isSuccess, error, _) = await RunWithAutoResumeAsync(provider, execContext, assistantResponseBuilder, userId, token);
-
-
-        stopwatch.Stop();
-
-        IReadOnlyList<FileChange> detectedChanges = [];
-        try
-        {
-            detectedChanges = await _snapshotService.DetectAndRecordChangesAsync(
+            // 2. Pre-execution Snapshot for change detection and atomic rollback
+            var snapshotToken = await _snapshotService.CaptureWorkspaceSnapshotAsync(
                 workspace.Id,
                 conversation.Id,
                 workspace.Path,
-                snapshotToken,
                 workspace.Settings.IgnoredFiles,
-                CancellationToken.None);
+                cancellationToken);
 
-            foreach (var change in detectedChanges)
+            // 3. Prepare Provider Execution Context
+            var provider = _providerManager.GetProvider(conversation.ProviderId);
+            var stopwatch = Stopwatch.StartNew();
+            var assistantResponseBuilder = new System.Text.StringBuilder();
+
+            await StartOrResumeProviderSessionAsync(conversation, provider, workspace.Path, userMsg.Id, cancellationToken);
+
+            var effectivePrompt = BuildEffectivePrompt(conversation, userMsg.Id, prompt);
+
+            var execContext = BuildExecutionContext(conversation, workspace, provider, effectivePrompt, assistantResponseBuilder, userMsg.Id, userId, token);
+
+            var (isSuccess, error, _) = await RunWithAutoResumeAsync(provider, execContext, assistantResponseBuilder, userId, token);
+
+
+            stopwatch.Stop();
+
+            IReadOnlyList<FileChange> detectedChanges = [];
+            try
             {
-                conversation.AddFileChange(change);
-                await _broadcaster.SendDiffCreatedAsync(conversationId, change, userId, CancellationToken.None);
-            }
-        }
-        catch
-        {
-            // Snapshot comparison failure should not block recording assistant message or session checkpoint
-        }
+                detectedChanges = await _snapshotService.DetectAndRecordChangesAsync(
+                    workspace.Id,
+                    conversation.Id,
+                    workspace.Path,
+                    snapshotToken,
+                    workspace.Settings.IgnoredFiles,
+                    CancellationToken.None);
 
-        await RecordAssistantResponseAsync(conversation, provider, assistantResponseBuilder, stopwatch, isSuccess, error, detectedChanges.Count, userId);
+                foreach (var change in detectedChanges)
+                {
+                    conversation.AddFileChange(change);
+                    await _broadcaster.SendDiffCreatedAsync(conversationId, change, userId, CancellationToken.None);
+                }
+            }
+            catch
+            {
+                // Snapshot comparison failure should not block recording assistant message or session checkpoint
+            }
+
+            await RecordAssistantResponseAsync(conversation, provider, assistantResponseBuilder, stopwatch, isSuccess, error, detectedChanges.Count, userId);
+        }
+        finally
+        {
+            _ = _activeExecutionTracker.TryStop(conversationId);
+        }
     }
-    finally
-    {
-        _ = _activeExecutionTracker.TryStop(conversationId);
-    }
-}
 
     private async Task StartOrResumeProviderSessionAsync(
         Conversation conversation,

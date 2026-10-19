@@ -1,10 +1,8 @@
-using AIAgentHub.Application.Conversations;
 using AIAgentHub.Application.Execution;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Realtime;
 using AIAgentHub.Domain.Conversations;
-using AIAgentHub.Domain.Permissions;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Workspaces;
 

@@ -7,7 +7,6 @@ using AIAgentHub.Web.Middleware;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Web;
 
@@ -168,7 +167,7 @@ public class SafeClientAndRecoveryTests
         };
 
         var actionResult = await controller.RecoverWipe(CancellationToken.None);
-        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        _ = Assert.IsType<OkObjectResult>(actionResult);
 
         await setupService.Received(1).WipeAllDataAsync(Arg.Any<CancellationToken>());
     }
@@ -232,7 +231,7 @@ public class SafeClientAndRecoveryTests
         };
 
         var actionResult = await controller.ResetSetup(CancellationToken.None);
-        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        _ = Assert.IsType<OkObjectResult>(actionResult);
 
         await setupService.Received(1).ResetToSetupModeAsync(null, Arg.Any<CancellationToken>());
     }

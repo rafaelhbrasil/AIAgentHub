@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIAgentHub.Domain.Security;
-using Xunit;
 
 namespace AgentHub.IntegrationTests.Web.Settings;
 

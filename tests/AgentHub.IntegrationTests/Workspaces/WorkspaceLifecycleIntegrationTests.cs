@@ -10,7 +10,6 @@ using AIAgentHub.Application.Workspaces;
 using AIAgentHub.Domain.FileChanges;
 using AIAgentHub.Domain.Providers;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AgentHub.IntegrationTests.Workspaces;
 

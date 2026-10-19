@@ -1,7 +1,6 @@
 using AIAgentHub.Infrastructure.Realtime;
 using Microsoft.AspNetCore.SignalR;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Infrastructure.Realtime;
 

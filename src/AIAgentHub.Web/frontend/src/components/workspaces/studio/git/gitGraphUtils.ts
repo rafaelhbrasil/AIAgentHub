@@ -64,7 +64,7 @@ export function computeCommitGraph(
     }
   }
 
-  let globalMaxLane = includeWorkingTree ? 0 : 0;
+  let globalMaxLane = 0;
 
   for (let i = 0; i < commits.length; i++) {
     const commit = commits[i];

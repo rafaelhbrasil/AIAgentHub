@@ -1,8 +1,5 @@
-using System.IO;
 using System.Net;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
-using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Security;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Repositories;
@@ -10,7 +7,6 @@ using AIAgentHub.Domain.Security;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Persistence;
-using AIAgentHub.Infrastructure.Providers;
 using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Web;
 using AIAgentHub.Web.Middleware;
@@ -23,7 +19,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Playwright;
-using Xunit;
 
 namespace AgentHub.IntegrationTests.Web.Playwright;
 
