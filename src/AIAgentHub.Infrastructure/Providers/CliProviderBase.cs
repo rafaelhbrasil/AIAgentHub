@@ -237,11 +237,10 @@ public abstract class CliProviderBase(
             return false;
         }
 
-        var lower = error.ToLowerInvariant();
-        return lower.Contains("quota") ||
-               lower.Contains("rate limit") ||
-               lower.Contains("too many requests") ||
-               lower.Contains("429");
+        return error.Contains("quota", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("rate limit", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("too many requests", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("429", StringComparison.Ordinal);
     }
 
     protected virtual bool IsAuthError(string? error)
@@ -251,12 +250,11 @@ public abstract class CliProviderBase(
             return false;
         }
 
-        var lower = error.ToLowerInvariant();
-        return lower.Contains("auth") ||
-               lower.Contains("login") ||
-               lower.Contains("unauthorized") ||
-               lower.Contains("401") ||
-               lower.Contains("credential");
+        return error.Contains("auth", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("login", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("401", StringComparison.Ordinal) ||
+               error.Contains("credential", StringComparison.OrdinalIgnoreCase);
     }
 
     protected virtual DateTimeOffset? ParseQuotaResetTime(string error)
@@ -456,12 +454,7 @@ public abstract class CliProviderBase(
             return string.Empty;
         }
 
-        if (skipDefaultModel && IsDefaultModel(value))
-        {
-            return string.Empty;
-        }
-
-        return $" {flag} \"{value.Replace("\"", "\\\"")}\"";
+        return skipDefaultModel && IsDefaultModel(value) ? string.Empty : $" {flag} \"{value.Replace("\"", "\\\"")}\"";
     }
 
     protected virtual async Task<ProcessCommandResult> RunCommandAsync(

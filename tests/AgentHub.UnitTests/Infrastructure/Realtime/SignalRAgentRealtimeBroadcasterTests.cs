@@ -14,10 +14,10 @@ public class SignalRAgentRealtimeBroadcasterTests
 
     public SignalRAgentRealtimeBroadcasterTests()
     {
-        _hubContext.Clients.Returns(_hubClients);
-        _hubClients.Group(Arg.Any<string>()).Returns(_groupProxy);
-        _hubClients.User(Arg.Any<string>()).Returns(_userProxy);
-        _hubClients.All.Returns(_allProxy);
+        _ = _hubContext.Clients.Returns(_hubClients);
+        _ = _hubClients.Group(Arg.Any<string>()).Returns(_groupProxy);
+        _ = _hubClients.User(Arg.Any<string>()).Returns(_userProxy);
+        _ = _hubClients.All.Returns(_allProxy);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class SignalRAgentRealtimeBroadcasterTests
 
         await broadcaster.SendMessageStreamChunkAsync(convId, "hello", "User42");
 
-        _hubClients.Received(1).Group($"usr_user42_conv_{convId}");
+        _ = _hubClients.Received(1).Group($"usr_user42_conv_{convId}");
         await _groupProxy.Received(1).SendCoreAsync(
             "streamChunk",
             Arg.Is<object?[]>(args => args.Length == 1),
@@ -62,7 +62,7 @@ public class SignalRAgentRealtimeBroadcasterTests
 
         await broadcaster.SendConversationEventAsync("conversation.started", convId, new { status = "active" }, "User42");
 
-        _hubClients.Received(1).Group($"usr_user42_conv_{convId}");
+        _ = _hubClients.Received(1).Group($"usr_user42_conv_{convId}");
         await _groupProxy.Received(1).SendCoreAsync(
             "conversationEvent",
             Arg.Is<object?[]>(args => args.Length == 1),
@@ -76,7 +76,7 @@ public class SignalRAgentRealtimeBroadcasterTests
 
         await broadcaster.SendNotificationAsync("info", "Test Title", "Test Message", "User42");
 
-        _hubClients.Received(1).User("User42");
+        _ = _hubClients.Received(1).User("User42");
         await _userProxy.Received(1).SendCoreAsync(
             "notification",
             Arg.Is<object?[]>(args => args.Length == 1),

@@ -23,23 +23,15 @@ public sealed class LogsController(ILogFileService logService) : ControllerBase
     public async Task<IActionResult> GetTail(string fileName, [FromQuery] int lines = 200, CancellationToken cancellationToken = default)
     {
         var tail = await _logService.GetLogTailAsync(fileName, lines, cancellationToken);
-        if (tail == null)
-        {
-            return NotFound(new { message = $"Log file '{fileName}' was not found or invalid." });
-        }
-
-        return Ok(tail);
+        return tail == null ? NotFound(new { message = $"Log file '{fileName}' was not found or invalid." }) : Ok(tail);
     }
 
     [HttpGet("{fileName}/download")]
     public async Task<IActionResult> Download(string fileName, CancellationToken cancellationToken)
     {
         var result = await _logService.GetLogDownloadAsync(fileName, cancellationToken);
-        if (result == null)
-        {
-            return NotFound(new { message = $"Log file '{fileName}' was not found or invalid." });
-        }
-
-        return File(result.Value.Stream, result.Value.ContentType, result.Value.DownloadFileName);
+        return result == null
+            ? NotFound(new { message = $"Log file '{fileName}' was not found or invalid." })
+            : File(result.Value.Stream, result.Value.ContentType, result.Value.DownloadFileName);
     }
 }

@@ -123,42 +123,42 @@ public sealed class SystemPathValidator : ISystemPathValidator
             AddWindowsSpecialFolder(list, Environment.SpecialFolder.CommonApplicationData);
 
             // Generic wildcards across any drive letter
-            list.Add(@"*:\Windows");
-            list.Add(@"*:\Program Files");
-            list.Add(@"*:\Program Files (x86)");
-            list.Add(@"*:\ProgramData");
-            list.Add(@"*:\$Recycle.Bin");
-            list.Add(@"*:\System Volume Information");
-            list.Add(@"*:\Recovery");
-            list.Add(@"*:\Boot");
-            list.Add(@"*:\Windows.old");
+            _ = list.Add(@"*:\Windows");
+            _ = list.Add(@"*:\Program Files");
+            _ = list.Add(@"*:\Program Files (x86)");
+            _ = list.Add(@"*:\ProgramData");
+            _ = list.Add(@"*:\$Recycle.Bin");
+            _ = list.Add(@"*:\System Volume Information");
+            _ = list.Add(@"*:\Recovery");
+            _ = list.Add(@"*:\Boot");
+            _ = list.Add(@"*:\Windows.old");
         }
         else
         {
             // Linux & macOS common system roots
-            list.Add("/bin");
-            list.Add("/sbin");
-            list.Add("/boot");
-            list.Add("/dev");
-            list.Add("/etc");
-            list.Add("/lib");
-            list.Add("/lib32");
-            list.Add("/lib64");
-            list.Add("/proc");
-            list.Add("/root");
-            list.Add("/run");
-            list.Add("/sys");
-            list.Add("/usr");
-            list.Add("/var");
-            list.Add("/opt");
-            list.Add("/snap");
+            _ = list.Add("/bin");
+            _ = list.Add("/sbin");
+            _ = list.Add("/boot");
+            _ = list.Add("/dev");
+            _ = list.Add("/etc");
+            _ = list.Add("/lib");
+            _ = list.Add("/lib32");
+            _ = list.Add("/lib64");
+            _ = list.Add("/proc");
+            _ = list.Add("/root");
+            _ = list.Add("/run");
+            _ = list.Add("/sys");
+            _ = list.Add("/usr");
+            _ = list.Add("/var");
+            _ = list.Add("/opt");
+            _ = list.Add("/snap");
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                list.Add("/System");
-                list.Add("/Library");
-                list.Add("/private");
-                list.Add("/Volumes");
+                _ = list.Add("/System");
+                _ = list.Add("/Library");
+                _ = list.Add("/private");
+                _ = list.Add("/Volumes");
             }
         }
 
@@ -172,7 +172,7 @@ public sealed class SystemPathValidator : ISystemPathValidator
             var p = Environment.GetFolderPath(folder);
             if (!string.IsNullOrWhiteSpace(p))
             {
-                set.Add(p);
+                _ = set.Add(p);
             }
         }
         catch

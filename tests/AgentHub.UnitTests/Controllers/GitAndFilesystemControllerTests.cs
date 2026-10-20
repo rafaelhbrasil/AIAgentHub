@@ -120,7 +120,7 @@ public sealed class GitAndFilesystemControllerTests
         var controller = new GitController(gitService, wsService);
 
         var actionResult = await controller.CreateBranch(new GitController.CreateBranchRequest(wsId, "feature/test"), CancellationToken.None);
-        Assert.IsType<OkObjectResult>(actionResult);
+        _ = Assert.IsType<OkObjectResult>(actionResult);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public sealed class GitAndFilesystemControllerTests
         var controller = new GitController(gitService, wsService);
 
         var actionResult = await controller.GetCommitDetails(wsId, "1234abcd", CancellationToken.None);
-        Assert.IsType<NotFoundObjectResult>(actionResult);
+        _ = Assert.IsType<NotFoundObjectResult>(actionResult);
     }
 
     [Fact]
@@ -195,6 +195,6 @@ public sealed class GitAndFilesystemControllerTests
         var controller = new GitController(gitService, wsService);
 
         var actionResult = await controller.GetCommitDiff(wsId, "1234abcd", "missing.cs", CancellationToken.None);
-        Assert.IsType<NotFoundObjectResult>(actionResult);
+        _ = Assert.IsType<NotFoundObjectResult>(actionResult);
     }
 }

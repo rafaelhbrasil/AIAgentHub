@@ -37,7 +37,8 @@ public sealed class NetworkModeMiddleware(RequestDelegate next, RecoveryOptions 
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(
-                "{\"code\":\"forbidden\",\"message\":\"Remote access is disabled. Server is configured in Localhost-only mode.\"}",
+                /*lang=json,strict*/
+                                     "{\"code\":\"forbidden\",\"message\":\"Remote access is disabled. Server is configured in Localhost-only mode.\"}",
                 context.RequestAborted);
             return;
         }
@@ -63,7 +64,8 @@ public sealed class NetworkModeMiddleware(RequestDelegate next, RecoveryOptions 
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(
-                "{\"code\":\"forbidden\",\"message\":\"Remote access forbidden. Client IP is not in the allowed network interfaces list.\"}",
+                /*lang=json,strict*/
+                                     "{\"code\":\"forbidden\",\"message\":\"Remote access forbidden. Client IP is not in the allowed network interfaces list.\"}",
                 context.RequestAborted);
             return;
         }

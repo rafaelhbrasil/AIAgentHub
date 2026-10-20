@@ -88,7 +88,7 @@ public sealed class DatabaseInitializer(AgentHubDbContext context, IServerSettin
 
             if (NeedsProviderSessionBackfill(conv.ProviderId, conv.HasProviderSession))
             {
-                await BackfillProviderSessionAsync(conv.Id, conv.ProviderId!, conv.ProviderSessionId, lastMsgId, lastMsgSequenceIndex, conv.Messages.Count, cancellationToken);
+                await BackfillProviderSessionAsync(conv.Id, conv.ProviderId, conv.ProviderSessionId, lastMsgId, lastMsgSequenceIndex, conv.Messages.Count, cancellationToken);
             }
         }
     }
@@ -105,15 +105,9 @@ public sealed class DatabaseInitializer(AgentHubDbContext context, IServerSettin
             .AnyAsync(c => !string.IsNullOrEmpty(c.ProviderId) && !c.ProviderSessions.Any(), cancellationToken);
     }
 
-    private static bool NeedsOriginBackfill(string? originProviderId, string? providerId)
-    {
-        return string.IsNullOrEmpty(originProviderId) && !string.IsNullOrEmpty(providerId);
-    }
+    private static bool NeedsOriginBackfill(string? originProviderId, string? providerId) => string.IsNullOrEmpty(originProviderId) && !string.IsNullOrEmpty(providerId);
 
-    private static bool NeedsProviderSessionBackfill(string? providerId, bool hasProviderSession)
-    {
-        return !string.IsNullOrEmpty(providerId) && !hasProviderSession;
-    }
+    private static bool NeedsProviderSessionBackfill(string? providerId, bool hasProviderSession) => !string.IsNullOrEmpty(providerId) && !hasProviderSession;
 
     private async Task HealMessageAsync(
         Guid messageId,

@@ -10,11 +10,9 @@ namespace AgentHub.UnitTests.Domain.Security;
 public sealed class AuthenticationOptionsTests
 {
     [Fact]
-    public void SectionName_ShouldBeAuthentication()
-    {
+    public void SectionName_ShouldBeAuthentication() =>
         // Assert
         Assert.Equal("Authentication", AuthenticationOptions.SectionName);
-    }
 
     [Fact]
     public void Properties_ShouldSetAndGetValues()
@@ -39,7 +37,7 @@ public sealed class AuthenticationOptionsTests
         var services = new ServiceCollection();
 
         // Act
-        services.AddAgentHubServices(configuration);
+        _ = services.AddAgentHubServices(configuration);
         using var sp = services.BuildServiceProvider();
 
         // Assert
@@ -63,7 +61,7 @@ public sealed class AuthenticationOptionsTests
         var services = new ServiceCollection();
 
         // Act
-        services.AddAgentHubServices(configuration);
+        _ = services.AddAgentHubServices(configuration);
         using var sp = services.BuildServiceProvider();
 
         // Assert AuthenticationOptions registered

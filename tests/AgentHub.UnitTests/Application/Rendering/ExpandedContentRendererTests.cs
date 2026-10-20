@@ -11,7 +11,7 @@ public sealed class ExpandedContentRendererTests
         Assert.True(renderer.CanRender(".pdf", "application/pdf"));
         Assert.False(renderer.CanRender(".txt", "text/plain"));
 
-        var dummyBytes = new byte[] { 0x25, 0x50, 0x44, 0x46 };
+        var dummyBytes = "%PDF"u8.ToArray();
         var result = await renderer.RenderAsync("document.pdf", dummyBytes);
 
         Assert.Equal("application/pdf", result.ContentType);

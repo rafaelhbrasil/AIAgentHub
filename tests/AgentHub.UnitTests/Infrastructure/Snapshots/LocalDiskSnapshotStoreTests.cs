@@ -59,13 +59,13 @@ public sealed class LocalDiskSnapshotStoreTests
             var wsId = Guid.NewGuid();
             var convId = Guid.NewGuid();
 
-            var token = await store.CaptureWorkspaceSnapshotAsync(wsId, convId, tempWorkspace, Array.Empty<string>());
+            var token = await store.CaptureWorkspaceSnapshotAsync(wsId, convId, tempWorkspace, []);
             Assert.NotEmpty(token);
 
             // Simulate file modification by AI
             await File.WriteAllTextAsync(testFile, "Modified Content by AI");
 
-            var detected = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token, Array.Empty<string>());
+            var detected = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token, []);
             _ = Assert.Single(detected);
             Assert.Equal(FileChangeType.Modified, detected[0].ChangeType);
 
@@ -109,7 +109,7 @@ public sealed class LocalDiskSnapshotStoreTests
 
             // Prompt 1 finishes: Detect changes
             var changes1 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token1, []);
-            Assert.Single(changes1);
+            _ = Assert.Single(changes1);
             Assert.Equal("Example.cs", changes1[0].RelativePath);
             Assert.Equal(FileChangeType.Modified, changes1[0].ChangeType);
 
@@ -127,9 +127,9 @@ public sealed class LocalDiskSnapshotStoreTests
             var changes2 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token2, []);
 
             // Should still only have 1 pending change for Example.cs pointing to initial baseline A
-            Assert.Single(changes2);
+            _ = Assert.Single(changes2);
             var allChanges = await changeRepo.GetByConversationIdAsync(convId);
-            Assert.Single(allChanges);
+            _ = Assert.Single(allChanges);
             Assert.Equal(initialSnapshot.StorageKey, allChanges[0].SnapshotPath);
 
             // 3. Prompt 3 reverts file back to initial content A
@@ -175,7 +175,7 @@ public sealed class LocalDiskSnapshotStoreTests
 
             // Turn 1 ends: detect changes
             var changes1 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token1, []);
-            Assert.Single(changes1);
+            _ = Assert.Single(changes1);
             var change1 = changes1[0];
             Assert.Equal(ReviewStatus.Pending, change1.Status);
 
@@ -225,7 +225,7 @@ public sealed class LocalDiskSnapshotStoreTests
 
             // Turn 1 ends: detect deletion
             var changes1 = await store.DetectAndRecordChangesAsync(wsId, convId, tempWorkspace, token1, []);
-            Assert.Single(changes1);
+            _ = Assert.Single(changes1);
             var delChange = changes1[0];
             Assert.Equal(FileChangeType.Deleted, delChange.ChangeType);
             Assert.Equal(ReviewStatus.Pending, delChange.Status);

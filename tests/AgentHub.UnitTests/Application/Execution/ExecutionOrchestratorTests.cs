@@ -88,11 +88,7 @@ public sealed class ExecutionOrchestratorTests
         _ = provider.ExecuteAsync(Arg.Any<ProviderExecutionContext>()).Returns(x =>
         {
             callCount++;
-            if (callCount == 1)
-            {
-                return Task.FromException(new TimeoutException("Operation timed out"));
-            }
-            return Task.CompletedTask;
+            return callCount == 1 ? Task.FromException(new TimeoutException("Operation timed out")) : Task.CompletedTask;
         });
 
         await orchestrator.ExecuteAsync(conv.Id, "Initial Prompt");
@@ -102,7 +98,7 @@ public sealed class ExecutionOrchestratorTests
         await provider.Received(1).ExecuteAsync(Arg.Is<ProviderExecutionContext>(c => c.Prompt == "Continue from where you left off."));
 
         // Only 1 user message should exist in the conversation (the continuation prompt must not be persisted as a user message)
-        Assert.Single(conv.Messages, m => m.Role == MessageRole.User);
+        _ = Assert.Single(conv.Messages, m => m.Role == MessageRole.User);
         Assert.Contains(conv.Messages, m => m.Role == MessageRole.Assistant);
     }
 
@@ -187,7 +183,7 @@ public sealed class ExecutionOrchestratorTests
         var broadcaster = Substitute.For<IAgentRealtimeBroadcaster>();
         var snapshotSvc = Substitute.For<ISnapshotService>();
         var permRepo = Substitute.For<IPermissionRequestRepository>();
-        var promptLogger = Substitute.For<AIAgentHub.Application.Providers.IPromptLogger>();
+        var promptLogger = Substitute.For<IPromptLogger>();
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();
@@ -233,7 +229,7 @@ public sealed class ExecutionOrchestratorTests
         var broadcaster = Substitute.For<IAgentRealtimeBroadcaster>();
         var snapshotSvc = Substitute.For<ISnapshotService>();
         var permRepo = Substitute.For<IPermissionRequestRepository>();
-        var promptLogger = Substitute.For<AIAgentHub.Application.Providers.IPromptLogger>();
+        var promptLogger = Substitute.For<IPromptLogger>();
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();

@@ -25,7 +25,7 @@ public class SystemControllerTests
     public void GetVersion_ReturnsExpectedStructure()
     {
         var environment = Substitute.For<IWebHostEnvironment>();
-        environment.EnvironmentName.Returns("Production");
+        _ = environment.EnvironmentName.Returns("Production");
 
         var controller = new SystemController(environment);
         var actionResult = controller.GetVersion();

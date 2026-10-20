@@ -23,10 +23,7 @@ public sealed class FilesystemController(
     private readonly ISystemPathValidator _systemPathValidator = systemPathValidator;
 
     [HttpGet("forbidden-paths")]
-    public IActionResult GetForbiddenPaths()
-    {
-        return Ok(new { forbiddenPaths = _systemPathValidator.ForbiddenFolders });
-    }
+    public IActionResult GetForbiddenPaths() => Ok(new { forbiddenPaths = _systemPathValidator.ForbiddenFolders });
 
     [HttpGet("drives")]
     public async Task<IActionResult> GetDrives(CancellationToken cancellationToken)

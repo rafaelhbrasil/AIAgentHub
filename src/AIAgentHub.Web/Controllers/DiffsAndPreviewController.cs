@@ -30,7 +30,7 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
 
         if (pendingOnly)
         {
-            distinctChanges = distinctChanges.Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending).ToList();
+            distinctChanges = [.. distinctChanges.Where(c => c.Status == Domain.FileChanges.ReviewStatus.Pending)];
         }
 
         return Ok(distinctChanges);
@@ -161,7 +161,7 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         var pendingChanges = changes
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderByDescending(c => c.CreatedAtUtc).First())
-            .Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
+            .Where(c => c.Status == Domain.FileChanges.ReviewStatus.Pending)
             .ToList();
 
         foreach (var change in pendingChanges)
@@ -184,7 +184,7 @@ public sealed class DiffsController(IFileChangeService fileChangeService, IWorks
         var pendingChanges = changes
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderByDescending(c => c.CreatedAtUtc).First())
-            .Where(c => c.Status == AIAgentHub.Domain.FileChanges.ReviewStatus.Pending)
+            .Where(c => c.Status == Domain.FileChanges.ReviewStatus.Pending)
             .ToList();
 
         foreach (var change in pendingChanges)

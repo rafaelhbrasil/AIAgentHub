@@ -196,18 +196,18 @@ public sealed class ExecutionOrchestrator(
         if (hasForeignMessages)
         {
             var contextBuilder = new System.Text.StringBuilder();
-            contextBuilder.AppendLine("[AI Agent Hub — Conversation Context Handoff]");
-            contextBuilder.AppendLine("The user switched to you from another AI provider in this ongoing conversation.");
-            contextBuilder.AppendLine("Below is the preceding conversation history for context:\n");
-            contextBuilder.AppendLine("--- Prior Conversation History ---");
+            _ = contextBuilder.AppendLine("[AI Agent Hub — Conversation Context Handoff]");
+            _ = contextBuilder.AppendLine("The user switched to you from another AI provider in this ongoing conversation.");
+            _ = contextBuilder.AppendLine("Below is the preceding conversation history for context:\n");
+            _ = contextBuilder.AppendLine("--- Prior Conversation History ---");
             foreach (var msg in unsharedMessages)
             {
                 var roleLabel = msg.Role == MessageRole.User ? "User" : $"Assistant ({msg.OriginProviderId ?? "AI"})";
-                contextBuilder.AppendLine($"{roleLabel}: {msg.Content}\n");
+                _ = contextBuilder.AppendLine($"{roleLabel}: {msg.Content}\n");
             }
-            contextBuilder.AppendLine("--- End of Prior History ---\n");
-            contextBuilder.AppendLine("Current user message:");
-            contextBuilder.AppendLine(prompt);
+            _ = contextBuilder.AppendLine("--- End of Prior History ---\n");
+            _ = contextBuilder.AppendLine("Current user message:");
+            _ = contextBuilder.AppendLine(prompt);
             effectivePrompt = contextBuilder.ToString();
         }
 
@@ -302,28 +302,28 @@ public sealed class ExecutionOrchestrator(
             }
             catch (TimeoutException tex)
             {
-                var resume = await TryResumeOrFailAsync(tex.Message, true, resumeCount, maxAutoResumes, execContext, userId, cancellationToken);
-                if (resume.Continue)
+                var (Continue, ResumeCount, Context, Error) = await TryResumeOrFailAsync(tex.Message, true, resumeCount, maxAutoResumes, execContext, userId, cancellationToken);
+                if (Continue)
                 {
-                    resumeCount = resume.ResumeCount;
-                    execContext = resume.Context;
+                    resumeCount = ResumeCount;
+                    execContext = Context;
                     continue;
                 }
 
-                return (false, resume.Error, execContext);
+                return (false, Error, execContext);
             }
             catch (Exception ex)
             {
-                var resume = await TryResumeOrFailAsync(ex.Message, IsTimeoutFailure(ex, assistantResponseBuilder.ToString()), resumeCount, maxAutoResumes, execContext, userId, cancellationToken);
-                if (resume.Continue)
+                var (Continue, ResumeCount, Context, Error) = await TryResumeOrFailAsync(ex.Message, IsTimeoutFailure(ex, assistantResponseBuilder.ToString()), resumeCount, maxAutoResumes, execContext, userId, cancellationToken);
+                if (Continue)
                 {
-                    resumeCount = resume.ResumeCount;
-                    execContext = resume.Context;
+                    resumeCount = ResumeCount;
+                    execContext = Context;
                     continue;
                 }
 
                 await _broadcaster.SendNotificationAsync("error", "AI Execution Failed", ex.Message, userId, cancellationToken);
-                return (false, resume.Error, execContext);
+                return (false, Error, execContext);
             }
         }
     }
@@ -346,10 +346,7 @@ public sealed class ExecutionOrchestrator(
         return (false, resumeCount, execContext, failureMessage);
     }
 
-    private async Task NotifyAutoResumeAsync(int resumeCount, int maxAutoResumes, string? userId, CancellationToken cancellationToken)
-    {
-        await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", userId, cancellationToken);
-    }
+    private async Task NotifyAutoResumeAsync(int resumeCount, int maxAutoResumes, string? userId, CancellationToken cancellationToken) => await _broadcaster.SendNotificationAsync("info", "Auto-Resuming Execution", $"Prompt turn timed out. Automatically continuing from checkpoint (Attempt {resumeCount} of {maxAutoResumes})...", userId, cancellationToken);
 
     private static bool IsTimeoutFailure(Exception ex, string responseText)
     {
@@ -399,8 +396,8 @@ public sealed class ExecutionOrchestrator(
         await _broadcaster.SendConversationEventAsync("conversation.completed", conversation.Id, new
         {
             DurationMs = result.ElapsedMilliseconds,
-            FileChangesCount = result.FileChangesCount,
-            IsSuccess = result.IsSuccess
+            result.FileChangesCount,
+            result.IsSuccess
         }, userId, CancellationToken.None);
     }
 

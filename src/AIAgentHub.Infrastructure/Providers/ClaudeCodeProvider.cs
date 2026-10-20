@@ -42,10 +42,17 @@ public sealed class ClaudeCodeProvider(
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
 
             var result = await RunCommandAsync(exePath, "auth status", null, timeoutCts.Token, "Claude Code — Auth Status Check");
-            var combined = (result.Output + " " + result.Error).ToLowerInvariant();
-            return combined.Contains("logged in") || combined.Contains("loggedin") || combined.Contains("authenticated") || combined.Contains("active session")
+            var combined = $"{result.Output} {result.Error}";
+            return combined.Contains("logged in", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("loggedin", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("authenticated", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("active session", StringComparison.OrdinalIgnoreCase)
                 ? new TestCommandResult(true, null)
-                : result.ExitCode != 0 || combined.Contains("not logged in") || combined.Contains("unauthenticated") || combined.Contains("login required") || combined.Contains("error")
+                : result.ExitCode != 0 ||
+                  combined.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
+                  combined.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) ||
+                  combined.Contains("login required", StringComparison.OrdinalIgnoreCase) ||
+                  combined.Contains("error", StringComparison.OrdinalIgnoreCase)
                 ? new TestCommandResult(false, "Claude Code is not authenticated. Please run 'claude login' in terminal or set ANTHROPIC_API_KEY.")
                 : new TestCommandResult(true, null);
         }
@@ -114,7 +121,7 @@ public sealed class ClaudeCodeProvider(
     {
         if (string.IsNullOrWhiteSpace(output))
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
 
         try
@@ -137,7 +144,7 @@ public sealed class ClaudeCodeProvider(
         }
         catch
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
     }
 
@@ -179,7 +186,7 @@ public sealed class ClaudeCodeProvider(
     {
         if (modelIds.Count == 0)
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
 
         var result = new List<ModelInfo>();
@@ -213,7 +220,7 @@ public sealed class ClaudeCodeProvider(
     {
         if (string.IsNullOrWhiteSpace(output))
         {
-            return Array.Empty<string>();
+            return [];
         }
 
         try
@@ -221,7 +228,7 @@ public sealed class ClaudeCodeProvider(
             var match = Regex.Match(output, @"Usage:\s*/effort\s*<([^>]+)>", RegexOptions.IgnoreCase, RegexTimeout);
             if (!match.Success)
             {
-                return Array.Empty<string>();
+                return [];
             }
 
             var rawOptions = match.Groups[1].Value;
@@ -246,7 +253,7 @@ public sealed class ClaudeCodeProvider(
         }
         catch
         {
-            return Array.Empty<string>();
+            return [];
         }
     }
 
@@ -289,8 +296,7 @@ public sealed class ClaudeCodeProvider(
         }
 
         var clean = id.Replace("-", " ").Replace("_", " ");
-        if (clean.Length <= 1) return clean.ToUpperInvariant();
-        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(clean);
+        return clean.Length <= 1 ? clean.ToUpperInvariant() : System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(clean);
     }
 }
 

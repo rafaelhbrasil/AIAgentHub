@@ -46,11 +46,11 @@ public class SafeClientAndRecoveryTests
         };
 
         var nextCalled = false;
-        RequestDelegate next = (ctx) =>
+        Task next(HttpContext ctx)
         {
             nextCalled = true;
             return Task.CompletedTask;
-        };
+        }
 
         var middleware = new NetworkModeMiddleware(next, recoveryOptions);
 
@@ -58,7 +58,7 @@ public class SafeClientAndRecoveryTests
         context.Connection.RemoteIpAddress = IPAddress.Parse("192.168.1.50");
 
         var settingsRepo = Substitute.For<IServerSettingsRepository>();
-        settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
+        _ = settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
         {
             NetworkMode = NetworkMode.Localhost
         });
@@ -79,11 +79,11 @@ public class SafeClientAndRecoveryTests
         };
 
         var nextCalled = false;
-        RequestDelegate next = (ctx) =>
+        Task next(HttpContext ctx)
         {
             nextCalled = true;
             return Task.CompletedTask;
-        };
+        }
 
         var middleware = new NetworkModeMiddleware(next, recoveryOptions);
 
@@ -91,7 +91,7 @@ public class SafeClientAndRecoveryTests
         context.Connection.RemoteIpAddress = IPAddress.Parse("192.168.1.99");
 
         var settingsRepo = Substitute.For<IServerSettingsRepository>();
-        settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
+        _ = settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
         {
             NetworkMode = NetworkMode.Localhost
         });
@@ -106,7 +106,7 @@ public class SafeClientAndRecoveryTests
     public async Task AuthController_GetSetupStatus_WithSafeClientAndRecovery_EnablesResetWithoutCode()
     {
         var setupService = Substitute.For<ISetupService>();
-        setupService.IsSetupCompletedAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _ = setupService.IsSetupCompletedAsync(Arg.Any<CancellationToken>()).Returns(true);
 
         var authService = Substitute.For<IAuthenticationService>();
         var recoveryOptions = new RecoveryOptions
@@ -139,7 +139,7 @@ public class SafeClientAndRecoveryTests
     public async Task AuthController_RecoverWipe_FromSafeClientWithRecovery_Succeeds()
     {
         var setupService = Substitute.For<ISetupService>();
-        setupService.WipeAllDataAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _ = setupService.WipeAllDataAsync(Arg.Any<CancellationToken>()).Returns(true);
 
         var authService = Substitute.For<IAuthenticationService>();
         var recoveryOptions = new RecoveryOptions
@@ -150,7 +150,7 @@ public class SafeClientAndRecoveryTests
 
         var aspAuthService = Substitute.For<Microsoft.AspNetCore.Authentication.IAuthenticationService>();
         var serviceProvider = Substitute.For<IServiceProvider>();
-        serviceProvider.GetService(typeof(Microsoft.AspNetCore.Authentication.IAuthenticationService)).Returns(aspAuthService);
+        _ = serviceProvider.GetService(typeof(Microsoft.AspNetCore.Authentication.IAuthenticationService)).Returns(aspAuthService);
 
         var httpContext = new DefaultHttpContext
         {
@@ -169,7 +169,7 @@ public class SafeClientAndRecoveryTests
         var actionResult = await controller.RecoverWipe(CancellationToken.None);
         _ = Assert.IsType<OkObjectResult>(actionResult);
 
-        await setupService.Received(1).WipeAllDataAsync(Arg.Any<CancellationToken>());
+        _ = await setupService.Received(1).WipeAllDataAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -193,17 +193,17 @@ public class SafeClientAndRecoveryTests
         controller.HttpContext.Connection.RemoteIpAddress = IPAddress.Parse("192.168.1.99");
 
         var actionResult = await controller.RecoverWipe(CancellationToken.None);
-        Assert.IsType<ForbidResult>(actionResult);
+        _ = Assert.IsType<ForbidResult>(actionResult);
 
-        await setupService.DidNotReceive().WipeAllDataAsync(Arg.Any<CancellationToken>());
+        _ = await setupService.DidNotReceive().WipeAllDataAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task AuthController_ResetSetup_FromSafeClientWithRecovery_Succeeds()
     {
         var setupService = Substitute.For<ISetupService>();
-        setupService.IsSetupCompletedAsync(Arg.Any<CancellationToken>()).Returns(true);
-        setupService.ResetToSetupModeAsync(null, Arg.Any<CancellationToken>()).Returns(true);
+        _ = setupService.IsSetupCompletedAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _ = setupService.ResetToSetupModeAsync(null, Arg.Any<CancellationToken>()).Returns(true);
 
         var authService = Substitute.For<IAuthenticationService>();
         var recoveryOptions = new RecoveryOptions
@@ -214,7 +214,7 @@ public class SafeClientAndRecoveryTests
 
         var aspAuthService = Substitute.For<Microsoft.AspNetCore.Authentication.IAuthenticationService>();
         var serviceProvider = Substitute.For<IServiceProvider>();
-        serviceProvider.GetService(typeof(Microsoft.AspNetCore.Authentication.IAuthenticationService)).Returns(aspAuthService);
+        _ = serviceProvider.GetService(typeof(Microsoft.AspNetCore.Authentication.IAuthenticationService)).Returns(aspAuthService);
 
         var httpContext = new DefaultHttpContext
         {
@@ -233,14 +233,14 @@ public class SafeClientAndRecoveryTests
         var actionResult = await controller.ResetSetup(CancellationToken.None);
         _ = Assert.IsType<OkObjectResult>(actionResult);
 
-        await setupService.Received(1).ResetToSetupModeAsync(null, Arg.Any<CancellationToken>());
+        _ = await setupService.Received(1).ResetToSetupModeAsync(null, Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task AuthController_ResetSetup_FromUnauthorizedRemoteIp_ReturnsForbid()
     {
         var setupService = Substitute.For<ISetupService>();
-        setupService.IsSetupCompletedAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _ = setupService.IsSetupCompletedAsync(Arg.Any<CancellationToken>()).Returns(true);
 
         var authService = Substitute.For<IAuthenticationService>();
         var recoveryOptions = new RecoveryOptions
@@ -259,8 +259,8 @@ public class SafeClientAndRecoveryTests
         controller.HttpContext.Connection.RemoteIpAddress = IPAddress.Parse("192.168.1.99");
 
         var actionResult = await controller.ResetSetup(CancellationToken.None);
-        Assert.IsType<ForbidResult>(actionResult);
+        _ = Assert.IsType<ForbidResult>(actionResult);
 
-        await setupService.DidNotReceive().ResetToSetupModeAsync(null, Arg.Any<CancellationToken>());
+        _ = await setupService.DidNotReceive().ResetToSetupModeAsync(null, Arg.Any<CancellationToken>());
     }
 }

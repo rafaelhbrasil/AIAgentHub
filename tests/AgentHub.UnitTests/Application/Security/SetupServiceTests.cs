@@ -6,10 +6,10 @@ namespace AgentHub.UnitTests.Application.Security;
 
 public sealed class SetupServiceTests
 {
-    private sealed class FakeUserRepo : IUserAccountRepository
+    private sealed class FakeUserRepo(UserAccount? admin = null) : IUserAccountRepository
     {
-        private UserAccount? _admin;
-        public FakeUserRepo(UserAccount? admin = null) => _admin = admin;
+        private UserAccount? _admin = admin;
+
         public Task<UserAccount?> GetAdminAsync(CancellationToken cancellationToken = default) => Task.FromResult(_admin);
         public Task AddAsync(UserAccount account, CancellationToken cancellationToken = default)
         {

@@ -139,7 +139,7 @@ public sealed class FilesystemControllerTests
         var result = await sut.GetDrives(CancellationToken.None);
         var ok = Assert.IsType<OkObjectResult>(result);
         var drives = Assert.IsAssignableFrom<IReadOnlyList<DriveItem>>(ok.Value);
-        Assert.Single(drives);
+        _ = Assert.Single(drives);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class FilesystemControllerTests
         val.ForbiddenReason = "Access to system directory is restricted";
 
         var result = await sut.Browse("C:\\Windows", CancellationToken.None);
-        Assert.IsType<BadRequestObjectResult>(result);
+        _ = Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class FilesystemControllerTests
         var (sut, _, _, _) = CreateSut();
         var result = await sut.Browse("C:\\MyFolder", CancellationToken.None);
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.IsType<DirectoryBrowseResult>(ok.Value);
+        _ = Assert.IsType<DirectoryBrowseResult>(ok.Value);
     }
 
     [Fact]
@@ -167,7 +167,7 @@ public sealed class FilesystemControllerTests
     {
         var (sut, _, _, _) = CreateSut();
         var result = await sut.GetTree(Guid.NewGuid(), CancellationToken.None);
-        Assert.IsType<NotFoundObjectResult>(result);
+        _ = Assert.IsType<NotFoundObjectResult>(result);
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public sealed class FilesystemControllerTests
 
         var result = await sut.GetTree(wsId, CancellationToken.None);
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.IsType<TreeNodeItem>(ok.Value);
+        _ = Assert.IsType<TreeNodeItem>(ok.Value);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.GetFile(wsId, "../../secret.txt", CancellationToken.None);
-        Assert.IsType<BadRequestObjectResult>(result);
+        _ = Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public sealed class FilesystemControllerTests
         fs.ExistsFile = false;
 
         var result = await sut.GetFile(wsId, "nonexistent.txt", CancellationToken.None);
-        Assert.IsType<NotFoundObjectResult>(result);
+        _ = Assert.IsType<NotFoundObjectResult>(result);
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public sealed class FilesystemControllerTests
         fs.FileBytes = Encoding.UTF8.GetBytes("sample content");
 
         var result = await sut.GetFile(wsId, "file.txt", CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        _ = Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.CreateFile(new FilesystemController.FileContentRequest(wsId, "newfile.txt", "content"), CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        _ = Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.SaveFile(new FilesystemController.FileContentRequest(wsId, "saved.txt", "updated"), CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        _ = Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
@@ -248,7 +248,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.RenameItem(new FilesystemController.RenameItemRequest(wsId, "old.txt", "new.txt"), CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        _ = Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.DeleteItem(null, wsId, "", CancellationToken.None);
-        Assert.IsType<BadRequestObjectResult>(result);
+        _ = Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
@@ -270,7 +270,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.DeleteItem(new FilesystemController.DeleteItemRequest(wsId, "sub/file.txt"), null, null, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        _ = Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
@@ -281,7 +281,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.MoveItem(new FilesystemController.MoveItemRequest(wsId, "source.txt", "destFolder"), CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        _ = Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
@@ -292,7 +292,7 @@ public sealed class FilesystemControllerTests
         ws.DefaultWorkspace = new WorkspaceDto(wsId, "ws", "C:\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0);
 
         var result = await sut.CreateDirectory(new FilesystemController.CreateDirectoryRequest("newdir", wsId), CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        _ = Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
@@ -300,6 +300,6 @@ public sealed class FilesystemControllerTests
     {
         var (sut, _, _, _) = CreateSut();
         var result = await sut.CreateDirectory(new FilesystemController.CreateDirectoryRequest(""), CancellationToken.None);
-        Assert.IsType<BadRequestObjectResult>(result);
+        _ = Assert.IsType<BadRequestObjectResult>(result);
     }
 }

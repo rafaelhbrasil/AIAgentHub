@@ -127,8 +127,8 @@ public sealed class DiffEngine : IDiffEngine
             hasChanges,
             hasChanges ? 1 : 0,
             hasChanges ? 1 : 0,
-            Array.Empty<DiffLine>(),
-            Array.Empty<SideBySideLine>(),
+            [],
+            [],
             oldDataUri,
             newDataUri
         );

@@ -257,6 +257,8 @@ public sealed class ProviderManager(
             ProviderStatus.NotInstalled => 3,
             ProviderStatus.QuotaExceeded => 4,
             ProviderStatus.Discontinued => 99,
+            ProviderStatus.Error => throw new NotImplementedException(),
+            ProviderStatus.Running => throw new NotImplementedException(),
             _ => 5
         };
     }
@@ -441,7 +443,7 @@ public sealed class ProviderManager(
     {
         if (_detectionRecordFactory == null)
         {
-            return Array.Empty<ProviderDetectionRecord>();
+            return [];
         }
 
         var repo = _detectionRecordFactory();

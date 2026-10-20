@@ -92,11 +92,11 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             }
             else
             {
-                if (indexStatus != ' ' && indexStatus != '?')
+                if (indexStatus is not ' ' and not '?')
                 {
                     staged.Add(new GitFileStatusDto(filePath, MapStatusCode(indexStatus), true));
                 }
-                if (workTreeStatus != ' ' && workTreeStatus != '?')
+                if (workTreeStatus is not ' ' and not '?')
                 {
                     modified.Add(new GitFileStatusDto(filePath, MapStatusCode(workTreeStatus), false));
                 }
@@ -401,8 +401,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
     {
         if (rawStatusCode.StartsWith("A", StringComparison.OrdinalIgnoreCase)) return "Added";
         if (rawStatusCode.StartsWith("D", StringComparison.OrdinalIgnoreCase)) return "Deleted";
-        if (rawStatusCode.StartsWith("R", StringComparison.OrdinalIgnoreCase)) return "Renamed";
-        return "Modified";
+        return rawStatusCode.StartsWith("R", StringComparison.OrdinalIgnoreCase) ? "Renamed" : "Modified";
     }
 
     public async Task<GitCommitDiffDto?> GetCommitDiffAsync(string workspacePath, string commitHash, string filePath, CancellationToken cancellationToken = default)

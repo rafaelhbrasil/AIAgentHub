@@ -29,7 +29,7 @@ public sealed class ProvidersController(IProviderManager providerManager) : ApiC
 
         await foreach (var evt in _providerManager.StreamRefreshAllAsync(cancellationToken))
         {
-            var json = JsonSerializer.Serialize((object)evt, evt.GetType(), jsonOptions);
+            var json = JsonSerializer.Serialize(evt, evt.GetType(), jsonOptions);
             var message = $"event: {evt.Type}\ndata: {json}\n\n";
             await Response.WriteAsync(message, cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);

@@ -48,7 +48,7 @@ builder.Services.AddAgentHubServices(builder.Configuration);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("AuthLimiter", opt =>
+    _ = options.AddFixedWindowLimiter("AuthLimiter", opt =>
     {
         opt.PermitLimit = 15;
         opt.Window = TimeSpan.FromMinutes(1);

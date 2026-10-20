@@ -34,10 +34,7 @@ public abstract class ProcessExecutorBase : IProcessExecutor
 {
     private readonly ConcurrentDictionary<Guid, Process> _activeProcesses = new();
 
-    public bool IsRunning(Guid conversationId)
-    {
-        return _activeProcesses.TryGetValue(conversationId, out var process) && !process.HasExited;
-    }
+    public bool IsRunning(Guid conversationId) => _activeProcesses.TryGetValue(conversationId, out var process) && !process.HasExited;
 
     public abstract Task ExecuteAsync(
         string displayName,

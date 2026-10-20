@@ -107,7 +107,7 @@ public sealed class LogFileServiceTests : IDisposable
         var result = await service.GetLogDownloadAsync("app-2026-09-07.log");
 
         // Assert
-        Assert.NotNull(result);
+        _ = Assert.NotNull(result);
         Assert.Equal("app-2026-09-07.log", result.Value.DownloadFileName);
         Assert.Equal("text/plain; charset=utf-8", result.Value.ContentType);
 

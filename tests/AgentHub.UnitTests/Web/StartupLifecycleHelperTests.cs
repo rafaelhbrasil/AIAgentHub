@@ -76,9 +76,9 @@ public class StartupLifecycleHelperTests
     public void ShouldLaunchBrowser_ReturnsFalse_WhenTestingEnvironment()
     {
         var env = Substitute.For<IHostEnvironment>();
-        env.EnvironmentName.Returns("Testing");
+        _ = env.EnvironmentName.Returns("Testing");
         var config = new ConfigurationBuilder().Build();
-        var args = Array.Empty<string>();
+        string[] args = [];
 
         var result = StartupLifecycleHelper.ShouldLaunchBrowser(args, config, env);
 
@@ -92,10 +92,10 @@ public class StartupLifecycleHelperTests
     public void ShouldLaunchBrowser_ReturnsFalse_WhenCliFlagSupplied(string flag)
     {
         var env = Substitute.For<IHostEnvironment>();
-        env.EnvironmentName.Returns("Production");
+        _ = env.EnvironmentName.Returns("Production");
         var inMemory = new Dictionary<string, string?> { ["AgentHub:OpenBrowserAtStartup"] = "true" };
         var config = new ConfigurationBuilder().AddInMemoryCollection(inMemory).Build();
-        var args = new[] { flag };
+        string[] args = [flag];
 
         var result = StartupLifecycleHelper.ShouldLaunchBrowser(args, config, env);
 
@@ -109,10 +109,10 @@ public class StartupLifecycleHelperTests
     public void ShouldLaunchBrowser_ReturnsTrue_WhenCliBrowserFlagSupplied(string flag)
     {
         var env = Substitute.For<IHostEnvironment>();
-        env.EnvironmentName.Returns("Production");
+        _ = env.EnvironmentName.Returns("Production");
         var inMemory = new Dictionary<string, string?> { ["AgentHub:OpenBrowserAtStartup"] = "false" };
         var config = new ConfigurationBuilder().AddInMemoryCollection(inMemory).Build();
-        var args = new[] { flag };
+        string[] args = [flag];
 
         var result = StartupLifecycleHelper.ShouldLaunchBrowser(args, config, env);
 
@@ -125,10 +125,10 @@ public class StartupLifecycleHelperTests
     public void ShouldLaunchBrowser_FallsBackToConfiguration_WhenNoCliFlag(string configValue, bool expected)
     {
         var env = Substitute.For<IHostEnvironment>();
-        env.EnvironmentName.Returns("Production");
+        _ = env.EnvironmentName.Returns("Production");
         var inMemory = new Dictionary<string, string?> { ["AgentHub:OpenBrowserAtStartup"] = configValue };
         var config = new ConfigurationBuilder().AddInMemoryCollection(inMemory).Build();
-        var args = Array.Empty<string>();
+        string[] args = [];
 
         var result = StartupLifecycleHelper.ShouldLaunchBrowser(args, config, env);
 
@@ -139,9 +139,9 @@ public class StartupLifecycleHelperTests
     public void ShouldLaunchBrowser_DefaultsToTrue_WhenNoCliAndNoConfig()
     {
         var env = Substitute.For<IHostEnvironment>();
-        env.EnvironmentName.Returns("Production");
+        _ = env.EnvironmentName.Returns("Production");
         var config = new ConfigurationBuilder().Build();
-        var args = Array.Empty<string>();
+        string[] args = [];
 
         var result = StartupLifecycleHelper.ShouldLaunchBrowser(args, config, env);
 
@@ -153,12 +153,12 @@ public class StartupLifecycleHelperTests
     {
         var services = Substitute.For<IServiceProvider>();
         var env = Substitute.For<IHostEnvironment>();
-        env.EnvironmentName.Returns("Testing");
+        _ = env.EnvironmentName.Returns("Testing");
         var inMemory = new Dictionary<string, string?> { ["urls"] = "https://0.0.0.0:5432;http://0.0.0.0:5433" };
         var config = new ConfigurationBuilder().AddInMemoryCollection(inMemory).Build();
-        var args = Array.Empty<string>();
+        string[] args = [];
 
-        using var stringWriter = new System.IO.StringWriter();
+        using var stringWriter = new StringWriter();
         StartupLifecycleHelper.OnApplicationStarted(services, args, config, env, stringWriter);
 
         var output = stringWriter.ToString();

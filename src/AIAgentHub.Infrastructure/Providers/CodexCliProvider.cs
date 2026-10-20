@@ -96,14 +96,7 @@ public sealed class CodexCliProvider(
             ? text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
             : text[..lastNewline].Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        if (!isFinal)
-        {
-            _ = buffer.Remove(0, lastNewline + 1);
-        }
-        else
-        {
-            _ = buffer.Clear();
-        }
+        _ = !isFinal ? buffer.Remove(0, lastNewline + 1) : buffer.Clear();
 
         foreach (var rawLine in linesToProcess)
         {
@@ -152,6 +145,8 @@ public sealed class CodexCliProvider(
 
                 case "error":
                     await HandleErrorAsync(root, context);
+                    break;
+                default:
                     break;
             }
         }
@@ -336,7 +331,7 @@ public sealed class CodexCliProvider(
     {
         if (string.IsNullOrWhiteSpace(output))
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
 
         try
@@ -352,7 +347,7 @@ public sealed class CodexCliProvider(
             using var doc = JsonDocument.Parse(trimmed);
             if (!doc.RootElement.TryGetProperty("models", out var modelsProp) || modelsProp.ValueKind != JsonValueKind.Array)
             {
-                return Array.Empty<ModelInfo>();
+                return [];
             }
 
             var models = new List<ModelInfo>();
@@ -374,7 +369,7 @@ public sealed class CodexCliProvider(
         }
         catch
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
     }
 

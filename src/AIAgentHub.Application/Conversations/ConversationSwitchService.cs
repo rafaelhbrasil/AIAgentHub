@@ -147,11 +147,11 @@ public sealed class ConversationSwitchService(
             return (initialSharedIndex, migratedInteractionsCount);
         }
 
-        if (scope.StartsWith("recent_") && int.TryParse(scope.AsSpan(7), out var recentCount) && recentCount > 0)
+        if (scope.StartsWith("recent_", StringComparison.OrdinalIgnoreCase) && int.TryParse(scope.AsSpan(7), out var recentCount) && recentCount > 0)
         {
             if (userPrompts.Count > recentCount)
             {
-                var targetPrompt = userPrompts[userPrompts.Count - recentCount];
+                var targetPrompt = userPrompts[^recentCount];
                 return (Math.Max(0, targetPrompt.SequenceIndex - 1), recentCount);
             }
 

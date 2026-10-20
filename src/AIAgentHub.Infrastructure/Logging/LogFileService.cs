@@ -115,27 +115,19 @@ public sealed class LogFileService(IConfiguration configuration) : ILogFileServi
         var fullPath = Path.GetFullPath(Path.Combine(logsDir, sanitized));
         var fullLogsDir = Path.GetFullPath(logsDir);
 
-        if (!fullPath.StartsWith(fullLogsDir, StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        return fullPath;
+        return !fullPath.StartsWith(fullLogsDir, StringComparison.OrdinalIgnoreCase) ? null : fullPath;
     }
 
     private static string ExtractDateFromFileName(string fileName)
     {
         var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
         var parts = nameWithoutExt.Split('-');
-        if (parts.Length >= 4 &&
+        return parts.Length >= 4 &&
             int.TryParse(parts[^3], out var y) && y >= 2000 &&
             int.TryParse(parts[^2], out var m) && m is >= 1 and <= 12 &&
-            int.TryParse(parts[^1], out var d) && d is >= 1 and <= 31)
-        {
-            return $"{y:D4}-{m:D2}-{d:D2}";
-        }
-
-        return nameWithoutExt;
+            int.TryParse(parts[^1], out var d) && d is >= 1 and <= 31
+            ? $"{y:D4}-{m:D2}-{d:D2}"
+            : nameWithoutExt;
     }
 
     private static string FormatBytes(long bytes)

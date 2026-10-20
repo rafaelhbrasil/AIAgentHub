@@ -150,13 +150,13 @@ public sealed class WorkspaceLifecycleIntegrationTests : IClassFixture<CustomWeb
             var baselineFilePath = Path.Combine(tempFolder, "existing_code.txt");
             await File.WriteAllTextAsync(baselineFilePath, "Original baseline content.");
 
-            var token = await snapshotService.CaptureWorkspaceSnapshotAsync(ws.Id, conv.Id, tempFolder, Array.Empty<string>());
+            var token = await snapshotService.CaptureWorkspaceSnapshotAsync(ws.Id, conv.Id, tempFolder, []);
 
             var newFilePath = Path.Combine(tempFolder, "hello_agent.txt");
             await File.WriteAllTextAsync(newFilePath, "Hello from Antigravity Agent Hub test!");
             await File.WriteAllTextAsync(baselineFilePath, "Updated baseline content!");
 
-            var changes = await snapshotService.DetectAndRecordChangesAsync(ws.Id, conv.Id, tempFolder, token, Array.Empty<string>());
+            var changes = await snapshotService.DetectAndRecordChangesAsync(ws.Id, conv.Id, tempFolder, token, []);
             Assert.Equal(2, changes.Count);
 
             var createdChange = changes.FirstOrDefault(c => c.RelativePath.Replace('\\', '/') == "hello_agent.txt");

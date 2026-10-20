@@ -27,7 +27,7 @@ public sealed class GitHubCopilotProviderTests
             prompt,
             modelId,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -164,7 +164,7 @@ public sealed class GitHubCopilotProviderTests
             "Initial prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -193,16 +193,16 @@ public sealed class GitHubCopilotProviderTests
     public void GitHubCopilotProvider_ShouldInjectDetachedExecutionInstruction_GatingWorks(string prompt, bool expected)
     {
         var triggerWords = new[] { "run", "start", "launch", "serve", "server", "host", "daemon", "listen", "up", "project", "calc", "web" };
-        var actual = GitHubCopilotProvider.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
+        var actual = CliProviderBase.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
         Assert.Equal(expected, actual);
     }
 
     [Fact]
     public void GitHubCopilotProvider_ShouldInjectDetachedExecutionInstruction_DoesNotDuplicateIfAlreadyPresent()
     {
-        var prompt = $"{GitHubCopilotProvider.DetachedExecutionInstruction} run the app";
+        var prompt = $"{CliProviderBase.DetachedExecutionInstruction} run the app";
         var triggerWords = new[] { "run" };
-        var actual = GitHubCopilotProvider.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
+        var actual = CliProviderBase.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
         Assert.False(actual);
     }
 
@@ -219,7 +219,7 @@ public sealed class GitHubCopilotProviderTests
 
         var args = provider.BuildArguments(context);
 
-        Assert.Contains(GitHubCopilotProvider.DetachedExecutionInstruction, args);
+        Assert.Contains(CliProviderBase.DetachedExecutionInstruction, args);
         Assert.Contains("Please run the application in the background", args);
     }
 
@@ -236,7 +236,7 @@ public sealed class GitHubCopilotProviderTests
 
         var args = provider.BuildArguments(context);
 
-        Assert.DoesNotContain(GitHubCopilotProvider.DetachedExecutionInstruction, args);
+        Assert.DoesNotContain(CliProviderBase.DetachedExecutionInstruction, args);
         Assert.Contains("-p \"Explain the structure of this code\"", args);
     }
 

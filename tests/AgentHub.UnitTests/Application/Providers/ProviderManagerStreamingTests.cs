@@ -80,8 +80,8 @@ public sealed class ProviderManagerStreamingTests
 
         // Assert
         Assert.Equal(2, events.Count);
-        Assert.IsType<ProviderRefreshInitEvent>(events[0]);
+        _ = Assert.IsType<ProviderRefreshInitEvent>(events[0]);
         Assert.Equal(0, ((ProviderRefreshInitEvent)events[0]).TotalInstalled);
-        Assert.IsType<ProviderRefreshCompletedEvent>(events[1]);
+        _ = Assert.IsType<ProviderRefreshCompletedEvent>(events[1]);
     }
 }

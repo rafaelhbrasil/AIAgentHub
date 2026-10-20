@@ -24,7 +24,7 @@ public class LogsControllerTests
             new("app-2026-09-06.log", "2026-09-06", 2048, "2.0 KB", DateTime.UtcNow.AddDays(-1), false)
         };
 
-        _logService.GetLogFilesAsync(Arg.Any<CancellationToken>()).Returns(expected);
+        _ = _logService.GetLogFilesAsync(Arg.Any<CancellationToken>()).Returns(expected);
 
         var result = await _controller.GetLogs(CancellationToken.None);
 
@@ -36,7 +36,7 @@ public class LogsControllerTests
     public async Task GetTail_WhenFound_ReturnsOk()
     {
         var tail = new LogTailDto("app-2026-09-07.log", 2, new[] { "line 1", "line 2" });
-        _logService.GetLogTailAsync("app-2026-09-07.log", 200, Arg.Any<CancellationToken>())
+        _ = _logService.GetLogTailAsync("app-2026-09-07.log", 200, Arg.Any<CancellationToken>())
             .Returns(tail);
 
         var result = await _controller.GetTail("app-2026-09-07.log", 200, CancellationToken.None);
@@ -48,22 +48,22 @@ public class LogsControllerTests
     [Fact]
     public async Task GetTail_WhenNotFound_ReturnsNotFound()
     {
-        _logService.GetLogTailAsync("missing.log", 200, Arg.Any<CancellationToken>())
+        _ = _logService.GetLogTailAsync("missing.log", 200, Arg.Any<CancellationToken>())
             .Returns((LogTailDto?)null);
 
         var result = await _controller.GetTail("missing.log", 200, CancellationToken.None);
 
-        Assert.IsType<NotFoundObjectResult>(result);
+        _ = Assert.IsType<NotFoundObjectResult>(result);
     }
 
     [Fact]
     public async Task Download_WhenFound_ReturnsFileStreamResult()
     {
-        using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+        using var stream = new MemoryStream([1, 2, 3]);
         (Stream Stream, string ContentType, string DownloadFileName)? download =
             (stream, "text/plain; charset=utf-8", "app-2026-09-07.log");
 
-        _logService.GetLogDownloadAsync("app-2026-09-07.log", Arg.Any<CancellationToken>())
+        _ = _logService.GetLogDownloadAsync("app-2026-09-07.log", Arg.Any<CancellationToken>())
             .Returns(download);
 
         var result = await _controller.Download("app-2026-09-07.log", CancellationToken.None);
@@ -76,11 +76,11 @@ public class LogsControllerTests
     [Fact]
     public async Task Download_WhenNotFound_ReturnsNotFound()
     {
-        _logService.GetLogDownloadAsync("missing.log", Arg.Any<CancellationToken>())
+        _ = _logService.GetLogDownloadAsync("missing.log", Arg.Any<CancellationToken>())
             .Returns(((Stream Stream, string ContentType, string DownloadFileName)?)null);
 
         var result = await _controller.Download("missing.log", CancellationToken.None);
 
-        Assert.IsType<NotFoundObjectResult>(result);
+        _ = Assert.IsType<NotFoundObjectResult>(result);
     }
 }

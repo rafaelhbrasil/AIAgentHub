@@ -44,8 +44,5 @@ public sealed class FileChange : Entity
         ReviewedAtUtc = DateTimeOffset.UtcNow;
     }
 
-    public void UpdateChangeType(FileChangeType changeType)
-    {
-        ChangeType = changeType;
-    }
+    public void UpdateChangeType(FileChangeType changeType) => ChangeType = changeType;
 }

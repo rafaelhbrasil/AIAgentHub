@@ -37,11 +37,9 @@ public sealed class GitCliServiceTests
             {
                 OnRunCommand = (exe, args, dir) =>
                 {
-                    if (args.Contains("rev-parse --is-inside-work-tree", StringComparison.Ordinal))
-                    {
-                        return new ProcessCommandResult(128, "", "fatal: not a git repository");
-                    }
-                    return new ProcessCommandResult(0, "", "");
+                    return args.Contains("rev-parse --is-inside-work-tree", StringComparison.Ordinal)
+                        ? new ProcessCommandResult(128, "", "fatal: not a git repository")
+                        : new ProcessCommandResult(0, "", "");
                 }
             };
 
@@ -97,11 +95,11 @@ public sealed class GitCliServiceTests
             Assert.Equal("feature/v0.3", status.CurrentBranch);
             Assert.Equal(2, status.Ahead);
             Assert.Equal(1, status.Behind);
-            Assert.Single(status.Staged);
+            _ = Assert.Single(status.Staged);
             Assert.Equal("src/file1.cs", status.Staged[0].Path);
-            Assert.Single(status.Modified);
+            _ = Assert.Single(status.Modified);
             Assert.Equal("src/file2.cs", status.Modified[0].Path);
-            Assert.Single(status.Untracked);
+            _ = Assert.Single(status.Untracked);
             Assert.Equal("untracked.txt", status.Untracked[0]);
         }
         finally
@@ -153,7 +151,7 @@ public sealed class GitCliServiceTests
         var service = new GitCliService(fakeExecutor);
         var history = await service.GetHistoryAsync("C:\\dummy");
 
-        Assert.Single(history);
+        _ = Assert.Single(history);
         var commit = history[0];
         Assert.Equal("abcd1234efgh5678", commit.Hash);
         Assert.Equal("abcd123", commit.ShortHash);
@@ -177,7 +175,7 @@ public sealed class GitCliServiceTests
         var service = new GitCliService(fakeExecutor);
         var history = await service.GetHistoryAsync("C:\\dummy");
 
-        Assert.Single(history);
+        _ = Assert.Single(history);
         var commit = history[0];
         Assert.NotNull(commit.Parents);
         Assert.Equal(2, commit.Parents.Count);
@@ -220,7 +218,7 @@ public sealed class GitCliServiceTests
         Assert.Equal("1234567", details.ShortHash);
         Assert.Equal("Rafael", details.Author);
         Assert.Equal("feat: support git log\nDetailed body description", details.Message);
-        Assert.Single(details.Parents);
+        _ = Assert.Single(details.Parents);
         Assert.Equal("parent123", details.Parents[0]);
         Assert.Equal(2, details.Files.Count);
 
@@ -257,11 +255,9 @@ public sealed class GitCliServiceTests
                 {
                     return new ProcessCommandResult(0, "old content", "");
                 }
-                if (args.Contains(":src/FileA.cs", StringComparison.Ordinal))
-                {
-                    return new ProcessCommandResult(0, "new content", "");
-                }
-                return new ProcessCommandResult(1, "", "not found");
+                return args.Contains(":src/FileA.cs", StringComparison.Ordinal)
+                    ? new ProcessCommandResult(0, "new content", "")
+                    : new ProcessCommandResult(1, "", "not found");
             }
         };
 

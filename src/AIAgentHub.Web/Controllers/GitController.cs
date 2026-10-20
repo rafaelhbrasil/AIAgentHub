@@ -254,12 +254,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         }
 
         var details = await _gitService.GetCommitDetailsAsync(ws.Path, hash, cancellationToken);
-        if (details == null)
-        {
-            return NotFound(new { code = "commit_not_found", message = "Commit not found or invalid." });
-        }
-
-        return Ok(details);
+        return details == null ? NotFound(new { code = "commit_not_found", message = "Commit not found or invalid." }) : Ok(details);
     }
 
     [HttpGet("commit-diff")]

@@ -109,7 +109,7 @@ public sealed class SystemPathValidatorTests
         var tempUserPath = Path.Combine(Path.GetTempPath(), "agent-hub-test-workspace-" + Guid.NewGuid());
         try
         {
-            Directory.CreateDirectory(tempUserPath);
+            _ = Directory.CreateDirectory(tempUserPath);
             Assert.False(validator.IsForbiddenForBrowsing(tempUserPath, out var reasonBrowse));
             Assert.Null(reasonBrowse);
 

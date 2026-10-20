@@ -185,7 +185,7 @@ public sealed class OpenCodeProvider(
                 - On Linux / macOS (bash): nohup dotnet run > /dev/null 2>&1 & (or run with & in background so the command returns immediately).
                 """;
 
-            if (!File.Exists(file) || !File.ReadAllText(file).Contains("launchSettings.json"))
+            if (!File.Exists(file) || !File.ReadAllText(file).Contains("launchSettings.json", StringComparison.OrdinalIgnoreCase))
             {
                 File.WriteAllText(file, desiredContent, System.Text.Encoding.UTF8);
             }

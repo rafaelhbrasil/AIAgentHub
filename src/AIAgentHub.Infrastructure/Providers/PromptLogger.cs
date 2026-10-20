@@ -57,7 +57,7 @@ public sealed class PromptLogger : IPromptLogger
         if (exitCode != 0)
         {
             var combined = $"{error} {output}".ToLowerInvariant();
-            if (combined.Contains("auth") || combined.Contains("unauthorized") || combined.Contains("login") || combined.Contains("not authenticated"))
+            if (combined.Contains("auth", StringComparison.Ordinal) || combined.Contains("unauthorized", StringComparison.Ordinal) || combined.Contains("login", StringComparison.Ordinal) || combined.Contains("not authenticated", StringComparison.Ordinal))
             {
                 _logger.LogWarning(
                     "Provider {ProviderName} unauthenticated during '{Operation}' (exit code {ExitCode}): {Error}",
@@ -66,7 +66,7 @@ public sealed class PromptLogger : IPromptLogger
                     exitCode,
                     error ?? output);
             }
-            else if (combined.Contains("quota") || combined.Contains("rate limit") || combined.Contains("429"))
+            else if (combined.Contains("quota", StringComparison.Ordinal) || combined.Contains("rate limit", StringComparison.Ordinal) || combined.Contains("429", StringComparison.Ordinal))
             {
                 _logger.LogWarning(
                     "Provider {ProviderName} quota exceeded during '{Operation}' (exit code {ExitCode}): {Error}",

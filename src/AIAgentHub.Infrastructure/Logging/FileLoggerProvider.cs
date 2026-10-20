@@ -14,17 +14,14 @@ public sealed class FileLoggerProvider(string pathPattern) : ILoggerProvider
     public ILogger CreateLogger(string categoryName) =>
         _loggers.GetOrAdd(categoryName, name => new FileLogger(name, _pathPattern));
 
-    public void Dispose()
-    {
-        _loggers.Clear();
-    }
+    public void Dispose() => _loggers.Clear();
 }
 
 public sealed class FileLogger(string categoryName, string pathPattern) : ILogger
 {
     private readonly string _categoryName = categoryName;
     private readonly string _pathPattern = pathPattern;
-    private static readonly object FileLock = new();
+    private static readonly Lock FileLock = new();
 
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 

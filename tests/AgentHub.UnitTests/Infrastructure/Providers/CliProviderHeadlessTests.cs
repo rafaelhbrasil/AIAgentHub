@@ -25,7 +25,7 @@ public sealed class TestDotnetCliProvider(
     public override string? DocumentationUrl => null;
     public override ProviderCapabilities Capabilities => ProviderCapabilities.Streaming;
 
-    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ModelInfo>>(Array.Empty<ModelInfo>());
+    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ModelInfo>>([]);
 
     public override string BuildArguments(ProviderExecutionContext context) => "--list-sdks";
 }
@@ -48,7 +48,7 @@ public sealed class CliProviderHeadlessTests
             "list sdks",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);
@@ -87,7 +87,7 @@ public sealed class CliProviderHeadlessTests
             "list sdks",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);

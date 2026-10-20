@@ -10,7 +10,7 @@ public class ThemeVerificationTests
     [Fact]
     public async Task CaptureAllPagesInLightTheme()
     {
-        Directory.CreateDirectory(_screenshotDir);
+        _ = Directory.CreateDirectory(_screenshotDir);
 
         try
         {
@@ -35,7 +35,7 @@ public class ThemeVerificationTests
 
         // 1. Navigate to running server
         _ = await page.GotoAsync(TargetUrl);
-        await page.WaitForSelectorAsync("#root", new PageWaitForSelectorOptions { Timeout = 15000 });
+        _ = await page.WaitForSelectorAsync("#root", new PageWaitForSelectorOptions { Timeout = 15000 });
         Assert.True(await page.Locator("#root").IsVisibleAsync());
 
         // 2. Login if on sign in page
@@ -43,7 +43,7 @@ public class ThemeVerificationTests
         if (await loginUser.IsVisibleAsync())
         {
             // First capture dark sign-in page
-            await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "00-signin-dark.png") });
+            _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "00-signin-dark.png") });
 
             // Switch to light theme on sign-in page if toggle exists
             var initialThemeBtn = page.Locator(".theme-toggle-btn");
@@ -51,7 +51,7 @@ public class ThemeVerificationTests
             {
                 await initialThemeBtn.ClickAsync();
                 await page.WaitForTimeoutAsync(300);
-                await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "00b-signin-light.png") });
+                _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "00b-signin-light.png") });
             }
 
             await page.FillAsync("#loginUsername", "admin");
@@ -80,12 +80,12 @@ public class ThemeVerificationTests
         // 4. Capture Dashboard in Light Theme
         await page.ClickAsync("[data-tab=\"dashboard\"]");
         await page.WaitForTimeoutAsync(800);
-        await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "01-dashboard-light.png"), FullPage = true });
+        _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "01-dashboard-light.png"), FullPage = true });
 
         // 5. Capture Workspaces in Light Theme
         await page.ClickAsync("[data-tab=\"workspaces\"]");
         await page.WaitForTimeoutAsync(800);
-        await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02-workspaces-light.png"), FullPage = true });
+        _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02-workspaces-light.png"), FullPage = true });
 
         // Open Folder Explorer Modal
         var addWsBtn = page.Locator("#dashNewWsBtn, button:has-text('+ Add Workspace'), button:has-text('+ Open or Create Workspace')");
@@ -93,7 +93,7 @@ public class ThemeVerificationTests
         {
             await addWsBtn.First.ClickAsync();
             await page.WaitForTimeoutAsync(600);
-            await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02b-folder-explorer-modal-light.png") });
+            _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02b-folder-explorer-modal-light.png") });
 
             var cancelModalBtn = page.Locator(".modal-close, .modal-footer button:has-text('Cancel')");
             if (await cancelModalBtn.First.IsVisibleAsync())
@@ -109,7 +109,7 @@ public class ThemeVerificationTests
         {
             await openStudioBtn.First.ClickAsync();
             await page.WaitForTimeoutAsync(1000);
-            await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02c-studio-light.png"), FullPage = true });
+            _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02c-studio-light.png"), FullPage = true });
 
             // Toggle Actions dropdown in Studio
             var actionsDropdownBtn = page.Locator(".studio-compact-header .icon-btn, #studioActionMenuBtn");
@@ -117,7 +117,7 @@ public class ThemeVerificationTests
             {
                 await actionsDropdownBtn.Last.ClickAsync();
                 await page.WaitForTimeoutAsync(400);
-                await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02d-studio-actions-menu-light.png") });
+                _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "02d-studio-actions-menu-light.png") });
                 // Dismiss dropdown
                 await page.Keyboard.PressAsync("Escape");
             }
@@ -134,7 +134,7 @@ public class ThemeVerificationTests
         // 6. Capture Providers in Light Theme
         await page.ClickAsync("[data-tab=\"providers\"]");
         await page.WaitForTimeoutAsync(800);
-        await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "03-providers-light.png"), FullPage = true });
+        _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "03-providers-light.png"), FullPage = true });
 
         // Open Models Modal
         var modelsLink = page.Locator(".btn-link-inline");
@@ -142,7 +142,7 @@ public class ThemeVerificationTests
         {
             await modelsLink.First.ClickAsync();
             await page.WaitForTimeoutAsync(600);
-            await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "03b-models-modal-light.png") });
+            _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "03b-models-modal-light.png") });
 
             var cancelModalBtn = page.Locator(".modal-close, .modal-footer button:has-text('Cancel')");
             if (await cancelModalBtn.First.IsVisibleAsync())
@@ -155,17 +155,17 @@ public class ThemeVerificationTests
         // 7. Capture MCPs & Skills in Light Theme
         await page.ClickAsync("[data-tab=\"tools\"]");
         await page.WaitForTimeoutAsync(800);
-        await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "04-tools-light.png"), FullPage = true });
+        _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "04-tools-light.png"), FullPage = true });
 
         // 8. Capture Settings in Light Theme
         await page.ClickAsync("[data-tab=\"settings\"]");
         await page.WaitForTimeoutAsync(800);
-        await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "05-settings-light.png"), FullPage = true });
+        _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "05-settings-light.png"), FullPage = true });
 
         // 9. Mobile Viewport Test (375x812)
         await page.SetViewportSizeAsync(375, 812);
         await page.WaitForTimeoutAsync(400);
-        await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "06-settings-mobile-light.png") });
+        _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "06-settings-mobile-light.png") });
 
         // Open Mobile Burger Menu
         var burgerBtn = page.Locator(".burger-menu-btn");
@@ -173,7 +173,7 @@ public class ThemeVerificationTests
         {
             await burgerBtn.ClickAsync();
             await page.WaitForTimeoutAsync(400);
-            await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "07-mobile-drawer-light.png") });
+            _ = await page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(_screenshotDir, "07-mobile-drawer-light.png") });
         }
 
         Assert.True(File.Exists(Path.Combine(_screenshotDir, "01-dashboard-light.png")));

@@ -29,7 +29,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             prompt,
             modelId,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -47,7 +47,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
 
         Assert.NotEmpty(models);
         Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
-        Assert.Single(models);
+        _ = Assert.Single(models);
         Assert.Null(models[0].ContextWindow);
     }
 
@@ -76,7 +76,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
 
         var args = provider.BuildArguments(context);
 
-        Assert.Contains($"-p \"Fix bug in parser\"", args);
+        Assert.Contains("-p \"Fix bug in parser\"", args);
         Assert.Contains($"--session-id \"{context.ConversationId}\"", args);
         Assert.DoesNotContain("--resume", args);
     }
@@ -164,7 +164,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
 
         Assert.NotEmpty(models);
         Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
-        Assert.Single(models);
+        _ = Assert.Single(models);
         Assert.Null(models[0].ContextWindow);
     }
 
@@ -203,7 +203,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
     [Fact]
     public void CodexCliProvider_ParseModelsJson_ParsesModelsCorrectly()
     {
-        var sampleJson = """
+        var sampleJson = /*lang=json,strict*/ """
         {
           "models": [
             {
@@ -287,7 +287,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             "hello",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 streamedTokens.Add(token);
@@ -316,7 +316,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
         _ = buffer.Append("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Hello! How can I help?\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":100,\"output_tokens\":10}}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
-        Assert.Single(streamedTokens);
+        _ = Assert.Single(streamedTokens);
         Assert.Equal("Hello! How can I help?", streamedTokens[0]);
     }
 
@@ -332,7 +332,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             "hello",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 streamedTokens.Add(token);
@@ -345,10 +345,10 @@ public sealed class ClaudeCodeAndCodexProviderTests
         var buffer = new StringBuilder();
         var isFirstMessage = true;
 
-        _ = buffer.Append("{\"type\":\"error\",\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"Model not supported.\\\"}}\"}\n");
+        _ = buffer.Append(/*lang=json,strict*/ "{\"type\":\"error\",\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"Model not supported.\\\"}}\"}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
-        Assert.Single(streamedTokens);
+        _ = Assert.Single(streamedTokens);
         Assert.Contains("Model not supported.", streamedTokens[0]);
     }
 
@@ -364,7 +364,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             "hello",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 streamedTokens.Add(token);
@@ -378,15 +378,15 @@ public sealed class ClaudeCodeAndCodexProviderTests
         var isFirstMessage = true;
 
         // Command started
-        _ = buffer.Append("{\"type\":\"item.started\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\"}}\n");
+        _ = buffer.Append(/*lang=json,strict*/ "{\"type\":\"item.started\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\"}}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
-        Assert.Single(streamedTokens);
+        _ = Assert.Single(streamedTokens);
         Assert.Contains("Running command:", streamedTokens[0]);
         Assert.Contains("dotnet build", streamedTokens[0]);
 
         // Command completed
-        _ = buffer.Append("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\",\"aggregated_output\":\"Build succeeded.\"}}\n");
+        _ = buffer.Append(/*lang=json,strict*/ "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\",\"aggregated_output\":\"Build succeeded.\"}}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
         Assert.Equal(2, streamedTokens.Count);

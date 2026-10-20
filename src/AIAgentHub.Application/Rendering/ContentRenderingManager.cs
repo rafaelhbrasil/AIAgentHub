@@ -16,7 +16,7 @@ public sealed class TextContentRenderer : IContentRenderer
         ".sln", ".csproj", ".props", ".targets", ".rs", ".go", ".py", ".java", ".cpp", ".c", ".h"
     };
 
-    public bool CanRender(string fileExtension, string? mimeType) => SupportedExts.Contains(fileExtension) || (mimeType?.StartsWith("text/") ?? false);
+    public bool CanRender(string fileExtension, string? mimeType) => SupportedExts.Contains(fileExtension) || (mimeType?.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ?? false);
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
     {
@@ -63,7 +63,7 @@ public sealed class ImageContentRenderer : IContentRenderer
         { ".bmp", "image/bmp" }
     };
 
-    public bool CanRender(string fileExtension, string? mimeType) => MimeMap.ContainsKey(fileExtension) || (mimeType?.StartsWith("image/") ?? false);
+    public bool CanRender(string fileExtension, string? mimeType) => MimeMap.ContainsKey(fileExtension) || (mimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false);
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
     {
@@ -120,7 +120,7 @@ public sealed class XmlContentRenderer : IContentRenderer
         return string.Equals(fileExtension, ".xml", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(fileExtension, ".config", StringComparison.OrdinalIgnoreCase) ||
                (!string.Equals(fileExtension, ".svg", StringComparison.OrdinalIgnoreCase) &&
-               (mimeType?.Contains("xml") ?? false));
+               (mimeType?.Contains("xml", StringComparison.OrdinalIgnoreCase) ?? false));
     }
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
@@ -228,9 +228,9 @@ public sealed class DelimitedContentRenderer : IContentRenderer
         var isTsv = Path.GetExtension(filePath).Equals(".tsv", StringComparison.OrdinalIgnoreCase);
         var delimiter = isTsv ? '\t' : ',';
 
-        var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        var lines = text.Split(["\r\n", "\r", "\n"], StringSplitOptions.RemoveEmptyEntries);
         var sb = new StringBuilder();
-        sb.Append("<div class=\"table-preview-container\"><table class=\"data-table\">");
+        _ = sb.Append("<div class=\"table-preview-container\"><table class=\"data-table\">");
 
         for (var i = 0; i < lines.Length && i < 200; i++)
         {
@@ -239,21 +239,21 @@ public sealed class DelimitedContentRenderer : IContentRenderer
             var isHeader = i == 0;
             var tag = isHeader ? "th" : "td";
 
-            sb.Append("<tr>");
+            _ = sb.Append("<tr>");
             foreach (var cell in cells)
             {
                 var cleanCell = System.Net.WebUtility.HtmlEncode(cell.Trim().Trim('"'));
-                sb.Append($"<{tag}>{cleanCell}</{tag}>");
+                _ = sb.Append($"<{tag}>{cleanCell}</{tag}>");
             }
-            sb.Append("</tr>");
+            _ = sb.Append("</tr>");
         }
 
-        sb.Append("</table>");
+        _ = sb.Append("</table>");
         if (lines.Length > 200)
         {
-            sb.Append($"<p class=\"preview-truncated-notice\">Showing first 200 rows of {lines.Length:N0} total rows.</p>");
+            _ = sb.Append($"<p class=\"preview-truncated-notice\">Showing first 200 rows of {lines.Length:N0} total rows.</p>");
         }
-        sb.Append("</div>");
+        _ = sb.Append("</div>");
 
         return Task.FromResult(new RenderedContentResult(filePath, Name, isTsv ? "text/tab-separated-values" : "text/csv", sb.ToString(), text, false, content.Length));
     }

@@ -232,6 +232,6 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
     {
         return string.IsNullOrWhiteSpace(cleanChunk) ||
                cleanChunk.TrimStart().StartsWith('>') ||
-               cleanChunk.Contains("build ·");
+               cleanChunk.Contains("build ·", StringComparison.Ordinal);
     }
 }

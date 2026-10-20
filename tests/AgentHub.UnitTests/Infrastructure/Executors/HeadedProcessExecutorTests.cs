@@ -42,7 +42,7 @@ public sealed class HeadedProcessExecutorTests
                 "test prompt",
                 null,
                 null,
-                Array.Empty<string>(),
+                [],
                 token =>
                 {
                     _ = outputBuilder.Append(token);
@@ -87,7 +87,7 @@ public sealed class HeadedProcessExecutorTests
             "test prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token => Task.CompletedTask,
             (type, target) => Task.FromResult(true),
             cts.Token
@@ -116,7 +116,7 @@ public sealed class HeadedProcessExecutorTests
             "build help prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);

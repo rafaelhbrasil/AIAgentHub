@@ -46,7 +46,7 @@ public sealed class HeadlessProcessExecutorTests
             "list sdks prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);
@@ -126,7 +126,7 @@ public sealed class HeadlessProcessExecutorTests
             "stderr test",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);

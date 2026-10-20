@@ -27,7 +27,7 @@ public sealed class OpenCodeProviderTests
             prompt,
             modelId,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,

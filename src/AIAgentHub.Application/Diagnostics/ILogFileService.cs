@@ -15,7 +15,7 @@ public sealed record LogTailDto(
 
 public interface ILogFileService
 {
-    Task<IReadOnlyList<LogFileSummaryDto>> GetLogFilesAsync(CancellationToken cancellationToken = default);
-    Task<LogTailDto?> GetLogTailAsync(string fileName, int lines = 200, CancellationToken cancellationToken = default);
-    Task<(Stream Stream, string ContentType, string DownloadFileName)?> GetLogDownloadAsync(string fileName, CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<LogFileSummaryDto>> GetLogFilesAsync(CancellationToken cancellationToken = default);
+    public Task<LogTailDto?> GetLogTailAsync(string fileName, int lines = 200, CancellationToken cancellationToken = default);
+    public Task<(Stream Stream, string ContentType, string DownloadFileName)?> GetLogDownloadAsync(string fileName, CancellationToken cancellationToken = default);
 }
