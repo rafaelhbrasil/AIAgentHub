@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { GitWorkbench } from '../src/components/workspaces/studio/git/GitWorkbench';
+import { GitWorkbench, CreateBranchModal } from '../src/components/workspaces/studio/git/GitWorkbench';
 import { GitStatusDto, GitBranchDto, GitCommitDto } from '../src/types/git';
 import { ToastProvider } from '../src/context/ToastContext';
 import { ModalProvider } from '../src/context/ModalContext';
@@ -126,5 +126,18 @@ describe('GitWorkbench Full Component', () => {
     expect(html).toContain('src/index.ts');
     expect(html).toContain('id="workbenchCommitMessageInput"');
     expect(html).toContain('id="workbenchCommitSubmitBtn"');
+  });
+
+  it('renders CreateBranchModal with input and action buttons', () => {
+    const onSubmit = vi.fn();
+    const onCancel = vi.fn();
+    const html = renderToString(
+      <CreateBranchModal onSubmit={onSubmit} onCancel={onCancel} />
+    );
+
+    expect(html).toContain('id="workbenchBranchNameInput"');
+    expect(html).toContain('Branch Name');
+    expect(html).toContain('Cancel');
+    expect(html).toContain('Create &amp; Checkout');
   });
 });

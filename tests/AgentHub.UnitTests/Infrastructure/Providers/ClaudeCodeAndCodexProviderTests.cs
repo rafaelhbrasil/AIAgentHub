@@ -16,6 +16,23 @@ public sealed class ClaudeCodeAndCodexProviderTests
     private readonly IPromptLogger _promptLogger = Substitute.For<IPromptLogger>();
     private readonly IProcessExecutor _executor = Substitute.For<IProcessExecutor>();
 
+    private static async Task<(bool Success, string? ErrorMessage)> InvokeRunTestCommandAsync(ClaudeCodeProvider provider, string exePath)
+    {
+        var method = typeof(ClaudeCodeProvider).GetMethod(
+            "RunTestCommandAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(method);
+        var task = (Task)method.Invoke(provider, [exePath, CancellationToken.None])!;
+        await task;
+        var resultProp = task.GetType().GetProperty("Result");
+        var result = resultProp?.GetValue(task);
+        var successProp = result?.GetType().GetProperty("IsSuccess");
+        var errorProp = result?.GetType().GetProperty("Error");
+        var success = (bool)(successProp?.GetValue(result) ?? false);
+        var error = (string?)errorProp?.GetValue(result);
+        return (success, error);
+    }
+
     private ProviderExecutionContext CreateContext(
         string? modelId,
         string prompt = "Implement feature X",
@@ -445,6 +462,89 @@ public sealed class ClaudeCodeAndCodexProviderTests
         var lastIndex = args.LastIndexOf(CliProviderBase.DetachedExecutionInstruction, StringComparison.Ordinal);
         Assert.NotEqual(-1, firstIndex);
         Assert.Equal(firstIndex, lastIndex);
+    }
+
+    [Theory]
+    [InlineData("logged in as user@example.com", 0, true)]
+    [InlineData("authenticated with Claude Code", 0, true)]
+    [InlineData("not logged in. Please run claude login", 1, false)]
+    [InlineData("error: unauthenticated", 1, false)]
+    public async Task ClaudeCodeProvider_TestAsync_ReturnsExpectedResult(string output, int exitCode, bool expectedSuccess)
+    {
+        var originalKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
+
+            var executor = Substitute.For<IProcessExecutor>();
+            executor.RunCommandAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<string?>()
+            ).Returns(Task.FromResult(new ProcessCommandResult(exitCode, output, "")));
+
+            var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+            var result = await InvokeRunTestCommandAsync(provider, "claude");
+
+            Assert.Equal(expectedSuccess, result.Success);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", originalKey);
+        }
+    }
+
+    [Fact]
+    public async Task ClaudeCodeProvider_TestAsync_WhenApiKeySet_ReturnsSuccessWithoutRunningCli()
+    {
+        var originalKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-test-key-123");
+
+            var executor = Substitute.For<IProcessExecutor>();
+            var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+            var result = await InvokeRunTestCommandAsync(provider, "claude");
+
+            Assert.True(result.Success);
+            Assert.Null(result.ErrorMessage);
+            _ = executor.DidNotReceiveWithAnyArgs().RunCommandAsync(default!, default!, default!, default!, default!);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", originalKey);
+        }
+    }
+
+    [Fact]
+    public async Task ClaudeCodeProvider_TestAsync_WhenThrows_ReturnsFailure()
+    {
+        var originalKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
+
+            var executor = Substitute.For<IProcessExecutor>();
+            executor.RunCommandAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<string?>()
+            ).Returns<Task<ProcessCommandResult>>(_ => throw new InvalidOperationException("Executable missing"));
+
+            var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+            var result = await InvokeRunTestCommandAsync(provider, "claude");
+
+            Assert.False(result.Success);
+            Assert.Contains("Executable missing", result.ErrorMessage);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", originalKey);
+        }
     }
 }
 

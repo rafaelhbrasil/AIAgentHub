@@ -43,18 +43,29 @@ public sealed class ClaudeCodeProvider(
 
             var result = await RunCommandAsync(exePath, "auth status", null, timeoutCts.Token, "Claude Code — Auth Status Check");
             var combined = $"{result.Output} {result.Error}";
-            return combined.Contains("logged in", StringComparison.OrdinalIgnoreCase) ||
+
+            var isUnauthenticated = result.ExitCode != 0 ||
+                   combined.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("login required", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("error", StringComparison.OrdinalIgnoreCase);
+
+            if (isUnauthenticated)
+            {
+                return new TestCommandResult(false, "Claude Code is not authenticated. Please run 'claude login' in terminal or set ANTHROPIC_API_KEY.");
+            }
+
+            var isAuthenticated = combined.Contains("logged in", StringComparison.OrdinalIgnoreCase) ||
                    combined.Contains("loggedin", StringComparison.OrdinalIgnoreCase) ||
                    combined.Contains("authenticated", StringComparison.OrdinalIgnoreCase) ||
-                   combined.Contains("active session", StringComparison.OrdinalIgnoreCase)
-                ? new TestCommandResult(true, null)
-                : result.ExitCode != 0 ||
-                  combined.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
-                  combined.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) ||
-                  combined.Contains("login required", StringComparison.OrdinalIgnoreCase) ||
-                  combined.Contains("error", StringComparison.OrdinalIgnoreCase)
-                ? new TestCommandResult(false, "Claude Code is not authenticated. Please run 'claude login' in terminal or set ANTHROPIC_API_KEY.")
-                : new TestCommandResult(true, null);
+                   combined.Contains("active session", StringComparison.OrdinalIgnoreCase);
+
+            if (isAuthenticated)
+            {
+                return new TestCommandResult(true, null);
+            }
+
+            return new TestCommandResult(true, null);
         }
         catch (Exception ex)
         {

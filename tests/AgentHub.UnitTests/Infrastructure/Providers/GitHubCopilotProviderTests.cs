@@ -14,6 +14,23 @@ public sealed class GitHubCopilotProviderTests
     private readonly IPromptLogger _promptLogger = Substitute.For<IPromptLogger>();
     private readonly IProcessExecutor _executor = Substitute.For<IProcessExecutor>();
 
+    private static async Task<(bool Success, string? ErrorMessage)> InvokeRunTestCommandAsync(GitHubCopilotProvider provider, string exePath)
+    {
+        var method = typeof(GitHubCopilotProvider).GetMethod(
+            "RunTestCommandAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(method);
+        var task = (Task)method.Invoke(provider, [exePath, CancellationToken.None])!;
+        await task;
+        var resultProp = task.GetType().GetProperty("Result");
+        var result = resultProp?.GetValue(task);
+        var successProp = result?.GetType().GetProperty("IsSuccess");
+        var errorProp = result?.GetType().GetProperty("Error");
+        var success = (bool)(successProp?.GetValue(result) ?? false);
+        var error = (string?)errorProp?.GetValue(result);
+        return (success, error);
+    }
+
     private ProviderExecutionContext CreateContext(
         string? modelId,
         string prompt = "Implement feature X",
@@ -264,5 +281,66 @@ public sealed class GitHubCopilotProviderTests
         Assert.Contains("start", words, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("customtrigger", words);
         Assert.Equal(3, words.Count); // "start" and "START" deduplicated
+    }
+
+    [Fact]
+    public async Task TestAsync_WhenCopilotAuthenticated_ReturnsSuccess()
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns(Task.FromResult(new ProcessCommandResult(0, "pong", "")));
+
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, executor);
+        var result = await InvokeRunTestCommandAsync(provider, "copilot");
+
+        Assert.True(result.Success);
+        Assert.Null(result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("no authentication information found")]
+    [InlineData("not logged in")]
+    [InlineData("unauthenticated")]
+    [InlineData("auth login required")]
+    public async Task TestAsync_WhenCopilotNotAuthenticated_ReturnsFailure(string errorOutput)
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns(Task.FromResult(new ProcessCommandResult(1, "", errorOutput)));
+
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, executor);
+        var result = await InvokeRunTestCommandAsync(provider, "copilot");
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task TestAsync_WhenCopilotThrows_ReturnsFailureWithExceptionMessage()
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns<Task<ProcessCommandResult>>(_ => throw new InvalidOperationException("Process crashed"));
+
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, executor);
+        var result = await InvokeRunTestCommandAsync(provider, "copilot");
+
+        Assert.False(result.Success);
+        Assert.Contains("Process crashed", result.ErrorMessage);
     }
 }

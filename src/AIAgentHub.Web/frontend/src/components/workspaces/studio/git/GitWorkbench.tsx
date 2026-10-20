@@ -352,22 +352,17 @@ export const GitWorkbench: React.FC<GitWorkbenchProps> = ({
       </div>
 
       {/* Pane Splitter / Resizer */}
-      <div
+      <button
+        type="button"
         className="git-workbench-splitter"
-        role="separator"
-        tabIndex={0}
-        aria-orientation="horizontal"
-        aria-valuenow={Math.round(splitRatio * 100)}
-        aria-valuemin={20}
-        aria-valuemax={80}
         aria-label="Resize panels"
         onKeyDown={(e) => {
           if (e.key === 'ArrowUp') {
             e.preventDefault();
-            setSplitRatio((prev) => Math.max(0.2, prev - 0.05));
+            setSplitRatio((prev) => Math.max(20, prev - 5));
           } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setSplitRatio((prev) => Math.min(0.8, prev + 0.05));
+            setSplitRatio((prev) => Math.min(80, prev + 5));
           }
         }}
         style={{
@@ -377,6 +372,10 @@ export const GitWorkbench: React.FC<GitWorkbenchProps> = ({
           position: 'relative',
           zIndex: 3,
           transition: 'background 0.2s',
+          padding: 0,
+          border: 'none',
+          width: '100%',
+          display: 'block'
         }}
         title="Drag or use arrow keys to resize panes"
         onMouseDown={(e) => {
@@ -442,7 +441,7 @@ export const GitWorkbench: React.FC<GitWorkbenchProps> = ({
 };
 
 // Simple Modal for Branch creation
-const CreateBranchModal: React.FC<{ onSubmit: (name: string) => void; onCancel: () => void }> = ({
+export const CreateBranchModal: React.FC<{ onSubmit: (name: string) => void; onCancel: () => void }> = ({
   onSubmit,
   onCancel,
 }) => {

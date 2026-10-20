@@ -269,17 +269,24 @@ public class HeadedProcessExecutor(IOptions<CliExecutionOptions> options) : Proc
     private static string BuildAutoCloseScript(int autoCloseDelay, bool isWindows, bool isSession)
     {
         var banner = isSession ? "Session Finished" : "Command Finished";
-        return isWindows
-            ? autoCloseDelay >= 0
-                ? (autoCloseDelay > 0
-                    ? $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green; Write-Host 'Window will close in {autoCloseDelay}s...' -ForegroundColor DarkGray; Start-Sleep -Seconds {autoCloseDelay}; [System.Environment]::Exit($exitCode)\r\n"
-                    : $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green; [System.Environment]::Exit($exitCode)\r\n")
-                : $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green\r\n"
-            : autoCloseDelay >= 0
-            ? (autoCloseDelay > 0
-                ? $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\necho \"Window will close in {autoCloseDelay}s...\"\nsleep {autoCloseDelay}\nexit $EXIT_CODE\n"
-                : $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\nexit $EXIT_CODE\n")
-            : $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\nexit $EXIT_CODE\n";
+        if (isWindows)
+        {
+            if (autoCloseDelay > 0)
+            {
+                return $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green; Write-Host 'Window will close in {autoCloseDelay}s...' -ForegroundColor DarkGray; Start-Sleep -Seconds {autoCloseDelay}; [System.Environment]::Exit($exitCode)\r\n";
+            }
+            if (autoCloseDelay == 0)
+            {
+                return $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green; [System.Environment]::Exit($exitCode)\r\n";
+            }
+            return $"\r\nWrite-Host \"`n=== [AI Agent Hub] {banner} ===\" -ForegroundColor Green\r\n";
+        }
+
+        if (autoCloseDelay > 0)
+        {
+            return $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\necho \"Window will close in {autoCloseDelay}s...\"\nsleep {autoCloseDelay}\nexit $EXIT_CODE\n";
+        }
+        return $"\necho -e \"\\n=== [AI Agent Hub] {banner} ===\"\nexit $EXIT_CODE\n";
     }
 
     private static string BuildWindowsRunnerScript(string exePath, string arguments, string logFilePath, string autoCloseScript)

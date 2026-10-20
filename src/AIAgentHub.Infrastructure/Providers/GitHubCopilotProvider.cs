@@ -35,15 +35,26 @@ public sealed class GitHubCopilotProvider(
             var result = await RunCommandAsync(exePath, "-p \"ping\" --allow-all-tools", null, timeoutCts.Token, "GitHub Copilot — Auth Check");
             var combined = $"{result.Output} {result.Error}".Trim();
 
-            return combined.Contains("no authentication information found", StringComparison.OrdinalIgnoreCase) ||
+            var isUnauthenticated = combined.Contains("no authentication information found", StringComparison.OrdinalIgnoreCase) ||
                    combined.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
                    combined.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) ||
                    combined.Contains("auth login", StringComparison.OrdinalIgnoreCase) ||
-                   combined.Contains("login required", StringComparison.OrdinalIgnoreCase)
-                ? new TestCommandResult(false, string.IsNullOrWhiteSpace(combined) ? "GitHub Copilot is not authenticated. Please run 'copilot login'." : combined)
-                : result.ExitCode != 0 && (combined.Contains("error", StringComparison.OrdinalIgnoreCase) || combined.Contains("unauthorized", StringComparison.OrdinalIgnoreCase))
-                ? new TestCommandResult(false, combined)
-                : new TestCommandResult(true, null);
+                   combined.Contains("login required", StringComparison.OrdinalIgnoreCase);
+
+            if (isUnauthenticated)
+            {
+                var failureMsg = string.IsNullOrWhiteSpace(combined)
+                    ? "GitHub Copilot is not authenticated. Please run 'copilot login'."
+                    : combined;
+                return new TestCommandResult(false, failureMsg);
+            }
+
+            if (result.ExitCode != 0 && (combined.Contains("error", StringComparison.OrdinalIgnoreCase) || combined.Contains("unauthorized", StringComparison.OrdinalIgnoreCase)))
+            {
+                return new TestCommandResult(false, combined);
+            }
+
+            return new TestCommandResult(true, null);
         }
         catch (Exception ex)
         {

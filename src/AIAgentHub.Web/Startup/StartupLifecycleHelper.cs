@@ -139,7 +139,7 @@ public static class StartupLifecycleHelper
         }
 
         var configValue = configuration.GetValue<bool?>("AgentHub:OpenBrowserAtStartup");
-        return configValue.HasValue ? configValue.Value : true;
+        return configValue ?? true;
     }
 
     public static void LaunchBrowser(string url)

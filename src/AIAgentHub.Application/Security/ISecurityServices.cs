@@ -50,7 +50,7 @@ public sealed class RecoveryOptions
         return false;
     }
 
-    public bool IsSafeClientOrLoopback(System.Net.IPAddress? remoteIp) => remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp) ? true : IsSafeClient(remoteIp);
+    public bool IsSafeClientOrLoopback(System.Net.IPAddress? remoteIp) => remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp) || IsSafeClient(remoteIp);
 }
 
 public interface IDatabaseResetter
