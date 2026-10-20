@@ -7,6 +7,8 @@ const frontendDir = path.join(webProjectDir, 'frontend');
 const frontendLcov = path.join(frontendDir, 'coverage', 'lcov.info');
 const rootCoverageDir = path.join(rootDir, 'coverage');
 const rootLcov = path.join(rootCoverageDir, 'lcov.info');
+const webCoverageDir = path.join(webProjectDir, 'coverage');
+const webLcov = path.join(webCoverageDir, 'lcov.info');
 
 function normalizeLcov(filePath) {
   if (!fs.existsSync(filePath)) return '';
@@ -40,7 +42,13 @@ if (fs.existsSync(frontendLcov)) {
   }
 
   fs.writeFileSync(rootLcov, normalizedContent);
-  console.log('[normalize-lcov] Normalized frontend LCOV with AIAgentHub.Web-relative paths (frontend/src/...) to both locations.');
+
+  if (!fs.existsSync(webCoverageDir)) {
+    fs.mkdirSync(webCoverageDir, { recursive: true });
+  }
+
+  fs.writeFileSync(webLcov, normalizedContent);
+  console.log('[normalize-lcov] Normalized frontend LCOV with AIAgentHub.Web-relative paths (frontend/src/...) to all locations.');
 } else if (fs.existsSync(rootLcov)) {
   normalizeLcov(rootLcov);
   console.log('[normalize-lcov] Normalized root coverage/lcov.info');
