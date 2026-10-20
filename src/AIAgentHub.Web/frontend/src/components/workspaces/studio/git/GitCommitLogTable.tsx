@@ -47,7 +47,7 @@ export const GitCommitLogTable: React.FC<GitCommitLogTableProps> = ({
         c.message.toLowerCase().includes(q) ||
         c.author.toLowerCase().includes(q) ||
         c.shortHash.toLowerCase().includes(q) ||
-        (c.refs && c.refs.toLowerCase().includes(q))
+        c.refs?.toLowerCase().includes(q)
     );
   }, [commits, filterQuery]);
 
@@ -86,7 +86,7 @@ export const GitCommitLogTable: React.FC<GitCommitLogTableProps> = ({
     const parts = refs.split(',').map((p) => p.trim()).filter(Boolean);
     return (
       <span className="git-ref-badges" style={{ display: 'inline-flex', gap: '4px', marginRight: '6px' }}>
-        {parts.map((ref, idx) => {
+        {parts.map((ref) => {
           let badgeStyle = {
             background: 'rgba(34, 197, 94, 0.15)',
             border: '1px solid rgba(34, 197, 94, 0.4)',
@@ -115,7 +115,7 @@ export const GitCommitLogTable: React.FC<GitCommitLogTableProps> = ({
 
           return (
             <span
-              key={idx}
+              key={ref}
               className="badge"
               style={{
                 fontSize: '0.7rem',

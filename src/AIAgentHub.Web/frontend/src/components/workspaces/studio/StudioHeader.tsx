@@ -141,7 +141,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
         </div>
 
         {onSwitchStudioMode && (
-          <div className="segmented-switch desktop-only" style={{ display: 'inline-flex', marginLeft: '12px' }} role="group" aria-label="Studio View Mode">
+          <fieldset className="segmented-switch desktop-only" style={{ display: 'inline-flex', marginLeft: '12px', border: 'none', padding: 0, margin: 0 }} aria-label="Studio View Mode">
             <button
               type="button"
               className={`btn compact-btn ${studioMode === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
@@ -174,7 +174,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
               <GitBranchIcon size={12} style={{ color: studioMode === 'git' ? '#fff' : '#4ade80' }} />
               <span>Git Workbench</span>
             </button>
-          </div>
+          </fieldset>
         )}
       </div>
 

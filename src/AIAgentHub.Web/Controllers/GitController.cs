@@ -257,6 +257,13 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         return details == null ? NotFound(new { code = "commit_not_found", message = "Commit not found or invalid." }) : Ok(details);
     }
 
+    private static string DetermineChangeType(string? originalContent, string? modifiedContent)
+    {
+        if (originalContent == null) return "Created";
+        if (modifiedContent == null) return "Deleted";
+        return "Modified";
+    }
+
     [HttpGet("commit-diff")]
     public async Task<IActionResult> GetCommitDiff([FromQuery] Guid workspaceId, [FromQuery] string hash, [FromQuery] string filePath, CancellationToken cancellationToken = default)
     {
@@ -277,13 +284,15 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
             return NotFound(new { code = "diff_not_found", message = "Diff not found for specified commit and file." });
         }
 
+        var changeType = DetermineChangeType(diff.OriginalContent, diff.ModifiedContent);
+
         if (diff.IsBinary)
         {
             return Ok(new
             {
                 id = $"{hash}:{filePath}",
                 relativePath = diff.Path,
-                changeType = diff.OriginalContent == null ? "Created" : (diff.ModifiedContent == null ? "Deleted" : "Modified"),
+                changeType,
                 isBinary = true,
                 oldContent = (string?)null,
                 newContent = (string?)null,
@@ -299,7 +308,7 @@ public sealed class GitController(IGitService gitService, IWorkspaceService work
         {
             id = $"{hash}:{filePath}",
             relativePath = diff.Path,
-            changeType = diff.OriginalContent == null ? "Created" : (diff.ModifiedContent == null ? "Deleted" : "Modified"),
+            changeType,
             isBinary = false,
             oldContent = diff.OriginalContent,
             newContent = diff.ModifiedContent,

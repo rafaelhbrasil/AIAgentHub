@@ -42,12 +42,13 @@ export const GitCommitGraphCell: React.FC<GitCommitGraphCellProps> = ({
       })}
 
       {/* 2. Up links (connections entering node from above) */}
-      {row.upLinks.map((link, idx) => {
+      {row.upLinks.map((link) => {
         const fromX = (link.fromLane + 0.5) * laneWidth + 6;
+        const linkKey = `up-${link.fromLane}-${link.toLane}-${link.color}`;
         if (fromX === nodeX) {
           return (
             <line
-              key={`up-${idx}`}
+              key={linkKey}
               x1={nodeX}
               y1={0}
               x2={nodeX}
@@ -59,7 +60,7 @@ export const GitCommitGraphCell: React.FC<GitCommitGraphCellProps> = ({
         }
         return (
           <path
-            key={`up-${idx}`}
+            key={linkKey}
             d={`M ${fromX} 0 C ${fromX} ${midY * 0.5}, ${nodeX} ${midY * 0.5}, ${nodeX} ${midY}`}
             fill="none"
             stroke={link.color}
@@ -69,12 +70,13 @@ export const GitCommitGraphCell: React.FC<GitCommitGraphCellProps> = ({
       })}
 
       {/* 3. Down links (connections leaving node towards parents) */}
-      {row.downLinks.map((link, idx) => {
+      {row.downLinks.map((link) => {
         const toX = (link.toLane + 0.5) * laneWidth + 6;
+        const linkKey = `down-${link.fromLane}-${link.toLane}-${link.color}`;
         if (nodeX === toX) {
           return (
             <line
-              key={`down-${idx}`}
+              key={linkKey}
               x1={nodeX}
               y1={midY}
               x2={nodeX}
@@ -86,7 +88,7 @@ export const GitCommitGraphCell: React.FC<GitCommitGraphCellProps> = ({
         }
         return (
           <path
-            key={`down-${idx}`}
+            key={linkKey}
             d={`M ${nodeX} ${midY} C ${nodeX} ${midY + (rowHeight - midY) * 0.5}, ${toX} ${midY + (rowHeight - midY) * 0.5}, ${toX} ${rowHeight}`}
             fill="none"
             stroke={link.color}

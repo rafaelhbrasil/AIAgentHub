@@ -27,6 +27,16 @@ function findLookaheadMatch(origLine: string, newLines: string[], start: number,
   return -1;
 }
 
+function pushAddedLines(result: DiffLine[], newLines: string[], fromIdx: number, toIdx: number): void {
+  for (let i = fromIdx; i < toIdx; i++) {
+    result.push({
+      type: 'added',
+      text: newLines[i],
+      newLineNum: i + 1,
+    });
+  }
+}
+
 export function computeSimpleDiff(origText: string, newText: string): DiffLine[] {
   const origLines = origText.split(/\r?\n/);
   const newLines = newText.split(/\r?\n/);
@@ -50,14 +60,8 @@ export function computeSimpleDiff(origText: string, newText: string): DiffLine[]
 
     const matchInNew = oIdx < origLines.length ? findLookaheadMatch(origLines[oIdx], newLines, nIdx + 1) : -1;
     if (matchInNew !== -1) {
-      while (nIdx < matchInNew) {
-        result.push({
-          type: 'added',
-          text: newLines[nIdx],
-          newLineNum: nIdx + 1,
-        });
-        nIdx++;
-      }
+      pushAddedLines(result, newLines, nIdx, matchInNew);
+      nIdx = matchInNew;
       continue;
     }
 

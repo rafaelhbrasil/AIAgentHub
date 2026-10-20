@@ -10,11 +10,19 @@ interface CloneWorkspaceModalProps {
   onCancel: () => void;
 }
 
+function trimTrailingSlashes(str: string): string {
+  let end = str.length;
+  while (end > 0 && (str[end - 1] === '/' || str[end - 1] === '\\')) {
+    end--;
+  }
+  return str.slice(0, end);
+}
+
 export const extractRepoName = (url: string): string => {
-  const trimmed = url.trim().replace(/[/\\]+$/, '');
+  const trimmed = trimTrailingSlashes(url.trim());
   if (!trimmed) return '';
   const withoutGit = trimmed.toLowerCase().endsWith('.git') ? trimmed.slice(0, -4) : trimmed;
-  const clean = withoutGit.replace(/[/\\]+$/, '');
+  const clean = trimTrailingSlashes(withoutGit);
   const lastDelim = Math.max(clean.lastIndexOf('/'), clean.lastIndexOf('\\'), clean.lastIndexOf(':'));
   return lastDelim >= 0 ? clean.slice(lastDelim + 1) : clean;
 };

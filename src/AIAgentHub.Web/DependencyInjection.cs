@@ -167,37 +167,7 @@ public static class DependencyInjection
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.ExpireTimeSpan = TimeSpan.FromDays(30);
                 options.SlidingExpiration = true;
-                options.Events.OnRedirectToLogin = context =>
-                {
-                    var path = context.Request.Path;
-                    var accept = context.Request.Headers.Accept.ToString();
-
-                    var isApiOrHub = path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs");
-                    var isHtmlPage = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
-
-                    if (isApiOrHub || !isHtmlPage)
-                    {
-                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    }
-                    else
-                    {
-                        var originalPath = path.Value ?? string.Empty;
-                        var queryString = context.Request.QueryString.Value ?? string.Empty;
-                        var fullTarget = originalPath + queryString;
-
-                        if (string.IsNullOrEmpty(fullTarget) || fullTarget == "/" || fullTarget.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
-                        {
-                            context.Response.Redirect("/login");
-                        }
-                        else
-                        {
-                            var returnUrl = Uri.EscapeDataString(fullTarget);
-                            context.Response.Redirect($"/login?returnUrl={returnUrl}");
-                        }
-                    }
-
-                    return Task.CompletedTask;
-                };
+                options.Events.OnRedirectToLogin = HandleRedirectToLogin;
             });
 
         _ = services.AddAuthorization(options =>
@@ -208,5 +178,36 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    private static Task HandleRedirectToLogin(Microsoft.AspNetCore.Authentication.RedirectContext<CookieAuthenticationOptions> context)
+    {
+        var path = context.Request.Path;
+        var accept = context.Request.Headers.Accept.ToString();
+
+        var isApiOrHub = path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs");
+        var isHtmlPage = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
+
+        if (isApiOrHub || !isHtmlPage)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
+
+        var originalPath = path.Value ?? string.Empty;
+        var queryString = context.Request.QueryString.Value ?? string.Empty;
+        var fullTarget = originalPath + queryString;
+
+        if (string.IsNullOrEmpty(fullTarget) || fullTarget == "/" || fullTarget.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.Redirect("/login");
+        }
+        else
+        {
+            var returnUrl = Uri.EscapeDataString(fullTarget);
+            context.Response.Redirect($"/login?returnUrl={returnUrl}");
+        }
+
+        return Task.CompletedTask;
     }
 }

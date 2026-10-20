@@ -32,22 +32,102 @@ export interface GraphRow {
  * Computes lane allocations and connecting paths for an ordered sequence of Git commits.
  * Supports an optional Working Tree row at index 0.
  */
+interface LaneState {
+  hash: string;
+  color: string;
+}
+
+function getColor(laneIndex: number): string {
+  return GRAPH_COLORS[laneIndex % GRAPH_COLORS.length];
+}
+
+function resolveCommitLane(commitHash: string, activeLanes: LaneState[]): { lane: number; color: string } {
+  const existingLane = activeLanes.findIndex((l) => l.hash === commitHash);
+  if (existingLane !== -1) {
+    return { lane: existingLane, color: activeLanes[existingLane].color };
+  }
+  let emptyLane = activeLanes.findIndex((l) => !l.hash);
+  if (emptyLane === -1) {
+    emptyLane = activeLanes.length;
+  }
+  return { lane: emptyLane, color: getColor(emptyLane) };
+}
+
+function computeUpLinks(prevRow: GraphRow | undefined, targetLane: number, color: string): GraphLink[] {
+  if (!prevRow) return [];
+  if (prevRow.isWorkingTree) {
+    return [{ fromLane: 0, toLane: targetLane, color }];
+  }
+  const matchingDown = prevRow.downLinks.find((d) => d.toLane === targetLane);
+  return matchingDown ? [{ fromLane: matchingDown.fromLane, toLane: targetLane, color: matchingDown.color }] : [];
+}
+
+function allocateMergeParent(
+  parentHash: string,
+  nextActiveLanes: LaneState[]
+): { lane: number; color: string } {
+  const existingLane = nextActiveLanes.findIndex((l) => l.hash === parentHash);
+  if (existingLane !== -1) {
+    return { lane: existingLane, color: nextActiveLanes[existingLane].color };
+  }
+  let emptyLane = nextActiveLanes.findIndex((l) => !l.hash);
+  if (emptyLane === -1) {
+    emptyLane = nextActiveLanes.length;
+  }
+  const color = getColor(emptyLane);
+  nextActiveLanes[emptyLane] = { hash: parentHash, color };
+  return { lane: emptyLane, color };
+}
+
+function computeDownLinks(
+  parents: string[],
+  currentLane: number,
+  currentColor: string,
+  nextActiveLanes: LaneState[]
+): { downLinks: GraphLink[]; localMaxLane: number } {
+  const downLinks: GraphLink[] = [];
+  let localMaxLane = currentLane;
+
+  if (parents.length > 0) {
+    nextActiveLanes[currentLane] = { hash: parents[0], color: currentColor };
+    downLinks.push({ fromLane: currentLane, toLane: currentLane, color: currentColor });
+
+    for (let p = 1; p < parents.length; p++) {
+      const { lane: parentLane, color: parentColor } = allocateMergeParent(parents[p], nextActiveLanes);
+      if (parentLane > localMaxLane) {
+        localMaxLane = parentLane;
+      }
+      downLinks.push({ fromLane: currentLane, toLane: parentLane, color: parentColor });
+    }
+  }
+
+  return { downLinks, localMaxLane };
+}
+
+function computePassLanes(activeLanes: LaneState[], currentLane: number): Array<{ lane: number; color: string }> {
+  const passLanes: Array<{ lane: number; color: string }> = [];
+  for (let l = 0; l < activeLanes.length; l++) {
+    if (l !== currentLane && activeLanes[l]?.hash) {
+      passLanes.push({ lane: l, color: activeLanes[l].color });
+    }
+  }
+  return passLanes;
+}
+
+/**
+ * Computes lane allocations and connecting paths for an ordered sequence of Git commits.
+ * Supports an optional Working Tree row at index 0.
+ */
 export function computeCommitGraph(
   commits: GitCommitDto[],
   includeWorkingTree: boolean = true
 ): GraphRow[] {
   const rows: GraphRow[] = [];
+  let activeLanes: LaneState[] = [];
 
-  // Active branch tracking: laneIndex -> parentHash expected
-  let activeLanes: Array<{ hash: string; color: string }> = [];
-
-  const getColor = (laneIndex: number) =>
-    GRAPH_COLORS[laneIndex % GRAPH_COLORS.length];
-
-  // 1. Add Working Tree row if requested
   if (includeWorkingTree) {
     const headHash = commits.length > 0 ? commits[0].hash : null;
-    const wtColor = '#22c55e'; // Green indicator for uncommitted working tree
+    const wtColor = '#22c55e';
     rows.push({
       id: 'working-tree',
       lane: 0,
@@ -58,7 +138,6 @@ export function computeCommitGraph(
       passLanes: [],
       isWorkingTree: true,
     });
-    // Prime activeLanes with HEAD on lane 0
     if (headHash) {
       activeLanes = [{ hash: headHash, color: getColor(0) }];
     }
@@ -66,87 +145,25 @@ export function computeCommitGraph(
 
   let globalMaxLane = 0;
 
-  for (let i = 0; i < commits.length; i++) {
-    const commit = commits[i];
-    const parents = commit.parents || [];
-
-    // Find if this commit was expected on an active lane
-    let lane = activeLanes.findIndex((l) => l.hash === commit.hash);
-    let color: string;
-
-    if (lane !== -1) {
-      color = activeLanes[lane].color;
-    } else {
-      // Find lowest available lane
-      lane = activeLanes.findIndex((l) => !l.hash);
-      if (lane === -1) {
-        lane = activeLanes.length;
-      }
-      color = getColor(lane);
-    }
-
+  for (const commit of commits) {
+    const { lane, color } = resolveCommitLane(commit.hash, activeLanes);
     if (lane > globalMaxLane) globalMaxLane = lane;
 
-    // UpLinks: Connections from previous row entering this commit
-    const upLinks: GraphLink[] = [];
-    if (rows.length > 0) {
-      const prevRow = rows[rows.length - 1];
-      if (prevRow.isWorkingTree) {
-        upLinks.push({ fromLane: 0, toLane: lane, color });
-      } else {
-        // Did prev commit link to this commit?
-        const matchingDown = prevRow.downLinks.find((d) => d.toLane === lane);
-        if (matchingDown) {
-          upLinks.push({ fromLane: matchingDown.fromLane, toLane: lane, color: matchingDown.color });
-        }
-      }
-    }
-
-    // DownLinks: Connections leaving this commit towards its parents
-    const downLinks: GraphLink[] = [];
-    const nextActiveLanes: Array<{ hash: string; color: string }> = [...activeLanes];
-
-    // Remove current commit from active lanes
+    const upLinks = computeUpLinks(rows[rows.length - 1], lane, color);
+    const nextActiveLanes: LaneState[] = [...activeLanes];
     if (lane < nextActiveLanes.length) {
       nextActiveLanes[lane] = { hash: '', color };
     }
 
-    if (parents.length === 0) {
-      // Root commit (no parents)
-    } else {
-      // First parent inherits current lane
-      const firstParent = parents[0];
-      nextActiveLanes[lane] = { hash: firstParent, color };
-      downLinks.push({ fromLane: lane, toLane: lane, color });
+    const { downLinks, localMaxLane } = computeDownLinks(
+      commit.parents || [],
+      lane,
+      color,
+      nextActiveLanes
+    );
+    if (localMaxLane > globalMaxLane) globalMaxLane = localMaxLane;
 
-      // Additional parents (merges) get allocated or join existing lanes
-      for (let p = 1; p < parents.length; p++) {
-        const parentHash = parents[p];
-        let parentLane = nextActiveLanes.findIndex((l) => l.hash === parentHash);
-        let parentColor: string;
-
-        if (parentLane !== -1) {
-          parentColor = nextActiveLanes[parentLane].color;
-        } else {
-          parentLane = nextActiveLanes.findIndex((l) => !l.hash);
-          if (parentLane === -1) parentLane = nextActiveLanes.length;
-          parentColor = getColor(parentLane);
-          nextActiveLanes[parentLane] = { hash: parentHash, color: parentColor };
-        }
-
-        if (parentLane > globalMaxLane) globalMaxLane = parentLane;
-        downLinks.push({ fromLane: lane, toLane: parentLane, color: parentColor });
-      }
-    }
-
-    // Pass-through lanes (lanes active in current row but not modified by this commit)
-    const passLanes: Array<{ lane: number; color: string }> = [];
-    for (let l = 0; l < activeLanes.length; l++) {
-      if (l !== lane && activeLanes[l]?.hash) {
-        passLanes.push({ lane: l, color: activeLanes[l].color });
-      }
-    }
-
+    const passLanes = computePassLanes(activeLanes, lane);
     activeLanes = nextActiveLanes;
 
     rows.push({
@@ -161,7 +178,6 @@ export function computeCommitGraph(
     });
   }
 
-  // Backfill maxLane across all rows so column width is consistent
   for (const r of rows) {
     r.maxLane = Math.max(r.maxLane, globalMaxLane);
   }

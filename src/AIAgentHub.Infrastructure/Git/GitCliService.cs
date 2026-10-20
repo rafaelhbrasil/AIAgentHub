@@ -71,39 +71,47 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         {
             if (rawLine.StartsWith("##", StringComparison.Ordinal))
             {
-                var aheadMatch = Regex.Match(rawLine, @"ahead\s+(\d+)", RegexOptions.None, RegexTimeout);
-                if (aheadMatch.Success) ahead = int.Parse(aheadMatch.Groups[1].Value, CultureInfo.InvariantCulture);
-
-                var behindMatch = Regex.Match(rawLine, @"behind\s+(\d+)", RegexOptions.None, RegexTimeout);
-                if (behindMatch.Success) behind = int.Parse(behindMatch.Groups[1].Value, CultureInfo.InvariantCulture);
-
+                ParseAheadBehind(rawLine, ref ahead, ref behind);
                 continue;
             }
 
-            if (rawLine.Length < 3) continue;
-
-            var indexStatus = rawLine[0];
-            var workTreeStatus = rawLine[1];
-            var filePath = rawLine[2..].Trim().Trim('"');
-
-            if (indexStatus == '?' && workTreeStatus == '?')
-            {
-                untracked.Add(filePath);
-            }
-            else
-            {
-                if (indexStatus is not ' ' and not '?')
-                {
-                    staged.Add(new GitFileStatusDto(filePath, MapStatusCode(indexStatus), true));
-                }
-                if (workTreeStatus is not ' ' and not '?')
-                {
-                    modified.Add(new GitFileStatusDto(filePath, MapStatusCode(workTreeStatus), false));
-                }
-            }
+            ParseFileEntry(rawLine, staged, modified, untracked);
         }
 
         return (ahead, behind, staged, modified, untracked);
+    }
+
+    private static void ParseAheadBehind(string rawLine, ref int ahead, ref int behind)
+    {
+        var aheadMatch = Regex.Match(rawLine, @"ahead\s+(\d+)", RegexOptions.None, RegexTimeout);
+        if (aheadMatch.Success) ahead = int.Parse(aheadMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+
+        var behindMatch = Regex.Match(rawLine, @"behind\s+(\d+)", RegexOptions.None, RegexTimeout);
+        if (behindMatch.Success) behind = int.Parse(behindMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+    }
+
+    private static void ParseFileEntry(string rawLine, List<GitFileStatusDto> staged, List<GitFileStatusDto> modified, List<string> untracked)
+    {
+        if (rawLine.Length < 3) return;
+
+        var indexStatus = rawLine[0];
+        var workTreeStatus = rawLine[1];
+        var filePath = rawLine[2..].Trim().Trim('"');
+
+        if (indexStatus == '?' && workTreeStatus == '?')
+        {
+            untracked.Add(filePath);
+            return;
+        }
+
+        if (indexStatus is not ' ' and not '?')
+        {
+            staged.Add(new GitFileStatusDto(filePath, MapStatusCode(indexStatus), true));
+        }
+        if (workTreeStatus is not ' ' and not '?')
+        {
+            modified.Add(new GitFileStatusDto(filePath, MapStatusCode(workTreeStatus), false));
+        }
     }
 
     private static string MapStatusCode(char c) => c switch
@@ -326,7 +334,71 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             return null;
         }
 
-        var parts = metaRes.Output.Split("|||", StringSplitOptions.None);
+        // 2. Get changed files with status & stats
+        var numstatRes = await RunGitAsync($"show --numstat --format=\"\" {cleanHash}", workspacePath, cancellationToken);
+        var nameStatusRes = await RunGitAsync($"show --name-status --format=\"\" {cleanHash}", workspacePath, cancellationToken);
+
+        Dictionary<string, (int Additions, int Deletions, string Status)> fileStats = new(StringComparer.OrdinalIgnoreCase);
+
+        if (numstatRes.ExitCode == 0 && !string.IsNullOrWhiteSpace(numstatRes.Output))
+        {
+            ParseNumStats(numstatRes.Output, fileStats);
+        }
+
+        if (nameStatusRes.ExitCode == 0 && !string.IsNullOrWhiteSpace(nameStatusRes.Output))
+        {
+            ParseNameStatuses(nameStatusRes.Output, fileStats);
+        }
+
+        var files = fileStats
+            .Select(kvp => new GitCommitFileChangeDto(kvp.Key, kvp.Value.Status, kvp.Value.Additions, kvp.Value.Deletions))
+            .OrderBy(f => f.Path)
+            .ToList();
+
+        return ParseCommitMetadata(metaRes.Output, files);
+    }
+
+    private static void ParseNumStats(string output, Dictionary<string, (int Additions, int Deletions, string Status)> fileStats)
+    {
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var partsStat = line.TrimEnd('\r').Split('\t');
+            if (partsStat.Length >= 3)
+            {
+                _ = int.TryParse(partsStat[0], out var add);
+                _ = int.TryParse(partsStat[1], out var del);
+                var path = partsStat[2].Trim();
+                fileStats[path] = (add, del, "Modified");
+            }
+        }
+    }
+
+    private static void ParseNameStatuses(string output, Dictionary<string, (int Additions, int Deletions, string Status)> fileStats)
+    {
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var partsStatus = line.TrimEnd('\r').Split('\t');
+            if (partsStatus.Length >= 2)
+            {
+                var rawStatusCode = partsStatus[0].Trim();
+                var path = partsStatus[^1].Trim();
+                var status = MapStatusCodeToName(rawStatusCode);
+
+                if (fileStats.TryGetValue(path, out var stat))
+                {
+                    fileStats[path] = (stat.Additions, stat.Deletions, status);
+                }
+                else
+                {
+                    fileStats[path] = (0, 0, status);
+                }
+            }
+        }
+    }
+
+    private static GitCommitDetailDto? ParseCommitMetadata(string output, List<GitCommitFileChangeDto> files)
+    {
+        var parts = output.Split("|||", StringSplitOptions.None);
         if (parts.Length < 6)
         {
             return null;
@@ -344,55 +416,6 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         var refs = parts.Length >= 8 && !string.IsNullOrWhiteSpace(parts[7])
             ? parts[7].Trim()
             : null;
-
-        // 2. Get changed files with status & stats
-        var numstatRes = await RunGitAsync($"show --numstat --format=\"\" {cleanHash}", workspacePath, cancellationToken);
-        var nameStatusRes = await RunGitAsync($"show --name-status --format=\"\" {cleanHash}", workspacePath, cancellationToken);
-
-        Dictionary<string, (int Additions, int Deletions, string Status)> fileStats = new(StringComparer.OrdinalIgnoreCase);
-
-        if (numstatRes.ExitCode == 0 && !string.IsNullOrWhiteSpace(numstatRes.Output))
-        {
-            foreach (var line in numstatRes.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var partsStat = line.TrimEnd('\r').Split('\t');
-                if (partsStat.Length >= 3)
-                {
-                    _ = int.TryParse(partsStat[0], out var add);
-                    _ = int.TryParse(partsStat[1], out var del);
-                    var path = partsStat[2].Trim();
-                    fileStats[path] = (add, del, "Modified");
-                }
-            }
-        }
-
-        if (nameStatusRes.ExitCode == 0 && !string.IsNullOrWhiteSpace(nameStatusRes.Output))
-        {
-            foreach (var line in nameStatusRes.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var partsStatus = line.TrimEnd('\r').Split('\t');
-                if (partsStatus.Length >= 2)
-                {
-                    var rawStatusCode = partsStatus[0].Trim();
-                    var path = partsStatus[^1].Trim();
-                    var status = MapStatusCodeToName(rawStatusCode);
-
-                    if (fileStats.TryGetValue(path, out var stat))
-                    {
-                        fileStats[path] = (stat.Additions, stat.Deletions, status);
-                    }
-                    else
-                    {
-                        fileStats[path] = (0, 0, status);
-                    }
-                }
-            }
-        }
-
-        var files = fileStats
-            .Select(kvp => new GitCommitFileChangeDto(kvp.Key, kvp.Value.Status, kvp.Value.Additions, kvp.Value.Deletions))
-            .OrderBy(f => f.Path)
-            .ToList();
 
         return new GitCommitDetailDto(hash, shortHash, author, email, date, message, parents, refs, files);
     }
@@ -425,47 +448,16 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             return null;
         }
 
-        string? origContent = null;
-        string? modContent = null;
+        var diffContent = isWorkingTree
+            ? await GetWorkingTreeDiffContentAsync(workspacePath, normalizedPath, cancellationToken)
+            : await GetHistoricalCommitDiffContentAsync(workspacePath, cleanHash, normalizedPath, cancellationToken);
 
-        if (isWorkingTree)
+        if (diffContent == null)
         {
-            var origRes = await RunGitAsync($"show \"HEAD:{normalizedPath}\"", workspacePath, cancellationToken);
-            if (origRes.ExitCode == 0)
-            {
-                origContent = origRes.Output;
-            }
-
-            var fullPath = Path.GetFullPath(Path.Combine(workspacePath, normalizedPath));
-            if (!fullPath.StartsWith(Path.GetFullPath(workspacePath), StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-
-            if (File.Exists(fullPath))
-            {
-                modContent = await File.ReadAllTextAsync(fullPath, cancellationToken);
-            }
-
-            if (origContent == null && modContent == null)
-            {
-                return null;
-            }
-        }
-        else
-        {
-            var origRes = await RunGitAsync($"show \"{cleanHash}~1:{normalizedPath}\"", workspacePath, cancellationToken);
-            var modRes = await RunGitAsync($"show \"{cleanHash}:{normalizedPath}\"", workspacePath, cancellationToken);
-
-            if (origRes.ExitCode != 0 && modRes.ExitCode != 0)
-            {
-                return null;
-            }
-
-            origContent = origRes.ExitCode == 0 ? origRes.Output : null;
-            modContent = modRes.ExitCode == 0 ? modRes.Output : null;
+            return null;
         }
 
+        var (origContent, modContent) = diffContent.Value;
         var isBinary = (origContent != null && origContent.Contains('\0', StringComparison.Ordinal))
                     || (modContent != null && modContent.Contains('\0', StringComparison.Ordinal));
 
@@ -474,6 +466,48 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
             isBinary ? null : origContent,
             isBinary ? null : modContent,
             isBinary);
+    }
+
+    private async Task<(string? OrigContent, string? ModContent)?> GetWorkingTreeDiffContentAsync(
+        string workspacePath, string normalizedPath, CancellationToken cancellationToken)
+    {
+        var origRes = await RunGitAsync($"show \"HEAD:{normalizedPath}\"", workspacePath, cancellationToken);
+        var origContent = origRes.ExitCode == 0 ? origRes.Output : null;
+
+        var fullPath = Path.GetFullPath(Path.Combine(workspacePath, normalizedPath));
+        if (!fullPath.StartsWith(Path.GetFullPath(workspacePath), StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        string? modContent = null;
+        if (File.Exists(fullPath))
+        {
+            modContent = await File.ReadAllTextAsync(fullPath, cancellationToken);
+        }
+
+        if (origContent == null && modContent == null)
+        {
+            return null;
+        }
+
+        return (origContent, modContent);
+    }
+
+    private async Task<(string? OrigContent, string? ModContent)?> GetHistoricalCommitDiffContentAsync(
+        string workspacePath, string cleanHash, string normalizedPath, CancellationToken cancellationToken)
+    {
+        var origRes = await RunGitAsync($"show \"{cleanHash}~1:{normalizedPath}\"", workspacePath, cancellationToken);
+        var modRes = await RunGitAsync($"show \"{cleanHash}:{normalizedPath}\"", workspacePath, cancellationToken);
+
+        if (origRes.ExitCode != 0 && modRes.ExitCode != 0)
+        {
+            return null;
+        }
+
+        var origContent = origRes.ExitCode == 0 ? origRes.Output : null;
+        var modContent = modRes.ExitCode == 0 ? modRes.Output : null;
+        return (origContent, modContent);
     }
 
     public async Task<GitOperationResult> CloneAsync(string cloneUrl, string targetDirectory, CancellationToken cancellationToken = default)

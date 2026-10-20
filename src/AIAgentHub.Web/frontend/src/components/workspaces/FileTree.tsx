@@ -283,17 +283,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     return (
       <div
         className="tree-item file-tree-node"
-        role="button"
-        tabIndex={0}
         draggable={true}
         onDragStart={handleDragStart}
-        onClick={() => onSelectFile(node.relativePath)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onSelectFile(node.relativePath);
-          }
-        }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         title={node.relativePath}
@@ -304,7 +295,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           gap: '6px',
           padding: '4px 8px',
           borderRadius: '4px',
-          cursor: 'pointer',
           fontSize: '0.86rem',
           color: 'var(--text-main)',
           transition: 'background 0.15s ease',
@@ -312,12 +302,29 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           background: isHovered ? 'rgba(255, 255, 255, 0.06)' : 'transparent',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+        <button
+          type="button"
+          onClick={() => onSelectFile(node.relativePath)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            overflow: 'hidden',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            color: 'inherit',
+            textAlign: 'left',
+            flex: 1,
+            font: 'inherit',
+          }}
+        >
           <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>📄</span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {node.name}
           </span>
-        </div>
+        </button>
 
         {/* Action icons on hover */}
         {isHovered && (
@@ -379,20 +386,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     <div style={{ marginBottom: '2px' }}>
       <div
         className={`tree-item folder-tree-node ${isRoot ? 'tree-root-folder' : ''}`}
-        role="button"
-        tabIndex={isRoot ? -1 : 0}
         draggable={!isRoot}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={toggleExpand}
-        onKeyDown={(e) => {
-          if (!isRoot && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            toggleExpand();
-          }
-        }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         title={node.relativePath || node.name}
@@ -403,7 +401,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           gap: '6px',
           padding: '5px 8px',
           borderRadius: '4px',
-          cursor: isRoot ? 'default' : 'pointer',
           fontWeight: isRoot ? 700 : 500,
           fontSize: '0.88rem',
           color: isRoot ? 'var(--text-heading)' : 'var(--text-main)',
@@ -413,7 +410,27 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           border: isDragOver ? '1px dashed var(--accent-primary)' : '1px solid transparent',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+        <button
+          type="button"
+          onClick={toggleExpand}
+          disabled={isRoot}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            overflow: 'hidden',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: isRoot ? 'default' : 'pointer',
+            fontWeight: isRoot ? 700 : 500,
+            fontSize: '0.88rem',
+            color: isRoot ? 'var(--text-heading)' : 'var(--text-main)',
+            textAlign: 'left',
+            flex: 1,
+            font: 'inherit',
+          }}
+        >
           {!isRoot && (
             <span
               style={{
@@ -436,7 +453,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {node.name}
           </span>
-        </div>
+        </button>
 
         {/* Directory Action Context Menu */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>

@@ -8,6 +8,7 @@ export interface GitCommitDetailInspectorProps {
   commitHash: string;
   onViewDiff: (filePath: string) => void;
   onFileSelect?: (filePath: string) => void;
+  initialDetail?: GitCommitDetailDto;
 }
 
 export const GitCommitDetailInspector: React.FC<GitCommitDetailInspectorProps> = ({
@@ -15,12 +16,14 @@ export const GitCommitDetailInspector: React.FC<GitCommitDetailInspectorProps> =
   commitHash,
   onViewDiff,
   onFileSelect,
+  initialDetail,
 }) => {
-  const [detail, setDetail] = useState<GitCommitDetailDto | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [detail, setDetail] = useState<GitCommitDetailDto | null>(initialDetail || null);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialDetail);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialDetail) return;
     let isCancelled = false;
 
     const fetchDetail = async () => {
@@ -272,13 +275,25 @@ export const GitCommitDetailInspector: React.FC<GitCommitDetailInspectorProps> =
                   }}
                 >
                   {renderStatusBadge(f.status)}
-                  <span
+                  <button
+                    type="button"
                     onClick={() => onFileSelect?.(f.path)}
-                    style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      minWidth: 0,
+                      color: 'inherit',
+                      textAlign: 'left',
+                      font: 'inherit',
+                    }}
                     title={`Click to open in editor: ${f.path}`}
                   >
                     {f.path}
-                  </span>
+                  </button>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>

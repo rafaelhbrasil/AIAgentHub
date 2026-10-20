@@ -13,21 +13,27 @@ import { Spinner } from '../../../common/Spinner';
 export interface GitWorkbenchProps {
   workspaceId: string;
   onFileSelect?: (path: string) => void;
+  initialStatus?: GitStatusDto;
+  initialBranches?: GitBranchDto[];
+  initialHistory?: GitCommitDto[];
 }
 
 export const GitWorkbench: React.FC<GitWorkbenchProps> = ({
   workspaceId,
   onFileSelect,
+  initialStatus,
+  initialBranches,
+  initialHistory,
 }) => {
   const { showToast } = useToast();
   const { showModal, hideModal } = useModal();
 
-  const [status, setStatus] = useState<GitStatusDto | null>(null);
-  const [branches, setBranches] = useState<GitBranchDto[]>([]);
-  const [history, setHistory] = useState<GitCommitDto[]>([]);
+  const [status, setStatus] = useState<GitStatusDto | null>(initialStatus || null);
+  const [branches, setBranches] = useState<GitBranchDto[]>(initialBranches || []);
+  const [history, setHistory] = useState<GitCommitDto[]>(initialHistory || []);
   const [selectedRowId, setSelectedRowId] = useState<string>('working-tree');
   const [commitMessage, setCommitMessage] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialStatus);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [diffFileChange, setDiffFileChange] = useState<FileChangeDto | null>(null);
   const [splitRatio, setSplitRatio] = useState<number>(50); // percentage for top pane
@@ -75,10 +81,11 @@ export const GitWorkbench: React.FC<GitWorkbenchProps> = ({
   }, [fetchStatus, fetchBranches, fetchHistory]);
 
   useEffect(() => {
+    if (initialStatus) return;
     if (workspaceId) {
       refreshAll();
     }
-  }, [workspaceId, refreshAll]);
+  }, [workspaceId, refreshAll, initialStatus]);
 
   // Branch switching & creation
   const handleCheckoutBranch = async (branchName: string) => {
@@ -347,6 +354,22 @@ export const GitWorkbench: React.FC<GitWorkbenchProps> = ({
       {/* Pane Splitter / Resizer */}
       <div
         className="git-workbench-splitter"
+        role="separator"
+        tabIndex={0}
+        aria-orientation="horizontal"
+        aria-valuenow={Math.round(splitRatio * 100)}
+        aria-valuemin={20}
+        aria-valuemax={80}
+        aria-label="Resize panels"
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSplitRatio((prev) => Math.max(0.2, prev - 0.05));
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSplitRatio((prev) => Math.min(0.8, prev + 0.05));
+          }
+        }}
         style={{
           height: '6px',
           background: 'var(--border-color)',
@@ -355,7 +378,7 @@ export const GitWorkbench: React.FC<GitWorkbenchProps> = ({
           zIndex: 3,
           transition: 'background 0.2s',
         }}
-        title="Drag to resize panes"
+        title="Drag or use arrow keys to resize panes"
         onMouseDown={(e) => {
           const startY = e.clientY;
           const startRatio = splitRatio;
@@ -433,8 +456,9 @@ const CreateBranchModal: React.FC<{ onSubmit: (name: string) => void; onCancel: 
       style={{ minWidth: '300px' }}
     >
       <div className="form-group" style={{ marginBottom: '14px' }}>
-        <label className="form-label">Branch Name</label>
+        <label htmlFor="workbenchBranchNameInput" className="form-label">Branch Name</label>
         <input
+          id="workbenchBranchNameInput"
           type="text"
           className="form-control"
           placeholder="e.g. feature/my-new-feature"

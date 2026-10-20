@@ -135,13 +135,25 @@ export const GitWorkingTreeInspector: React.FC<GitWorkingTreeInspectorProps> = (
                         >
                           {f.status.toUpperCase()}
                         </span>
-                        <span
+                        <button
+                          type="button"
                           onClick={() => onFileSelect?.(f.path)}
-                          style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            minWidth: 0,
+                            textAlign: 'left',
+                            color: 'var(--text-main)',
+                            fontSize: 'inherit',
+                          }}
                           title={`Click to open in editor: ${f.path}`}
                         >
                           {f.path}
-                        </span>
+                        </button>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -246,13 +258,25 @@ export const GitWorkingTreeInspector: React.FC<GitWorkingTreeInspectorProps> = (
                         >
                           {f.status.toUpperCase()}
                         </span>
-                        <span
+                        <button
+                          type="button"
                           onClick={() => onFileSelect?.(f.path)}
-                          style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            minWidth: 0,
+                            textAlign: 'left',
+                            color: 'var(--text-main)',
+                            fontSize: 'inherit',
+                          }}
                           title={`Click to open in editor: ${f.path}`}
                         >
                           {f.path}
-                        </span>
+                        </button>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -351,13 +375,25 @@ export const GitWorkingTreeInspector: React.FC<GitWorkingTreeInspectorProps> = (
                         >
                           ?
                         </span>
-                        <span
+                        <button
+                          type="button"
                           onClick={() => onFileSelect?.(path)}
-                          style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            minWidth: 0,
+                            textAlign: 'left',
+                            color: 'var(--text-main)',
+                            fontSize: 'inherit',
+                          }}
                           title={`Click to open in editor: ${path}`}
                         >
                           {path}
-                        </span>
+                        </button>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -412,8 +448,8 @@ export const GitWorkingTreeInspector: React.FC<GitWorkingTreeInspectorProps> = (
           <button
             type="button"
             className="btn btn-secondary compact-btn"
-            onClick={async () => {
-              await onStage(undefined, true);
+            onClick={() => {
+              onStage(undefined, true);
             }}
             disabled={isExecuting}
             style={{ width: '100%', marginBottom: '12px', fontSize: '0.78rem' }}

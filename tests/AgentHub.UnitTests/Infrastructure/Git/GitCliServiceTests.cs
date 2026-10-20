@@ -280,4 +280,179 @@ public sealed class GitCliServiceTests
         var diff = await service.GetCommitDiffAsync("C:\\dummy", "1234abcd", "../../../etc/passwd");
         Assert.Null(diff);
     }
+
+    [Fact]
+    public async Task GetCommitDiffAsync_BinaryContent_ReturnsIsBinaryTrue()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                if (args.Contains(":asset.bin", StringComparison.Ordinal))
+                {
+                    return new ProcessCommandResult(0, "header\0binarydata", "");
+                }
+                return new ProcessCommandResult(1, "", "not found");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var diff = await service.GetCommitDiffAsync("C:\\dummy", "1234abcd", "asset.bin");
+
+        Assert.NotNull(diff);
+        Assert.True(diff.IsBinary);
+        Assert.Null(diff.OriginalContent);
+        Assert.Null(diff.ModifiedContent);
+    }
+
+    [Fact]
+    public async Task CreateBranchAsync_ValidBranch_RunsCheckoutOrBranch()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) => new ProcessCommandResult(0, "Switched to a new branch 'feature/test'", "")
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var resultCheckout = await service.CreateBranchAsync("C:\\dummy", "feature/test", checkout: true);
+        Assert.True(resultCheckout.Success);
+
+        var resultNoCheckout = await service.CreateBranchAsync("C:\\dummy", "feature/test", checkout: false);
+        Assert.True(resultNoCheckout.Success);
+
+        var resultEmpty = await service.CreateBranchAsync("C:\\dummy", "  ");
+        Assert.False(resultEmpty.Success);
+    }
+
+    [Fact]
+    public async Task CheckoutBranchAsync_ValidBranch_RunsCheckout()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) => new ProcessCommandResult(0, "Switched to branch 'develop'", "")
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var result = await service.CheckoutBranchAsync("C:\\dummy", "develop");
+        Assert.True(result.Success);
+
+        var resultEmpty = await service.CheckoutBranchAsync("C:\\dummy", "");
+        Assert.False(resultEmpty.Success);
+    }
+
+    [Fact]
+    public async Task StageAsync_FilesOrAll_ExecutesCorrectCommand()
+    {
+        var executedArgs = new List<string>();
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                executedArgs.Add(args);
+                return new ProcessCommandResult(0, "", "");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var resAll = await service.StageAsync("C:\\dummy", stageAll: true);
+        Assert.True(resAll.Success);
+        Assert.Contains("add -A", executedArgs[0], StringComparison.Ordinal);
+
+        var resFiles = await service.StageAsync("C:\\dummy", ["file1.cs", "file2.cs"]);
+        Assert.True(resFiles.Success);
+        Assert.Contains("add -- \"file1.cs\" \"file2.cs\"", executedArgs[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UnstageAsync_FilesOrAll_ExecutesCorrectCommandAndHandlesFallback()
+    {
+        var executedArgs = new List<string>();
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                executedArgs.Add(args);
+                if (args.StartsWith("restore --staged", StringComparison.Ordinal) && args.Contains("could-fail", StringComparison.Ordinal))
+                {
+                    return new ProcessCommandResult(1, "", "fatal: could not resolve 'HEAD'");
+                }
+                return new ProcessCommandResult(0, "", "");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var resAll = await service.UnstageAsync("C:\\dummy", unstageAll: true);
+        Assert.True(resAll.Success);
+
+        var resFiles = await service.UnstageAsync("C:\\dummy", ["could-fail.cs"]);
+        Assert.True(resFiles.Success); // Falls back to rm --cached and succeeds
+        Assert.Contains(executedArgs, a => a.Contains("rm --cached", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CommitAsync_ValidMessage_CreatesCommit()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) => new ProcessCommandResult(0, "[develop 1234567] feat: commit", "")
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var resEmpty = await service.CommitAsync("C:\\dummy", "");
+        Assert.False(resEmpty.Success);
+
+        var resValid = await service.CommitAsync("C:\\dummy", "feat: commit", stageAll: true);
+        Assert.True(resValid.Success);
+    }
+
+    [Fact]
+    public async Task PushPullFetchStash_ExecuteExpectedCommands()
+    {
+        var commands = new List<string>();
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                commands.Add(args);
+                return new ProcessCommandResult(0, "ok", "");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var pushRes = await service.PushAsync("C:\\dummy", "origin", "develop");
+        Assert.True(pushRes.Success);
+
+        var pullRes = await service.PullAsync("C:\\dummy");
+        Assert.True(pullRes.Success);
+
+        var fetchRes = await service.FetchAsync("C:\\dummy");
+        Assert.True(fetchRes.Success);
+
+        var stashSave = await service.StashAsync("C:\\dummy", "save");
+        Assert.True(stashSave.Success);
+
+        var stashPop = await service.StashAsync("C:\\dummy", "pop");
+        Assert.True(stashPop.Success);
+
+        Assert.Equal(5, commands.Count);
+    }
+
+    [Fact]
+    public async Task CloneAsync_ValidatesInputAndRunsClone()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) => new ProcessCommandResult(0, "Cloning into...", "")
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var emptyUrl = await service.CloneAsync("", "C:\\temp\\dest");
+        Assert.False(emptyUrl.Success);
+
+        var emptyDir = await service.CloneAsync("https://example.com/repo.git", "");
+        Assert.False(emptyDir.Success);
+
+        var valid = await service.CloneAsync("https://example.com/repo.git", Path.Combine(Path.GetTempPath(), "dest-clone"));
+        Assert.True(valid.Success);
+    }
 }
