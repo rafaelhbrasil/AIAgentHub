@@ -132,4 +132,75 @@ public sealed class OpenCodeProviderTests
         Assert.Contains("customtrigger", words);
         Assert.Equal(3, words.Count);
     }
+
+    [Fact]
+    public void OpenCodeProvider_BuildArguments_WithSessionId_TabbedModel_AndEffort()
+    {
+        var provider = new OpenCodeProvider(_options, _promptLogger, _executor);
+        var context = CreateContext(
+            modelId: "gpt-4o\tOpenAI flagship",
+            prompt: "Test prompt with \"quotes\"",
+            sessionId: "ses_abc123456",
+            effort: "High"
+        );
+
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains("--session \"ses_abc123456\"", args);
+        Assert.Contains("--model \"gpt-4o\"", args);
+        Assert.DoesNotContain("flagship", args);
+        Assert.Contains("--variant \"high\"", args);
+        Assert.Contains("\\\"quotes\\\"", args);
+    }
+
+    [Fact]
+    public async Task OpenCodeProvider_StartSessionAsync_ReturnsNull()
+    {
+        var provider = new OpenCodeProvider(_options, _promptLogger, _executor);
+        var result = await provider.StartSessionAsync(Guid.NewGuid(), "C:\\test\\workspace", null);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task OpenCodeProvider_ExecuteAsync_WhenSessionFound_InvokesCallback()
+    {
+        var convId = Guid.NewGuid();
+        string? capturedSession = null;
+        var context = new ProviderExecutionContext(
+            convId,
+            Guid.NewGuid(),
+            "C:\\test\\workspace",
+            "Do something",
+            null,
+            null,
+            [],
+            _ => Task.CompletedTask,
+            (_, _) => Task.FromResult(true),
+            CancellationToken.None,
+            OnSessionCreated: s => { capturedSession = s; return Task.CompletedTask; },
+            null
+        );
+
+        var executor = Substitute.For<IProcessExecutor>();
+        var jsonOutput = $$"""
+        [
+            { "id": "invalid_id", "title": "agenthub-{{convId}}", "directory": "C:\\test\\workspace" },
+            { "id": "ses_found123", "title": "agenthub-{{convId}}", "directory": "C:\\test\\workspace" },
+            { "id": "ses_other", "title": "other-conv", "directory": "C:\\test\\workspace" }
+        ]
+        """;
+
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Is<string>(s => s.Contains("session list")),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string>()
+        ).Returns(Task.FromResult(new ProcessCommandResult(0, jsonOutput, "")));
+
+        var provider = new OpenCodeProvider(_options, _promptLogger, executor);
+        await provider.ExecuteAsync(context);
+
+        Assert.Equal("ses_found123", capturedSession);
+    }
 }

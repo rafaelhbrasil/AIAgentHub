@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const rootDir = process.cwd();
-const frontendDir = path.join(rootDir, 'src', 'AIAgentHub.Web', 'frontend');
+const webProjectDir = path.join(rootDir, 'src', 'AIAgentHub.Web');
+const frontendDir = path.join(webProjectDir, 'frontend');
 const frontendLcov = path.join(frontendDir, 'coverage', 'lcov.info');
 const rootCoverageDir = path.join(rootDir, 'coverage');
 const rootLcov = path.join(rootCoverageDir, 'lcov.info');
@@ -11,15 +12,18 @@ function normalizeLcov(filePath) {
   if (!fs.existsSync(filePath)) return '';
 
   const content = fs.readFileSync(filePath, 'utf8').replaceAll('\\', '/');
-  
-  // Transform all SF: lines so that they are relative to repo rootDir
+
+  // SonarScanner for .NET evaluates LCOV for AIAgentHub.Web relative to AIAgentHub.Web project directory (src/AIAgentHub.Web).
+  // Therefore, file paths must be relative to AIAgentHub.Web: "frontend/src/..."
   const normalized = content.replace(/^SF:(.+)$/gm, (_, rawPath) => {
     let p = rawPath.trim();
     if (path.isAbsolute(p)) {
-      p = path.relative(rootDir, p).replaceAll('\\', '/');
-    } else if (!p.startsWith('src/AIAgentHub.Web/frontend/')) {
+      p = path.relative(webProjectDir, p).replaceAll('\\', '/');
+    } else if (p.startsWith('src/AIAgentHub.Web/frontend/')) {
+      p = p.replace('src/AIAgentHub.Web/', '');
+    } else if (!p.startsWith('frontend/')) {
       const abs = path.resolve(frontendDir, p);
-      p = path.relative(rootDir, abs).replaceAll('\\', '/');
+      p = path.relative(webProjectDir, abs).replaceAll('\\', '/');
     }
     return `SF:${p}`;
   });
@@ -36,7 +40,7 @@ if (fs.existsSync(frontendLcov)) {
   }
 
   fs.writeFileSync(rootLcov, normalizedContent);
-  console.log('[normalize-lcov] Normalized and mirrored frontend LCOV with root-relative paths to both locations.');
+  console.log('[normalize-lcov] Normalized frontend LCOV with AIAgentHub.Web-relative paths (frontend/src/...) to both locations.');
 } else if (fs.existsSync(rootLcov)) {
   normalizeLcov(rootLcov);
   console.log('[normalize-lcov] Normalized root coverage/lcov.info');

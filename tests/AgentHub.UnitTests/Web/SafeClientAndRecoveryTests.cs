@@ -103,6 +103,106 @@ public class SafeClientAndRecoveryTests
     }
 
     [Fact]
+    public async Task NetworkModeMiddleware_LanMode_AllowsAnyRemoteIp()
+    {
+        var recoveryOptions = new RecoveryOptions { IsRecoveryModeEnabled = false };
+        var nextCalled = false;
+        Task next(HttpContext ctx)
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        }
+
+        var middleware = new NetworkModeMiddleware(next, recoveryOptions);
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("10.0.0.123");
+
+        var settingsRepo = Substitute.For<IServerSettingsRepository>();
+        _ = settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
+        {
+            NetworkMode = NetworkMode.Lan
+        });
+
+        await middleware.InvokeAsync(context, settingsRepo);
+
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NetworkModeMiddleware_SelectedInterfacesMode_AllowsExactAndSubnetMatches()
+    {
+        var recoveryOptions = new RecoveryOptions { IsRecoveryModeEnabled = false };
+        var nextCalled = false;
+        Task next(HttpContext ctx)
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        }
+
+        var middleware = new NetworkModeMiddleware(next, recoveryOptions);
+
+        // Subnet match: client is 192.168.10.45, selected interface IP is 192.168.10.1
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("192.168.10.45");
+
+        var settingsRepo = Substitute.For<IServerSettingsRepository>();
+        _ = settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
+        {
+            NetworkMode = NetworkMode.SelectedInterfaces,
+            SelectedInterfaces = ["192.168.10.1", "Ethernet", "InvalidAdapterName"]
+        });
+
+        await middleware.InvokeAsync(context, settingsRepo);
+
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NetworkModeMiddleware_SelectedInterfacesMode_BlocksWhenNotAllowedOrEmpty()
+    {
+        var recoveryOptions = new RecoveryOptions { IsRecoveryModeEnabled = false };
+        var nextCalled = false;
+        Task next(HttpContext ctx)
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        }
+
+        var middleware = new NetworkModeMiddleware(next, recoveryOptions);
+
+        // Client 172.16.0.5 does not match selected interface 10.0.0.1
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("172.16.0.5");
+
+        var settingsRepo = Substitute.For<IServerSettingsRepository>();
+        _ = settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
+        {
+            NetworkMode = NetworkMode.SelectedInterfaces,
+            SelectedInterfaces = ["10.0.0.1"]
+        });
+
+        await middleware.InvokeAsync(context, settingsRepo);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+
+        // Test with empty selected interfaces
+        var contextEmpty = new DefaultHttpContext();
+        contextEmpty.Connection.RemoteIpAddress = IPAddress.Parse("172.16.0.5");
+        _ = settingsRepo.GetAsync(Arg.Any<CancellationToken>()).Returns(new ServerSettings
+        {
+            NetworkMode = NetworkMode.SelectedInterfaces,
+            SelectedInterfaces = []
+        });
+
+        await middleware.InvokeAsync(contextEmpty, settingsRepo);
+
+        Assert.Equal(StatusCodes.Status403Forbidden, contextEmpty.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task AuthController_GetSetupStatus_WithSafeClientAndRecovery_EnablesResetWithoutCode()
     {
         var setupService = Substitute.For<ISetupService>();

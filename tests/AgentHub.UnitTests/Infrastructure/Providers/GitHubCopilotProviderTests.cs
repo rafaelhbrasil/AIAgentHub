@@ -343,4 +343,37 @@ public sealed class GitHubCopilotProviderTests
         Assert.False(result.Success);
         Assert.Contains("Process crashed", result.ErrorMessage);
     }
+
+    [Fact]
+    public async Task StartSessionAsync_ReturnsNull()
+    {
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, _executor);
+        var result = await provider.StartSessionAsync(Guid.NewGuid(), "C:\\test\\workspace", null);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void BuildArguments_WithTabbedModel_ExtractsModelId()
+    {
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, _executor);
+        var context = CreateContext("claude-3.5-sonnet\tAnthropic model", prompt: "Hello world");
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains("--model \"claude-3.5-sonnet\"", args);
+        Assert.DoesNotContain("Anthropic model", args);
+    }
+
+    [Fact]
+    public void ParseModelsHelpOutput_HandlesEmptyAndDefaultFilters()
+    {
+        // When help output has empty list
+        var empty = GitHubCopilotProvider.ParseModelsHelpOutput("`model`: AI model to use\n");
+        Assert.Empty(empty);
+
+        // When help output has default and other models
+        var models = GitHubCopilotProvider.ParseModelsHelpOutput("`model`: AI model to use\n  - \"default\"\n  - \"gpt-4o\"\n  - \"claude-3.5-sonnet\"\n");
+        Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
+        Assert.Contains(models, m => m.Id == "gpt-4o");
+        Assert.Contains(models, m => m.Id == "claude-3.5-sonnet");
+    }
 }

@@ -455,4 +455,98 @@ public sealed class GitCliServiceTests
         var valid = await service.CloneAsync("https://example.com/repo.git", Path.Combine(Path.GetTempPath(), "dest-clone"));
         Assert.True(valid.Success);
     }
+
+    [Fact]
+    public async Task GetStatusAsync_MapStatusCode_CoversAllStatusFlags()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"GitTest_{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(tempDir);
+        try
+        {
+            var fakeExecutor = new FakeProcessExecutor
+            {
+                OnRunCommand = (exe, args, dir) =>
+                {
+                    if (args.Contains("--is-inside-work-tree", StringComparison.Ordinal))
+                        return new ProcessCommandResult(0, "true", "");
+                    if (args.Contains("status --porcelain", StringComparison.Ordinal))
+                    {
+                        // Covers A, D, R, C, U, ?, and unknown X
+                        return new ProcessCommandResult(0, "## main...origin/main [ahead 1]\nA  fileA.txt\nD  fileD.txt\nR  fileR.txt\nC  fileC.txt\nUU fileU.txt\n?? fileUntracked.txt\nX  fileX.txt\n", "");
+                    }
+                    return new ProcessCommandResult(0, "", "");
+                }
+            };
+
+            var service = new GitCliService(fakeExecutor);
+            var status = await service.GetStatusAsync(tempDir);
+
+            Assert.True(status.IsRepository);
+            Assert.NotEmpty(status.Staged);
+            Assert.Contains(status.Staged, f => f.Status == "Added");
+            Assert.Contains(status.Staged, f => f.Status == "Deleted");
+            Assert.Contains(status.Staged, f => f.Status == "Renamed");
+            Assert.Contains(status.Staged, f => f.Status == "Copied");
+            Assert.Contains(status.Modified, f => f.Status == "Updated");
+            Assert.Contains(status.Staged, f => f.Status == "X");
+            Assert.Contains("fileUntracked.txt", status.Untracked);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task GetCommitDetailAsync_HandlesBinaryFilesAndInvalidMetadata()
+    {
+        var hexHash = "abcdef123456";
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                if (args.Contains("show -s --format=", StringComparison.Ordinal))
+                {
+                    // Valid metadata format
+                    return new ProcessCommandResult(0, $"{hexHash}|||abc1234|||Author Name|||author@test.com|||2026-10-20T00:00:00Z|||Commit subject|||parent1", "");
+                }
+                if (args.Contains("show --numstat", StringComparison.Ordinal))
+                {
+                    // Binary files use - - filename
+                    return new ProcessCommandResult(0, "-\t-\timage.png\nM\timage.png\n10\t5\tfile.cs\nM\tfile.cs", "");
+                }
+                return new ProcessCommandResult(0, "", "");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var detail = await service.GetCommitDetailsAsync("C:\\dummy", hexHash);
+
+        Assert.NotNull(detail);
+        Assert.Equal(hexHash, detail.Hash);
+        Assert.Equal(2, detail.Files.Count);
+
+        // Test with invalid metadata (< 6 parts)
+        var invalidExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) => new ProcessCommandResult(0, "short|||meta", "")
+        };
+        var invalidService = new GitCliService(invalidExecutor);
+        var nullDetail = await invalidService.GetCommitDetailsAsync("C:\\dummy", hexHash);
+        Assert.Null(nullDetail);
+    }
+
+    [Fact]
+    public async Task GitOperations_FailureOutput_FallsBackToStdoutWhenStderrEmpty()
+    {
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) => new ProcessCommandResult(1, "Stdout error message", "")
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        var branchRes = await service.CreateBranchAsync("C:\\dummy", "bad*branch");
+        Assert.False(branchRes.Success);
+        Assert.Equal("Stdout error message", branchRes.Error);
+    }
 }

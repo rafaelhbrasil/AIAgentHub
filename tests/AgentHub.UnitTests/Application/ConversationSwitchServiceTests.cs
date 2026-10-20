@@ -231,4 +231,33 @@ public class ConversationSwitchServiceTests
         Assert.Equal("claude-sess-1", result.TargetSessionId);
         _ = Assert.Single(conversation.ProviderSessions);
     }
+
+    [Fact]
+    public async Task SwitchProviderAsync_ScopeRecentN_CalculatesCheckpointProperly()
+    {
+        var workspaceId = Guid.NewGuid();
+        var workspace = Workspace.Create("Recent WS", "D:\\RecentPath");
+        var conversation = Conversation.Create(workspaceId, "Recent Conv", "gemini");
+
+        var msg1 = Message.Create(conversation.Id, MessageRole.User, "Prompt 1", null, 1, null, null);
+        var msg2 = Message.Create(conversation.Id, MessageRole.Assistant, "Response 1", null, 2, null, null);
+        var msg3 = Message.Create(conversation.Id, MessageRole.User, "Prompt 2", null, 3, null, null);
+        var msg4 = Message.Create(conversation.Id, MessageRole.Assistant, "Response 2", null, 4, null, null);
+
+        typeof(Conversation).GetField("_messages", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .SetValue(conversation, new List<Message> { msg1, msg2, msg3, msg4 });
+
+        _ = _conversationRepository.GetByIdAsync(conversation.Id, Arg.Any<CancellationToken>()).Returns(conversation);
+        _ = _workspaceRepository.GetByIdAsync(workspaceId, Arg.Any<CancellationToken>()).Returns(workspace);
+
+        var service = new ConversationSwitchService(_conversationRepository, _workspaceRepository, _providerManager, _broadcaster);
+
+        // Test recent_1 (userPrompts.Count = 2 > 1)
+        var resRecent1 = await service.SwitchProviderAsync(conversation.Id, new SwitchProviderRequest("claude-code", null, "recent_1"));
+        Assert.Equal(1, resRecent1.MigratedMessageCount);
+
+        // Test recent_10 (userPrompts.Count = 2 <= 10)
+        var resRecent10 = await service.SwitchProviderAsync(conversation.Id, new SwitchProviderRequest("claude-code", null, "recent_10"));
+        Assert.Equal(2, resRecent10.MigratedMessageCount);
+    }
 }

@@ -1,6 +1,7 @@
 using System.Text;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
+using AIAgentHub.Domain.Providers;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
 
@@ -545,6 +546,46 @@ public sealed class ClaudeCodeAndCodexProviderTests
         {
             Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", originalKey);
         }
+    }
+
+    [Fact]
+    public async Task ClaudeCodeProvider_Capabilities_And_SupportedEfforts_ReturnsExpectedDefaults()
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ModelSelection));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Skills));
+
+        // When executor returns empty/error, GetSupportedEffortsAsync returns DefaultEfforts
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Is<string>(s => s.Contains("config get effort")),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns(Task.FromResult(new ProcessCommandResult(1, "", "unknown command")));
+
+        var efforts = await provider.GetSupportedEffortsAsync();
+        Assert.Contains("low", efforts);
+        Assert.Contains("medium", efforts);
+        Assert.Contains("high", efforts);
+        Assert.Contains("max", efforts);
+    }
+
+    [Fact]
+    public void ClaudeCodeProvider_ParseEffortOutput_HandlesInvalidInputGracefully()
+    {
+        var empty = ClaudeCodeProvider.ParseEffortOutput("");
+        Assert.Empty(empty);
+
+        var nonMatching = ClaudeCodeProvider.ParseEffortOutput("Available efforts: [low, medium, high, max]");
+        Assert.Empty(nonMatching);
+
+        var valid = ClaudeCodeProvider.ParseEffortOutput("Usage: /effort <low|medium|high|max>");
+        Assert.Equal(4, valid.Count);
+        Assert.Contains("low", valid);
+        Assert.Contains("max", valid);
     }
 }
 
