@@ -730,4 +730,144 @@ describe('GitWorkbench Full Component', () => {
       });
     }
   });
+
+  it('renders notices when git is not installed or workspace is not a repo', () => {
+    const notInstalledHtml = renderToString(
+      <ToastProvider>
+        <ModalProvider>
+          <GitWorkbench
+            workspaceId="ws-123"
+            initialStatus={{
+              isGitInstalled: false,
+              isRepository: false,
+              currentBranch: '',
+              ahead: 0,
+              behind: 0,
+              staged: [],
+              modified: [],
+              untracked: [],
+            }}
+          />
+        </ModalProvider>
+      </ToastProvider>
+    );
+    expect(notInstalledHtml).toContain('Git Not Detected');
+
+    const notRepoHtml = renderToString(
+      <ToastProvider>
+        <ModalProvider>
+          <GitWorkbench
+            workspaceId="ws-123"
+            initialStatus={{
+              isGitInstalled: true,
+              isRepository: false,
+              currentBranch: '',
+              ahead: 0,
+              behind: 0,
+              staged: [],
+              modified: [],
+              untracked: [],
+            }}
+          />
+        </ModalProvider>
+      </ToastProvider>
+    );
+    expect(notRepoHtml).toContain('Not a Git Repository');
+  });
+
+  it('handles splitter keyboard resizing, mouse drag, and diff modal viewing', async () => {
+    const diffChangeData = {
+      filePath: 'src/staged.ts',
+      status: 'M',
+      additions: 2,
+      deletions: 1,
+      chunks: [
+        {
+          oldStart: 1,
+          oldLines: 2,
+          newStart: 1,
+          newLines: 3,
+          lines: [
+            { type: 'unchanged' as const, content: 'import React;' },
+            { type: 'added' as const, content: 'const a = 1;' },
+          ],
+        },
+      ],
+    };
+
+    const apiFetchSpy = vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (url: string) => {
+      if (url.includes('/commit-diff')) {
+        return { ok: true, status: 200, data: diffChangeData } as any;
+      }
+      if (url.includes('/commit-detail')) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            hash: 'c1234567890abcdef',
+            shortHash: 'c123456',
+            author: 'John Doe',
+            email: 'john@example.com',
+            date: '2026-10-18T12:00:00Z',
+            message: 'fix: update workbench splitter',
+            parents: [],
+            files: [{ path: 'src/staged.ts', status: 'M', additions: 2, deletions: 1 }],
+          },
+        } as any;
+      }
+      return { ok: true, status: 200, data: null } as any;
+    });
+
+    root = createRoot(container);
+    await act(async () => {
+      root?.render(
+        <ToastProvider>
+          <ModalProvider>
+            <Modal />
+            <GitWorkbench
+              workspaceId="ws-123"
+              initialStatus={readyStatus}
+              initialBranches={branches}
+              initialHistory={history}
+            />
+          </ModalProvider>
+        </ToastProvider>
+      );
+    });
+
+    // Test splitter keyboard resizing
+    const splitter = container.querySelector('.git-workbench-splitter') as HTMLButtonElement;
+    expect(splitter).not.toBeNull();
+
+    await act(async () => {
+      splitter.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+      splitter.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    });
+
+    // Test splitter mouse drag
+    await act(async () => {
+      splitter.dispatchEvent(new MouseEvent('mousedown', { clientY: 300, bubbles: true }));
+      window.dispatchEvent(new MouseEvent('mousemove', { clientY: 350 }));
+      window.dispatchEvent(new MouseEvent('mouseup', { clientY: 350 }));
+    });
+
+    // Test view diff for staged file
+    const diffButtons = container.querySelectorAll('button[title*="Diff"], button[title*="diff"]');
+    if (diffButtons.length > 0) {
+      await act(async () => {
+        (diffButtons[0] as HTMLButtonElement).click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/git/commit-diff'));
+    }
+
+    // Test switching to commit detail inspector
+    const commitRows = container.querySelectorAll('.git-log-row');
+    const historyRow = Array.from(commitRows).find((r) => r.id !== 'row-working-tree') as HTMLElement;
+    if (historyRow) {
+      await act(async () => {
+        historyRow.click();
+      });
+      expect(container.textContent).toContain('Changed Files (1)');
+    }
+  });
 });

@@ -57,6 +57,22 @@ public sealed class ExpandedContentRendererTests
     }
 
     [Fact]
+    public async Task DelimitedRenderer_WithOver200Rows_RendersTruncatedNotice()
+    {
+        var renderer = new DelimitedContentRenderer();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Header1,Header2");
+        for (var i = 1; i <= 210; i++)
+        {
+            sb.AppendLine($"val{i}_a,val{i}_b");
+        }
+
+        var result = await renderer.RenderAsync("large.csv", System.Text.Encoding.UTF8.GetBytes(sb.ToString()));
+        Assert.Contains("preview-truncated-notice", result.RenderedHtml);
+        Assert.Contains("Showing first 200 rows", result.RenderedHtml);
+    }
+
+    [Fact]
     public async Task ConfigLogRenderer_ShouldFormatSupportedExtensions()
     {
         var renderer = new ConfigLogContentRenderer();
@@ -71,5 +87,66 @@ public sealed class ExpandedContentRendererTests
         Assert.Equal("text/log", result.ContentType);
         Assert.Contains("config-preview", result.RenderedHtml);
         Assert.Contains("Server started", result.RenderedHtml);
+    }
+
+    [Fact]
+    public async Task JsonContentRenderer_ValidAndInvalidJson_RendersCleanly()
+    {
+        var renderer = new JsonContentRenderer();
+        Assert.True(renderer.CanRender(".json", null));
+        Assert.True(renderer.CanRender(".other", "application/json"));
+
+        var validJson = "{\"name\":\"AgentHub\",\"active\":true}";
+        var validResult = await renderer.RenderAsync("app.json", System.Text.Encoding.UTF8.GetBytes(validJson));
+        Assert.Equal("application/json", validResult.ContentType);
+        Assert.Contains("&quot;AgentHub&quot;", validResult.RenderedHtml);
+        Assert.Contains("\"AgentHub\"", validResult.RawText);
+
+        var invalidJson = "{\"name\": unfinished";
+        var invalidResult = await renderer.RenderAsync("bad.json", System.Text.Encoding.UTF8.GetBytes(invalidJson));
+        Assert.Equal("application/json", invalidResult.ContentType);
+        Assert.Contains("unfinished", invalidResult.RenderedHtml);
+    }
+
+    [Fact]
+    public async Task XmlContentRenderer_ValidAndInvalidXml_RendersCleanly()
+    {
+        var renderer = new XmlContentRenderer();
+        Assert.True(renderer.CanRender(".xml", null));
+        Assert.True(renderer.CanRender(".config", null));
+        Assert.True(renderer.CanRender(".other", "application/xml"));
+        Assert.False(renderer.CanRender(".svg", "image/svg+xml"));
+
+        var validXml = "<root><item>Hello</item></root>";
+        var validResult = await renderer.RenderAsync("data.xml", System.Text.Encoding.UTF8.GetBytes(validXml));
+        Assert.Equal("application/xml", validResult.ContentType);
+        Assert.Contains("Hello", validResult.RenderedHtml);
+
+        var invalidXml = "<root><unclosed>";
+        var invalidResult = await renderer.RenderAsync("bad.xml", System.Text.Encoding.UTF8.GetBytes(invalidXml));
+        Assert.Equal("application/xml", invalidResult.ContentType);
+        Assert.Contains("unclosed", invalidResult.RenderedHtml);
+    }
+
+    [Fact]
+    public async Task ContentRenderingManager_RegisteredRenderers_And_FallbackRenderer()
+    {
+        var textRenderer = new TextContentRenderer();
+        var jsonRenderer = new JsonContentRenderer();
+        var manager = new ContentRenderingManager([textRenderer, jsonRenderer]);
+
+        var renderers = manager.GetRegisteredRenderers();
+        Assert.Equal(2, renderers.Count);
+        Assert.Equal("JsonRenderer", renderers[0].Name); // Priority 100 > 10
+
+        // Unsupported binary file fallback
+        var binaryBytes = new byte[] { 0x00, 0x01, 0x02, 0xFF };
+        var result = await manager.RenderFileAsync("firmware.bin", binaryBytes);
+
+        Assert.Equal("FallbackRenderer", result.RendererName);
+        Assert.Equal("application/octet-stream", result.ContentType);
+        Assert.True(result.IsBinary);
+        Assert.Contains("unsupported-file-card", result.RenderedHtml);
+        Assert.Contains("Preview is not available for this file type (.bin)", result.RenderedHtml);
     }
 }

@@ -62,12 +62,8 @@ public sealed class OpenCodeProvider(
             if (string.IsNullOrWhiteSpace(output)) return null;
 
             // In headed mode, output might include runner header/footer lines before/after JSON
-            var jsonStart = output.IndexOf('[');
-            var jsonEnd = output.LastIndexOf(']');
-            if (jsonStart >= 0 && jsonEnd > jsonStart) output = output[jsonStart..(jsonEnd + 1)];
-
-            using var doc = JsonDocument.Parse(output);
-            if (doc.RootElement.ValueKind != JsonValueKind.Array) return null;
+            using var doc = TryParseJsonArray(output);
+            if (doc == null || doc.RootElement.ValueKind != JsonValueKind.Array) return null;
 
             var normalizedWorkspace = Path.GetFullPath(workspacePath).Replace('/', '\\').TrimEnd('\\').ToLowerInvariant();
             var titleTarget = $"agenthub-{conversationId}";
@@ -75,6 +71,38 @@ public sealed class OpenCodeProvider(
             return SelectLatestSession(doc.RootElement, titleTarget, normalizedWorkspace);
         }
         catch { /* Non-fatal: session index file not found or corrupted */ }
+
+        return null;
+    }
+
+    private static JsonDocument? TryParseJsonArray(string output)
+    {
+        var jsonEnd = output.LastIndexOf(']');
+        if (jsonEnd < 0) return null;
+
+        var cur = 0;
+        while (cur <= jsonEnd)
+        {
+            var idx = output.IndexOf('[', cur);
+            if (idx < 0 || idx >= jsonEnd) break;
+
+            try
+            {
+                var candidate = output[idx..(jsonEnd + 1)];
+                var doc = JsonDocument.Parse(candidate);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    return doc;
+                }
+                doc.Dispose();
+            }
+            catch
+            {
+                // Not valid JSON array from this bracket, try next '['
+            }
+
+            cur = idx + 1;
+        }
 
         return null;
     }
