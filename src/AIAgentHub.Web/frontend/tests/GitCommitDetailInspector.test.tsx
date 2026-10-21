@@ -82,4 +82,57 @@ describe('GitCommitDetailInspector', () => {
     expect(html).toContain('initial commit');
     expect(html).toContain('No file modifications in this commit.');
   });
+
+  it('fetches commit detail via apiFetch when initialDetail is not provided and handles success & error', async () => {
+    const { act } = await import('react');
+    const { createRoot } = await import('react-dom/client');
+    const apiClient = await import('../src/services/apiClient');
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    const apiSpy = vi.spyOn(apiClient, 'apiFetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: mockDetail,
+    } as any);
+
+    await act(async () => {
+      root.render(
+        <GitCommitDetailInspector
+          workspaceId="ws-123"
+          commitHash={mockDetail.hash}
+          onViewDiff={vi.fn()}
+        />
+      );
+    });
+
+    expect(apiSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/git/commit-details'));
+    expect(container.textContent).toContain('Alice Developer');
+
+    // Test error case
+    vi.spyOn(apiClient, 'apiFetch').mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      error: 'Failed to retrieve commit from git CLI.',
+    } as any);
+
+    await act(async () => {
+      root.render(
+        <GitCommitDetailInspector
+          workspaceId="ws-123"
+          commitHash="bad-commit"
+          onViewDiff={vi.fn()}
+        />
+      );
+    });
+
+    expect(container.textContent).toContain('Failed to retrieve commit from git CLI.');
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
 });

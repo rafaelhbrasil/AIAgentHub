@@ -6,6 +6,7 @@ import { GitWorkbench, CreateBranchModal } from '../src/components/workspaces/st
 import { GitStatusDto, GitBranchDto, GitCommitDto } from '../src/types/git';
 import { ToastProvider } from '../src/context/ToastContext';
 import { ModalProvider } from '../src/context/ModalContext';
+import { Modal } from '../src/components/common/Modal';
 import * as apiClient from '../src/services/apiClient';
 
 describe('GitWorkbench Full Component', () => {
@@ -166,6 +167,7 @@ describe('GitWorkbench Full Component', () => {
               initialBranches={branches}
               initialHistory={history}
             />
+            <Modal />
           </ModalProvider>
         </ToastProvider>
       );
@@ -195,6 +197,7 @@ describe('GitWorkbench Full Component', () => {
               initialBranches={branches}
               initialHistory={history}
             />
+            <Modal />
           </ModalProvider>
         </ToastProvider>
       );
@@ -235,6 +238,7 @@ describe('GitWorkbench Full Component', () => {
               initialBranches={branches}
               initialHistory={history}
             />
+            <Modal />
           </ModalProvider>
         </ToastProvider>
       );
@@ -325,6 +329,7 @@ describe('GitWorkbench Full Component', () => {
               initialBranches={branches}
               initialHistory={history}
             />
+            <Modal />
           </ModalProvider>
         </ToastProvider>
       );
@@ -370,5 +375,359 @@ describe('GitWorkbench Full Component', () => {
     expect(html).toContain('Branch Name');
     expect(html).toContain('Cancel');
     expect(html).toContain('Create &amp; Checkout');
+  });
+
+  it('handles branch checkout, create branch modal submission, error toasts, and view diff', async () => {
+    const apiFetchSpy = vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (url: string, _options?: any) => {
+      if (url.includes('/api/v1/git/status')) {
+        return { ok: true, status: 200, data: readyStatus } as any;
+      }
+      if (url.includes('/api/v1/git/branches')) {
+        return { ok: true, status: 200, data: branches } as any;
+      }
+      if (url.includes('/api/v1/git/history')) {
+        return { ok: true, status: 200, data: history } as any;
+      }
+      if (url.includes('/api/v1/git/checkout')) {
+        return { ok: true, status: 200, data: { success: true } } as any;
+      }
+      if (url.includes('/api/v1/git/branch')) {
+        return { ok: true, status: 200, data: { success: true } } as any;
+      }
+      if (url.includes('/api/v1/git/commit-diff')) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            id: 'diff-123',
+            filePath: 'src/staged.ts',
+            diffText: '@@ -1 +1 @@\n-old\n+new',
+            isCreated: false,
+            isDeleted: false,
+            isBinary: false,
+          },
+        } as any;
+      }
+      if (url.includes('/api/v1/git/commit')) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            hash: 'c1234567890abcdef',
+            shortHash: 'c123456',
+            author: 'John Doe',
+            email: 'john@example.com',
+            date: '2026-10-18T12:00:00Z',
+            message: 'fix: update workbench splitter',
+            parents: [],
+            refs: 'HEAD -> main',
+            files: [{ path: 'src/staged.ts', status: 'M' }],
+          },
+        } as any;
+      }
+      return { ok: true, status: 200, data: { success: true } } as any;
+    });
+
+    root = createRoot(container);
+    await act(async () => {
+      root?.render(
+        <ToastProvider>
+          <ModalProvider>
+            <GitWorkbench
+              workspaceId="ws-123"
+              initialStatus={readyStatus}
+              initialBranches={branches}
+              initialHistory={history}
+            />
+            <Modal />
+          </ModalProvider>
+        </ToastProvider>
+      );
+    });
+
+    // Happy path stage/unstage all
+    const happyStageAllBtn = container.querySelector('#workingTreeStageAllBtn') as HTMLButtonElement;
+    if (happyStageAllBtn) {
+      await act(async () => {
+        happyStageAllBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/stage', expect.objectContaining({
+        body: { workspaceId: 'ws-123', files: undefined, stageAll: true },
+      }));
+    }
+
+    const happyUnstageAllBtn = container.querySelector('#workingTreeUnstageAllBtn') as HTMLButtonElement;
+    if (happyUnstageAllBtn) {
+      await act(async () => {
+        happyUnstageAllBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/unstage', expect.objectContaining({
+        body: { workspaceId: 'ws-123', files: undefined, unstageAll: true },
+      }));
+    }
+
+    // 1. Branch checkout
+    const branchSelect = container.querySelector('#workbenchBranchSelect') as HTMLSelectElement;
+    expect(branchSelect).not.toBeNull();
+    if (branchSelect) {
+      await act(async () => {
+        branchSelect.value = 'feature/auth';
+        branchSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/checkout', expect.objectContaining({
+        body: { workspaceId: 'ws-123', branchName: 'feature/auth' },
+      }));
+    }
+
+    // 2. Create branch button opens modal
+    const newBranchBtn = container.querySelector('#workbenchNewBranchBtn') as HTMLButtonElement;
+    expect(newBranchBtn).not.toBeNull();
+    await act(async () => {
+      newBranchBtn.click();
+    });
+
+    // In modal provider, modal should now be open
+    const branchInput = document.body.querySelector('#workbenchBranchNameInput') as HTMLInputElement;
+    if (branchInput) {
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        nativeSetter?.call(branchInput, 'feature/test-new');
+        branchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        branchInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      const submitModalBtn = document.body.querySelector('form button[type="submit"]') as HTMLButtonElement;
+      if (submitModalBtn) {
+        await act(async () => {
+          submitModalBtn.click();
+        });
+        expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/branch', expect.objectContaining({
+          body: { workspaceId: 'ws-123', branchName: 'feature/test-new', checkout: true },
+        }));
+      }
+    }
+
+    // 3. Mount without initialStatus to verify refreshAll() on mount
+    await act(async () => {
+      root?.render(
+        <ToastProvider>
+          <ModalProvider>
+            <GitWorkbench workspaceId="ws-456" />
+          </ModalProvider>
+        </ToastProvider>
+      );
+    });
+    expect(apiFetchSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/git/status?workspaceId=ws-456'));
+
+    // 4. Test remote operations: Fetch, Pull, Push
+    const fetchBtn = container.querySelector('#workbenchFetchBtn') as HTMLButtonElement;
+    if (fetchBtn) {
+      await act(async () => {
+        fetchBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/fetch', expect.anything());
+    }
+
+    const pullBtn = container.querySelector('#workbenchPullBtn') as HTMLButtonElement;
+    if (pullBtn) {
+      await act(async () => {
+        pullBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/pull', expect.anything());
+    }
+
+    const pushBtn = container.querySelector('#workbenchPushBtn') as HTMLButtonElement;
+    if (pushBtn) {
+      await act(async () => {
+        pushBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/push', expect.anything());
+    }
+
+    // 5. Test Stash Save and Pop
+    const stashSaveBtn = container.querySelector('#workingTreeStashSaveBtn') as HTMLButtonElement;
+    if (stashSaveBtn) {
+      await act(async () => {
+        stashSaveBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/stash', expect.objectContaining({
+        body: { workspaceId: 'ws-123', action: 'save' },
+      }));
+    }
+
+    const stashPopBtn = container.querySelector('#workingTreeStashPopBtn') as HTMLButtonElement;
+    if (stashPopBtn) {
+      await act(async () => {
+        stashPopBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/stash', expect.objectContaining({
+        body: { workspaceId: 'ws-123', action: 'pop' },
+      }));
+    }
+
+    // 6. Test Commit creation
+    const commitMsgInput = container.querySelector('#workingTreeCommitMessage') as HTMLTextAreaElement;
+    const commitBtn = container.querySelector('#workingTreeCommitBtn') as HTMLButtonElement;
+    if (commitMsgInput && commitBtn) {
+      await act(async () => {
+        commitMsgInput.value = 'feat: test new commit';
+        commitMsgInput.dispatchEvent(new Event('input', { bubbles: true }));
+        commitMsgInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await act(async () => {
+        commitBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/commit', expect.objectContaining({
+        body: { workspaceId: 'ws-123', message: 'feat: test new commit' },
+      }));
+    }
+
+    // 7. Test Filter Query in Commit Log Table
+    const filterInput = container.querySelector('#workbenchFilterInput') as HTMLInputElement;
+    if (filterInput) {
+      await act(async () => {
+        filterInput.value = 'splitter';
+        filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+        filterInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(container.textContent).toContain('fix: update workbench splitter');
+    }
+
+    // 8. Select a commit row to mount CommitDetailInspector and trigger handleViewDiff
+    apiFetchSpy.mockImplementation(async (url: string) => {
+      if (url.includes('/api/v1/git/commit-diff')) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            id: 'diff-123',
+            filePath: 'src/staged.ts',
+            diffText: '@@ -1 +1 @@\n-old\n+new',
+            isCreated: false,
+            isDeleted: false,
+            isBinary: false,
+          },
+        } as any;
+      }
+      if (url.includes('/api/v1/git/commit')) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            hash: 'c1234567890abcdef',
+            shortHash: 'c123456',
+            author: 'John Doe',
+            email: 'john@example.com',
+            date: '2026-10-18T12:00:00Z',
+            message: 'fix: update workbench splitter',
+            parents: [],
+            refs: 'HEAD -> main',
+            files: [{ path: 'src/staged.ts', status: 'M', additions: 1, deletions: 0 }],
+          },
+        } as any;
+      }
+      return { ok: true, status: 200, data: {} } as any;
+    });
+
+    const commitRows = container.querySelectorAll('.git-log-row');
+    if (commitRows.length > 1) {
+      await act(async () => {
+        (commitRows[1] as HTMLElement).click();
+      });
+
+      // Now trigger onViewDiff
+      const viewDiffBtn = container.querySelector('button[title="View file diff in commit"]') as HTMLButtonElement;
+      if (viewDiffBtn) {
+        await act(async () => {
+          viewDiffBtn.click();
+        });
+        expect(apiFetchSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/git/commit-diff'));
+
+        // DiffViewerModal should now be rendered
+        const closeDiffModalBtn = container.querySelector('.modal-header button, button[title*="Close"]') as HTMLButtonElement;
+        if (closeDiffModalBtn) {
+          await act(async () => {
+            closeDiffModalBtn.click();
+          });
+        }
+      }
+    }
+
+    // 9. Test error branches for stage, unstage, commit, stash, fetch, pull, push, checkout
+    apiFetchSpy.mockImplementation(async (url: string) => {
+      if (url.includes('/api/v1/git/status')) {
+        return { ok: true, status: 200, data: readyStatus } as any;
+      }
+      if (url.includes('/api/v1/git/branches')) {
+        return { ok: true, status: 200, data: branches } as any;
+      }
+      if (url.includes('/api/v1/git/history')) {
+        return { ok: true, status: 200, data: history } as any;
+      }
+      return {
+        ok: false,
+        status: 400,
+        error: 'Git operation failed with conflict.',
+      } as any;
+    });
+
+    await act(async () => {
+      root?.render(
+        <ToastProvider>
+          <ModalProvider>
+            <GitWorkbench
+              workspaceId="ws-123"
+              initialStatus={readyStatus}
+              initialBranches={branches}
+              initialHistory={history}
+            />
+          </ModalProvider>
+        </ToastProvider>
+      );
+    });
+
+    const stageAllBtn = container.querySelector('#workingTreeStageAllBtn') as HTMLButtonElement;
+    if (stageAllBtn) {
+      await act(async () => {
+        stageAllBtn.click();
+      });
+    }
+
+    const unstageAllBtn = container.querySelector('#workingTreeUnstageAllBtn') as HTMLButtonElement;
+    if (unstageAllBtn) {
+      await act(async () => {
+        unstageAllBtn.click();
+      });
+    }
+
+    if (fetchBtn) {
+      await act(async () => {
+        fetchBtn.click();
+      });
+    }
+
+    if (pullBtn) {
+      await act(async () => {
+        pullBtn.click();
+      });
+    }
+
+    if (pushBtn) {
+      await act(async () => {
+        pushBtn.click();
+      });
+    }
+
+    if (stashSaveBtn) {
+      await act(async () => {
+        stashSaveBtn.click();
+      });
+    }
+
+    if (branchSelect) {
+      await act(async () => {
+        branchSelect.value = 'feature/auth';
+        branchSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
   });
 });

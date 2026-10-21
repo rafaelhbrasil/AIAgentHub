@@ -41,14 +41,16 @@ if (fs.existsSync(frontendLcov)) {
     fs.mkdirSync(rootCoverageDir, { recursive: true });
   }
 
-  fs.writeFileSync(rootLcov, normalizedContent);
+  // Root coverage contains both AIAgentHub.Web-relative and repo-relative paths so any module can resolve files
+  const repoRelativeContent = normalizedContent.replace(/^SF:frontend\//gm, 'SF:src/AIAgentHub.Web/frontend/');
+  fs.writeFileSync(rootLcov, normalizedContent + '\n' + repoRelativeContent);
 
   if (!fs.existsSync(webCoverageDir)) {
     fs.mkdirSync(webCoverageDir, { recursive: true });
   }
 
   fs.writeFileSync(webLcov, normalizedContent);
-  console.log('[normalize-lcov] Normalized frontend LCOV with AIAgentHub.Web-relative paths (frontend/src/...) to all locations.');
+  console.log('[normalize-lcov] Normalized frontend LCOV with dual AIAgentHub.Web-relative and repo-relative paths to all locations.');
 } else if (fs.existsSync(rootLcov)) {
   normalizeLcov(rootLcov);
   console.log('[normalize-lcov] Normalized root coverage/lcov.info');

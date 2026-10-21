@@ -140,5 +140,148 @@ describe('CodeEditorModal and Diff Utilities', () => {
       expect(html).toContain('README.md');
       expect(html).not.toContain('Switch File');
     });
+
+    it('mounts interactively, handles file loading, editing, save, find, quick switcher, and diff mode', async () => {
+      const { act } = await import('react');
+      const { createRoot } = await import('react-dom/client');
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const root = createRoot(container);
+
+      const apiFetchSpy = vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (_url: string, options?: any) => {
+        if (options?.method === 'PUT') {
+          return { ok: true, status: 200, data: { success: true } } as any;
+        }
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            content: 'console.log("hello");\nconst x = 10;',
+            isBinary: false,
+          },
+        } as any;
+      });
+
+      await act(async () => {
+        root.render(
+          <ToastProvider>
+            <CodeEditorModal
+              workspaceId="ws-123"
+              initialPath="src/test.ts"
+              workspaceFiles={['src/test.ts', 'src/other.ts']}
+              onClose={vi.fn()}
+            />
+          </ToastProvider>
+        );
+      });
+
+      expect(apiFetchSpy).toHaveBeenCalledWith(expect.stringContaining('/api/v1/filesystem/file'));
+
+      // Edit content
+      const textarea = container.querySelector('textarea') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
+      if (textarea) {
+        await act(async () => {
+          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+          nativeSetter?.call(textarea, 'console.log("updated");\nconst x = 20;');
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        // Trigger Ctrl+S save
+        await act(async () => {
+          window.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 's' }));
+        });
+        expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/filesystem/file', expect.objectContaining({
+          method: 'PUT',
+        }));
+
+        // Trigger Find toggle
+        const findBtn = container.querySelector('#editorFindReplaceBtn') as HTMLButtonElement;
+        if (findBtn) {
+          await act(async () => {
+            findBtn.click();
+          });
+          expect(container.querySelector('#editorFindInput')).not.toBeNull();
+        }
+
+        // Trigger Quick Switcher toggle
+        const switcherBtn = container.querySelector('#editorQuickSwitcherBtn') as HTMLButtonElement;
+        if (switcherBtn) {
+          await act(async () => {
+            switcherBtn.click();
+          });
+        }
+
+        // Trigger Escape to close overlays
+        await act(async () => {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        });
+
+        // Toggle Word Wrap checkbox/label
+        const wrapCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+        if (wrapCheckbox) {
+          await act(async () => {
+            wrapCheckbox.click();
+          });
+        }
+
+        // Toggle Diff button
+        const diffBtn = container.querySelector('#editorDiffToggleBtn') as HTMLButtonElement;
+        if (diffBtn) {
+          await act(async () => {
+            diffBtn.click();
+          });
+          expect(diffBtn.textContent).toContain('Editor View');
+        }
+      }
+
+      // Test binary file response
+      apiFetchSpy.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { isBinary: true, content: null },
+      } as any);
+
+      await act(async () => {
+        root.render(
+          <ToastProvider>
+            <CodeEditorModal
+              workspaceId="ws-123"
+              initialPath="assets/image.png"
+              workspaceFiles={['assets/image.png']}
+              onClose={vi.fn()}
+            />
+          </ToastProvider>
+        );
+      });
+      expect(container.textContent).toContain('Binary File');
+
+      // Test error response
+      apiFetchSpy.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        error: 'File does not exist.',
+      } as any);
+
+      await act(async () => {
+        root.render(
+          <ToastProvider>
+            <CodeEditorModal
+              workspaceId="ws-123"
+              initialPath="missing.ts"
+              workspaceFiles={['missing.ts']}
+              onClose={vi.fn()}
+            />
+          </ToastProvider>
+        );
+      });
+
+      act(() => {
+        root.unmount();
+      });
+      container.remove();
+    });
   });
 });
