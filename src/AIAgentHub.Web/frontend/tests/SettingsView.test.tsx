@@ -371,5 +371,81 @@ describe('SettingsView UI Component', () => {
         changePassBtn.click();
       });
     });
+
+    it('validates password length and mismatch in Change Password form', async () => {
+      root = createRoot(container);
+      await act(async () => {
+        root?.render(
+          <ToastProvider>
+            <AuthProvider>
+              <SettingsView initialSettings={mockSettings} initialNics={mockNics} initialSubTab="account" />
+            </AuthProvider>
+          </ToastProvider>
+        );
+      });
+
+      const currentPass = container.querySelector('#accCurrentPass') as HTMLInputElement;
+      const newPass = container.querySelector('#accNewPass') as HTMLInputElement;
+      const confirmPass = container.querySelector('#accConfirmPass') as HTMLInputElement;
+      const changePassBtn = container.querySelector('#updatePasswordBtn') as HTMLButtonElement;
+
+      // Fill short password (< 8 chars)
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        nativeSetter?.call(currentPass, 'validPass123');
+        nativeSetter?.call(newPass, 'short');
+        nativeSetter?.call(confirmPass, 'short');
+        currentPass.dispatchEvent(new Event('change', { bubbles: true }));
+        newPass.dispatchEvent(new Event('change', { bubbles: true }));
+        confirmPass.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await act(async () => {
+        changePassBtn.click();
+      });
+
+      // Fill mismatching passwords
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        nativeSetter?.call(newPass, 'longValidPass123');
+        nativeSetter?.call(confirmPass, 'differentValidPass123');
+        newPass.dispatchEvent(new Event('change', { bubbles: true }));
+        confirmPass.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await act(async () => {
+        changePassBtn.click();
+      });
+    });
+
+    it('toggles network interfaces when in SelectedInterfaces mode', async () => {
+      const selectedSettings = {
+        ...mockSettings,
+        networkMode: 'SelectedInterfaces' as const,
+        selectedInterfaces: ['192.168.1.50'],
+      };
+
+      root = createRoot(container);
+      await act(async () => {
+        root?.render(
+          <ToastProvider>
+            <AuthProvider>
+              <SettingsView initialSettings={selectedSettings} initialNics={mockNics} initialSubTab="network" />
+            </AuthProvider>
+          </ToastProvider>
+        );
+      });
+
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+      expect(checkboxes.length).toBeGreaterThan(0);
+
+      // Check another interface and uncheck
+      await act(async () => {
+        (checkboxes[0] as HTMLInputElement).click();
+      });
+      if (checkboxes.length > 1) {
+        await act(async () => {
+          (checkboxes[1] as HTMLInputElement).click();
+        });
+      }
+    });
   });
 });

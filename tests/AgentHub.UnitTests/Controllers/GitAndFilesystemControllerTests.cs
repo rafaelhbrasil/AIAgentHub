@@ -197,4 +197,80 @@ public sealed class GitAndFilesystemControllerTests
         var actionResult = await controller.GetCommitDiff(wsId, "1234abcd", "missing.cs", CancellationToken.None);
         _ = Assert.IsType<NotFoundObjectResult>(actionResult);
     }
+
+    [Fact]
+    public async Task GitController_AdditionalEndpoints_ExecuteSuccessfully()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService
+        {
+            DefaultWorkspace = new WorkspaceDto(wsId, "Test WS", "C:\\test\\ws", WorkspaceOrigin.Server, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, new WorkspaceSettings(), 0)
+        };
+        var gitService = new FakeGitService();
+        var controller = new GitController(gitService, wsService);
+
+        // GetBranches
+        var branchesResult = await controller.GetBranches(wsId, CancellationToken.None);
+        var okBranches = Assert.IsType<OkObjectResult>(branchesResult);
+        var branches = Assert.IsAssignableFrom<IEnumerable<GitBranchDto>>(okBranches.Value);
+        Assert.NotEmpty(branches);
+
+        // CheckoutBranch
+        var checkoutResult = await controller.CheckoutBranch(new GitController.CheckoutBranchRequest(wsId, "main"), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(checkoutResult);
+
+        // Stage
+        var stageResult = await controller.Stage(new GitController.StageRequest(wsId, ["file.txt"], false), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(stageResult);
+
+        // Unstage
+        var unstageResult = await controller.Unstage(new GitController.UnstageRequest(wsId, ["file.txt"], false), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(unstageResult);
+
+        // Commit
+        var commitResult = await controller.Commit(new GitController.CommitRequest(wsId, "feat: test"), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(commitResult);
+
+        // Push
+        var pushResult = await controller.Push(new GitController.PushRequest(wsId), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(pushResult);
+
+        // Pull
+        var pullResult = await controller.Pull(new GitController.PullRequest(wsId), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(pullResult);
+
+        // Fetch
+        var fetchResult = await controller.Fetch(new GitController.FetchRequest(wsId), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(fetchResult);
+
+        // Stash
+        var stashResult = await controller.Stash(new GitController.StashRequest(wsId, "save", "WIP"), CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(stashResult);
+
+        // History
+        var historyResult = await controller.GetHistory(wsId, 10, CancellationToken.None);
+        _ = Assert.IsType<OkObjectResult>(historyResult);
+    }
+
+    [Fact]
+    public async Task GitController_Endpoints_WhenWorkspaceNotFound_ReturnNotFound()
+    {
+        var wsId = Guid.NewGuid();
+        var wsService = new FakeWorkspaceService(); // DefaultWorkspace is null
+        var gitService = new FakeGitService();
+        var controller = new GitController(gitService, wsService);
+
+        Assert.IsType<NotFoundObjectResult>(await controller.GetStatus(wsId, CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.GetBranches(wsId, CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.CreateBranch(new GitController.CreateBranchRequest(wsId, "dev"), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.CheckoutBranch(new GitController.CheckoutBranchRequest(wsId, "dev"), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.Stage(new GitController.StageRequest(wsId), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.Unstage(new GitController.UnstageRequest(wsId), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.Commit(new GitController.CommitRequest(wsId, "msg"), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.Push(new GitController.PushRequest(wsId), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.Pull(new GitController.PullRequest(wsId), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.Fetch(new GitController.FetchRequest(wsId), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.Stash(new GitController.StashRequest(wsId), CancellationToken.None));
+        Assert.IsType<NotFoundObjectResult>(await controller.GetHistory(wsId, 10, CancellationToken.None));
+    }
 }
