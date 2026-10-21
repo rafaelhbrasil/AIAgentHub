@@ -7,6 +7,7 @@ import { ConversationDto, ConversationDetailDto, MessageRole } from '../src/type
 import { ProviderStatus } from '../src/types/provider';
 import { ToastProvider } from '../src/context/ToastContext';
 import { ModalProvider } from '../src/context/ModalContext';
+import { Modal } from '../src/components/common/Modal';
 import * as apiClient from '../src/services/apiClient';
 import { signalRService } from '../src/services/signalrService';
 
@@ -116,16 +117,28 @@ describe('useWorkspaceStudio Hook', () => {
         };
       }
       if (url.includes('/api/v1/conversations/conv-101/prompt')) {
-        return { ok: true, status: 200, data: {} };
+        if (url.includes('/api/v1/providers') && !url.includes('/models') && !url.includes('/status')) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return { ok: true, status: 200, data: {} };
       }
       if (url.includes('/api/v1/conversations/conv-101/abort')) {
-        return { ok: true, status: 200, data: {} };
+        if (url.includes('/api/v1/providers') && !url.includes('/models') && !url.includes('/status')) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return { ok: true, status: 200, data: {} };
       }
       if (url.includes('/api/v1/conversations/conv-101/pin')) {
-        return { ok: true, status: 200, data: {} };
+        if (url.includes('/api/v1/providers') && !url.includes('/models') && !url.includes('/status')) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return { ok: true, status: 200, data: {} };
       }
       if (url.includes('/api/v1/conversations/conv-101/model')) {
-        return { ok: true, status: 200, data: {} };
+        if (url.includes('/api/v1/providers') && !url.includes('/models') && !url.includes('/status')) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return { ok: true, status: 200, data: {} };
       }
       if (url.includes('/api/v1/conversations/conv-101')) {
         return { ok: true, status: 200, data: mockDetail };
@@ -134,10 +147,16 @@ describe('useWorkspaceStudio Hook', () => {
         return { ok: true, status: 200, data: [] };
       }
       if (url.includes('/api/v1/diffs/accept-all')) {
-        return { ok: true, status: 200, data: {} };
+        if (url.includes('/api/v1/providers') && !url.includes('/models') && !url.includes('/status')) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return { ok: true, status: 200, data: {} };
       }
       if (url.includes('/api/v1/diffs/reject-all')) {
-        return { ok: true, status: 200, data: {} };
+        if (url.includes('/api/v1/providers') && !url.includes('/models') && !url.includes('/status')) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return { ok: true, status: 200, data: {} };
       }
       if (url.includes('/api/v1/providers/claude-code/models')) {
         return {
@@ -152,6 +171,9 @@ describe('useWorkspaceStudio Hook', () => {
           status: 200,
           data: { providerId: 'claude-code', status: ProviderStatus.Ready },
         };
+      }
+      if (url.includes('/api/v1/providers') && !url.includes('/models') && !url.includes('/status')) {
+        return { ok: true, status: 200, data: [] };
       }
       return { ok: true, status: 200, data: {} };
     });
@@ -171,6 +193,7 @@ describe('useWorkspaceStudio Hook', () => {
       root.render(
         <ToastProvider>
           <ModalProvider>
+            <Modal />
             <TestHarness workspace={mockWorkspace} initialConversationId="conv-101" />
           </ModalProvider>
         </ToastProvider>
@@ -206,6 +229,7 @@ describe('useWorkspaceStudio Hook', () => {
       root.render(
         <ToastProvider>
           <ModalProvider>
+            <Modal />
             <TestHarness workspace={mockWorkspace} initialConversationId="conv-101" />
           </ModalProvider>
         </ToastProvider>
@@ -251,6 +275,7 @@ describe('useWorkspaceStudio Hook', () => {
       root.render(
         <ToastProvider>
           <ModalProvider>
+            <Modal />
             <TestHarness workspace={mockWorkspace} initialConversationId="conv-101" />
           </ModalProvider>
         </ToastProvider>
@@ -294,6 +319,7 @@ describe('useWorkspaceStudio Hook', () => {
       root.render(
         <ToastProvider>
           <ModalProvider>
+            <Modal />
             <TestHarness workspace={mockWorkspace} initialConversationId="conv-101" />
           </ModalProvider>
         </ToastProvider>
@@ -314,5 +340,86 @@ describe('useWorkspaceStudio Hook', () => {
       (container.querySelector('#rejectBtn') as HTMLButtonElement).click();
     });
     expect(hookResult?.isChangesOverviewOpen).toBe(false);
+  });
+
+  it('handles UI navigation, mobile tab, and modal launcher callbacks', async () => {
+    setupApiMocks();
+    let hookResult: ReturnType<typeof useWorkspaceStudio> | undefined;
+
+    const TestHarness: React.FC<UseWorkspaceStudioProps> = (props) => {
+      hookResult = useWorkspaceStudio(props);
+      return (
+        <div>
+          <button id="mobileTabBtn" onClick={() => hookResult?.setMobileTab('git')}>
+            Tab Git
+          </button>
+          <button id="actionsMenuBtn" onClick={() => hookResult?.setShowActionsMenu(true)}>
+            Menu
+          </button>
+          <button id="gitOpenBtn" onClick={() => hookResult?.setIsGitOpen(true)}>
+            Git Open
+          </button>
+          <button id="createConvBtn" onClick={() => hookResult?.handleCreateConversation()}>
+            Create Conv
+          </button>
+          <button id="deleteConvBtn" onClick={() => hookResult?.handleDeleteConversation('conv-101', 'Active Chat')}>
+            Delete Conv
+          </button>
+          <button id="diffsBtn" onClick={() => hookResult?.handleOpenDiffs()}>
+            Diffs
+          </button>
+        </div>
+      );
+    };
+
+    await act(async () => {
+      root = createRoot(container);
+      root.render(
+        <ToastProvider>
+          <ModalProvider>
+            <Modal />
+            <TestHarness workspace={mockWorkspace} initialConversationId="conv-101" />
+          </ModalProvider>
+        </ToastProvider>
+      );
+    });
+
+    act(() => {
+      (container.querySelector('#mobileTabBtn') as HTMLButtonElement).click();
+    });
+    expect(hookResult?.mobileTab).toBe('git');
+
+    act(() => {
+      (container.querySelector('#actionsMenuBtn') as HTMLButtonElement).click();
+    });
+    expect(hookResult?.showActionsMenu).toBe(true);
+
+    act(() => {
+      (container.querySelector('#gitOpenBtn') as HTMLButtonElement).click();
+    });
+    expect(hookResult?.isGitOpen).toBe(true);
+
+    act(() => {
+      (container.querySelector('#createConvBtn') as HTMLButtonElement).click();
+    });
+    expect(document.body.textContent).toContain('Start New Conversation');
+
+    act(() => {
+      (container.querySelector('#diffsBtn') as HTMLButtonElement).click();
+    });
+    expect(document.body.textContent).toContain('Changed Files & Diff Reviewer');
+
+    act(() => {
+      (container.querySelector('#deleteConvBtn') as HTMLButtonElement).click();
+    });
+    expect(document.body.textContent).toContain('Delete Conversation');
+
+    const confirmDeleteBtn = document.body.querySelector('button.btn-danger') as HTMLButtonElement;
+    if (confirmDeleteBtn) {
+      await act(async () => {
+        confirmDeleteBtn.click();
+      });
+      expect(hookResult?.conversations.length).toBe(0);
+    }
   });
 });
