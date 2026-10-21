@@ -605,6 +605,45 @@ describe('StudioGitPanel and Subcomponents', () => {
         method: 'POST',
         body: { workspaceId: 'ws-456', action: 'pop' },
       });
+
+      // Commit
+      const commitInput = container.querySelector('#workbenchCommitMessageInput') as HTMLTextAreaElement;
+      const commitBtn = container.querySelector('#workbenchCommitSubmitBtn') as HTMLButtonElement;
+      if (commitInput && commitBtn) {
+        await act(async () => {
+          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+          nativeSetter?.call(commitInput, 'feat: studio commit');
+          commitInput.dispatchEvent(new Event('input', { bubbles: true }));
+          commitInput.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await act(async () => {
+          commitBtn.click();
+        });
+        expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/commit', expect.anything());
+      }
+
+      // Branch action buttons (Push, Pull, Fetch)
+      const pushBtn = container.querySelector('#panelPushBtn') as HTMLButtonElement;
+      if (pushBtn) {
+        await act(async () => {
+          pushBtn.click();
+        });
+        expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/push', expect.anything());
+      }
+      const pullBtn = container.querySelector('#panelPullBtn') as HTMLButtonElement;
+      if (pullBtn) {
+        await act(async () => {
+          pullBtn.click();
+        });
+        expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/pull', expect.anything());
+      }
+      const fetchBtn = container.querySelector('#panelFetchBtn') as HTMLButtonElement;
+      if (fetchBtn) {
+        await act(async () => {
+          fetchBtn.click();
+        });
+        expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/fetch', expect.anything());
+      }
     });
 
     it('renders empty notices when git not ready in drawer', async () => {

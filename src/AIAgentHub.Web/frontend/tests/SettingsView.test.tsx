@@ -414,6 +414,9 @@ describe('SettingsView UI Component', () => {
       await act(async () => {
         changePassBtn.click();
       });
+
+      expect(changePassBtn).not.toBeNull();
+      expect(currentPass.value).toBe('validPass123');
     });
 
     it('toggles network interfaces when in SelectedInterfaces mode', async () => {

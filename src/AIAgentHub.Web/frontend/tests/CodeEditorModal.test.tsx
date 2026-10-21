@@ -397,6 +397,27 @@ describe('CodeEditorModal and Diff Utilities', () => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       });
 
+      // Test Tab key in editor
+      await act(async () => {
+        editorTextarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+      });
+
+      // Test scroll sync
+      await act(async () => {
+        editorTextarea.scrollTop = 50;
+        editorTextarea.dispatchEvent(new Event('scroll'));
+      });
+
+      // Test Close with unsaved changes
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const closeBtn = container.querySelector('#editorCloseBtn') as HTMLButtonElement;
+      if (closeBtn) {
+        await act(async () => {
+          closeBtn.click();
+        });
+      }
+      expect(confirmSpy).toHaveBeenCalled();
+
       act(() => {
         root.unmount();
       });
