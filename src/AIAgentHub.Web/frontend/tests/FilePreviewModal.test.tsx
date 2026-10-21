@@ -26,7 +26,7 @@ describe('FilePreviewModal', () => {
   });
 
   const sampleMarkdownPreview: FilePreviewDto = {
-    path: 'docs/readme.md',
+    filePath: 'docs/readme.md',
     contentType: 'text/markdown',
     isBinary: false,
     rawText: '# Hello World\nThis is a sample markdown file.\nLine 3.',
@@ -35,7 +35,7 @@ describe('FilePreviewModal', () => {
   };
 
   const sampleBinaryPreview: FilePreviewDto = {
-    path: 'assets/logo.png',
+    filePath: 'assets/logo.png',
     contentType: 'image/png',
     isBinary: true,
     rawText: '',
@@ -170,7 +170,7 @@ describe('FilePreviewModal', () => {
 
   it('formats small byte sizes correctly and handles zero bytes', () => {
     const smallPreview: FilePreviewDto = {
-      path: 'small.txt',
+      filePath: 'small.txt',
       contentType: 'text/plain',
       isBinary: false,
       rawText: 'hello',

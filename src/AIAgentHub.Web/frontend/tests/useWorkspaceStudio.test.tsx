@@ -38,6 +38,8 @@ describe('useWorkspaceStudio Hook', () => {
     name: 'Test Project',
     path: '/path/to/project',
     createdAtUtc: new Date().toISOString(),
+    updatedAtUtc: new Date().toISOString(),
+    conversationCount: 1,
     settings: {
       defaultProviderId: 'claude-code',
       defaultModelId: 'claude-3-5-sonnet',
@@ -53,6 +55,7 @@ describe('useWorkspaceStudio Hook', () => {
       modelId: 'claude-3-5-sonnet',
       isPinned: false,
       messageCount: 2,
+      fileChangeCount: 0,
       createdAtUtc: new Date(Date.now() - 10000).toISOString(),
       updatedAtUtc: new Date(Date.now() - 1000).toISOString(),
     },
@@ -76,10 +79,11 @@ describe('useWorkspaceStudio Hook', () => {
       },
     ],
     createdAtUtc: new Date().toISOString(),
+    updatedAtUtc: new Date().toISOString(),
   };
 
   const setupApiMocks = () => {
-    vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (url: string, opts?: any) => {
+    vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (url: string, _opts?: any) => {
       if (url.includes('/api/v1/filesystem/tree')) {
         return {
           ok: true,
