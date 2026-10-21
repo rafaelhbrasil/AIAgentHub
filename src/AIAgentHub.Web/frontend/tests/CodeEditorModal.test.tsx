@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderToString } from 'react-dom/server';
+import { createRoot } from 'react-dom/client';
+import { act } from 'react';
 import {
   CodeEditorModal,
   computeSimpleDiff,
@@ -276,6 +278,123 @@ describe('CodeEditorModal and Diff Utilities', () => {
             />
           </ToastProvider>
         );
+      });
+
+      act(() => {
+        root.unmount();
+      });
+      container.remove();
+    });
+
+    it('handles file save, find/replace, and quick switcher interactions in editor', async () => {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const root = createRoot(container);
+
+      const onSaved = vi.fn();
+      const apiFetchSpy = vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (_url: string, opts?: any) => {
+        if (opts?.method === 'PUT') {
+          return { ok: true, status: 200, data: { success: true } } as any;
+        }
+        return {
+          ok: true,
+          status: 200,
+          data: { isBinary: false, content: 'const greeting = "hello world";\nconst other = "hello test";' },
+        } as any;
+      });
+
+      await act(async () => {
+        root.render(
+          <ToastProvider>
+            <CodeEditorModal
+              workspaceId="ws-123"
+              initialPath="src/app.ts"
+              workspaceFiles={['src/app.ts', 'src/util.ts']}
+              onClose={vi.fn()}
+              onSaved={onSaved}
+            />
+          </ToastProvider>
+        );
+      });
+
+      const editorTextarea = container.querySelector('#editorMainTextarea') as HTMLTextAreaElement;
+      expect(editorTextarea).not.toBeNull();
+
+      // Edit content
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+        nativeSetter?.call(editorTextarea, 'const greeting = "modified content";');
+        editorTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+        editorTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      // Save via Ctrl+S
+      await act(async () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 's' }));
+      });
+
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/filesystem/file', expect.objectContaining({
+        method: 'PUT',
+      }));
+
+      // Test Find & Replace Next and All
+      const findBtn = container.querySelector('#editorFindReplaceBtn') as HTMLButtonElement;
+      expect(findBtn).not.toBeNull();
+      await act(async () => {
+        findBtn.click();
+      });
+
+      const findInput = container.querySelector('#editorFindInput') as HTMLInputElement;
+      const replaceInput = container.querySelector('#editorReplaceInput') as HTMLInputElement;
+      expect(findInput).not.toBeNull();
+
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        nativeSetter?.call(findInput, 'content');
+        findInput.dispatchEvent(new Event('input', { bubbles: true }));
+        nativeSetter?.call(replaceInput, 'universe');
+        replaceInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      const replaceNextBtn = container.querySelector('#editorReplaceNextBtn') as HTMLButtonElement;
+      await act(async () => {
+        replaceNextBtn.click();
+      });
+      expect(editorTextarea.value).toContain('universe');
+
+      const replaceAllBtn = container.querySelector('#editorReplaceAllBtn') as HTMLButtonElement;
+      await act(async () => {
+        replaceAllBtn.click();
+      });
+
+      // Test Quick Switcher selection
+      const switcherBtn = container.querySelector('#editorQuickSwitcherBtn') as HTMLButtonElement;
+      await act(async () => {
+        switcherBtn.click();
+      });
+
+      const quickFilterInput = container.querySelector('#quickFileFilterInput') as HTMLInputElement;
+      expect(quickFilterInput).not.toBeNull();
+
+      const fileButtons = container.querySelectorAll('button');
+      const utilBtn = Array.from(fileButtons).find((b) => b.textContent?.includes('util.ts'));
+      if (utilBtn) {
+        await act(async () => {
+          utilBtn.click();
+        });
+      }
+
+      // Test ReadOnly toggle
+      const readOnlyCheckbox = container.querySelector('#editorReadOnlyCheckbox') as HTMLInputElement;
+      if (readOnlyCheckbox) {
+        await act(async () => {
+          readOnlyCheckbox.click();
+        });
+      }
+
+      // Test Keyboard Shortcuts: Escape
+      await act(async () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       });
 
       act(() => {

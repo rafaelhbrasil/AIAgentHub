@@ -184,11 +184,12 @@ describe('CloneWorkspaceModal', () => {
         return { ok: true, status: 200, data: [] } as any;
       });
 
+      const onSuccess = vi.fn();
       root = createRoot(container);
       await act(async () => {
         root?.render(
           <ToastProvider>
-            <CloneWorkspaceModal onSuccess={vi.fn()} onCancel={vi.fn()} />
+            <CloneWorkspaceModal onSuccess={onSuccess} onCancel={vi.fn()} />
           </ToastProvider>
         );
       });
@@ -209,7 +210,8 @@ describe('CloneWorkspaceModal', () => {
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       });
 
-      // No crash, toast shown
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(container.querySelector('#submitCloneWsBtn')).not.toBeNull();
     });
 
     it('handles network throw during clone gracefully', async () => {
@@ -220,11 +222,12 @@ describe('CloneWorkspaceModal', () => {
         return { ok: true, status: 200, data: [] } as any;
       });
 
+      const onSuccess = vi.fn();
       root = createRoot(container);
       await act(async () => {
         root?.render(
           <ToastProvider>
-            <CloneWorkspaceModal onSuccess={vi.fn()} onCancel={vi.fn()} />
+            <CloneWorkspaceModal onSuccess={onSuccess} onCancel={vi.fn()} />
           </ToastProvider>
         );
       });
@@ -245,7 +248,8 @@ describe('CloneWorkspaceModal', () => {
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       });
 
-      // Handled smoothly
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(container.querySelector('#submitCloneWsBtn')).not.toBeNull();
     });
 
     it('cancels clone when Cancel button is clicked', async () => {

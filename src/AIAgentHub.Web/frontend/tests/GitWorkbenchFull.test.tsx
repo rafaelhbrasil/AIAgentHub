@@ -869,5 +869,47 @@ describe('GitWorkbench Full Component', () => {
       });
       expect(container.textContent).toContain('Changed Files (1)');
     }
+
+    // Switch back to working tree inspector
+    const wtRow = container.querySelector('#row-working-tree') as HTMLElement;
+    if (wtRow) {
+      await act(async () => {
+        wtRow.click();
+      });
+      expect(container.textContent).toContain('Uncommitted Changes');
+    }
+
+    // Test entering commit message and committing
+    const commitInput = container.querySelector('#workbenchCommitMessageInput') as HTMLTextAreaElement;
+    const commitBtn = container.querySelector('#workbenchCommitSubmitBtn') as HTMLButtonElement;
+    if (commitInput && commitBtn) {
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+        nativeSetter?.call(commitInput, 'feat: awesome commit');
+        commitInput.dispatchEvent(new Event('input', { bubbles: true }));
+        commitInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await act(async () => {
+        commitBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/commit', expect.anything());
+    }
+
+    // Test unstage all button
+    const unstageAllBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Unstage All'));
+    if (unstageAllBtn) {
+      await act(async () => {
+        unstageAllBtn.click();
+      });
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/git/unstage', expect.anything());
+    }
+
+    // Test stash save and pop buttons
+    const stashButtons = Array.from(container.querySelectorAll('button')).filter((b) => b.textContent?.includes('Stash') || b.textContent?.includes('Pop'));
+    for (const btn of stashButtons) {
+      await act(async () => {
+        btn.click();
+      });
+    }
   });
 });
