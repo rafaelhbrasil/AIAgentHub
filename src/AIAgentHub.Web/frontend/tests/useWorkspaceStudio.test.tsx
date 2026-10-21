@@ -201,8 +201,8 @@ describe('useWorkspaceStudio Hook', () => {
     });
 
     expect(hookResult?.activeConversation?.id).toBe('conv-101');
-    expect(hookResult?.conversations.length).toBe(1);
-    expect(hookResult?.treeData?.children?.length).toBe(1);
+    expect(hookResult?.conversations).toHaveLength(1);
+    expect(hookResult?.treeData?.children).toHaveLength(1);
     expect(signalRService.joinConversation).toHaveBeenCalledWith('conv-101');
   });
 
@@ -419,7 +419,7 @@ describe('useWorkspaceStudio Hook', () => {
       await act(async () => {
         confirmDeleteBtn.click();
       });
-      expect(hookResult?.conversations.length).toBe(0);
+      expect(hookResult?.conversations).toHaveLength(0);
     }
   });
 });

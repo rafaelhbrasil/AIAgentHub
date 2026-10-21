@@ -104,7 +104,7 @@ describe('FilePreviewModal', () => {
     });
 
     expect(container.querySelector('.raw-file-view')).not.toBeNull();
-    expect(container.querySelectorAll('.raw-line-row').length).toBe(3);
+    expect(container.querySelectorAll('.raw-line-row')).toHaveLength(3);
 
     const copyBtn = Array.from(container.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Copy Raw')
