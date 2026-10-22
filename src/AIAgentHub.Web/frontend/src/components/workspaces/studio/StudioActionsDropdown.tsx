@@ -35,7 +35,12 @@ export const StudioActionsDropdown: React.FC<StudioActionsDropdownProps> = ({
 
   return (
     <>
-      <div className="dropdown-backdrop" onClick={onClose}></div>
+      <button
+        type="button"
+        className="dropdown-backdrop"
+        aria-label="Close actions menu"
+        onClick={onClose}
+      />
       <div className="studio-actions-dropdown glass">
         <button
           type="button"
@@ -124,7 +129,10 @@ export const StudioActionsDropdown: React.FC<StudioActionsDropdownProps> = ({
 
         {activeConversation && (
           <div className="dropdown-item-group">
-            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+            <label
+              htmlFor="convEffortSelect"
+              style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}
+            >
               Reasoning Effort:
             </label>
             <select

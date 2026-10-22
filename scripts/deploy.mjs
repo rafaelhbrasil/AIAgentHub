@@ -97,7 +97,7 @@ if (fs.existsSync(targetPublishDir)) {
     console.log('🔍 Releasing locking processes for publish directory...');
     try {
       if (process.platform === 'win32') {
-        execSync(`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'AIAgentHub.Web.exe'\\" | Where-Object { \\$_.ExecutablePath -like '*publish*' } | ForEach-Object { Stop-Process -Id \\$_.ProcessId -Force }"`, { stdio: 'ignore' });
+        execSync(String.raw`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name = 'AIAgentHub.Web.exe'\" | Where-Object { \$_.ExecutablePath -like '*publish*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }"`, { stdio: 'ignore' });
       } else {
         execSync('pkill -f AIAgentHub.Web', { stdio: 'ignore' });
       }

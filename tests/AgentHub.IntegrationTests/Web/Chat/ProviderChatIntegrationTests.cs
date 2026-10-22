@@ -7,7 +7,6 @@ using AIAgentHub.Application.Conversations;
 using AIAgentHub.Application.Workspaces;
 using AIAgentHub.Domain.Workspaces;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AgentHub.IntegrationTests.Web.Chat;
 
@@ -40,7 +39,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
 
         // 1. Create Workspace
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubTestWS_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         try
         {
             var wsPayload = new CreateWorkspaceRequest(
@@ -124,7 +123,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
 
         // 1. Create Workspace
         var tempFolder = Path.Combine(Path.GetTempPath(), $"AgentHubSwitchWS_{targetProviderId}_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         try
         {
             var wsPayload = new CreateWorkspaceRequest(
@@ -225,7 +224,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
         var client = await SetupAndAuthenticateClientAsync();
 
         var tempFolder = Path.Combine(Path.GetTempPath(), $"AgentHubBidirectionalWS_{otherProviderId}_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         try
         {
             var wsPayload = new CreateWorkspaceRequest(
@@ -308,7 +307,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
         var client = await SetupAndAuthenticateClientAsync();
 
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubInvalidSwitchWS_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         try
         {
             var wsPayload = new CreateWorkspaceRequest(
@@ -370,7 +369,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
         var client = await SetupAndAuthenticateClientAsync();
 
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubLazyScopeWS_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         try
         {
             var wsRes = await client.PostAsJsonAsync("/api/v1/workspaces", new CreateWorkspaceRequest(
@@ -442,7 +441,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
         var client = await SetupAndAuthenticateClientAsync();
 
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubAbortWS_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         try
         {
             var wsRes = await client.PostAsJsonAsync("/api/v1/workspaces", new CreateWorkspaceRequest(
@@ -471,7 +470,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
                 var dbConv = await db.Conversations.FindAsync(conv.Id);
                 Assert.NotNull(dbConv);
                 dbConv.SetStatus(AIAgentHub.Domain.Conversations.ConversationStatus.SwitchingProvider);
-                await db.SaveChangesAsync();
+                _ = await db.SaveChangesAsync();
             }
 
             // Verify status is SwitchingProvider (1)
@@ -506,7 +505,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
         var client = await SetupAndAuthenticateClientAsync();
 
         var tempFolder = Path.Combine(Path.GetTempPath(), "AgentHubPinSearchWS_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        _ = Directory.CreateDirectory(tempFolder);
         try
         {
             var wsRes = await client.PostAsJsonAsync("/api/v1/workspaces", new CreateWorkspaceRequest(
@@ -536,7 +535,7 @@ public sealed class ProviderChatIntegrationTests : IClassFixture<CustomWebApplic
             Assert.True(pinnedDto.IsPinned);
 
             // Search conversation
-            var searchRes = await client.GetAsync($"/api/v1/conversations/search?q=UniqueSearchTermXYZ");
+            var searchRes = await client.GetAsync("/api/v1/conversations/search?q=UniqueSearchTermXYZ");
             Assert.Equal(HttpStatusCode.OK, searchRes.StatusCode);
             var searchResults = await searchRes.Content.ReadFromJsonAsync<List<ConversationDto>>(JsonOpts);
             Assert.NotNull(searchResults);

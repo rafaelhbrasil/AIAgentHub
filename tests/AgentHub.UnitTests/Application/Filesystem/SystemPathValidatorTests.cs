@@ -109,7 +109,7 @@ public sealed class SystemPathValidatorTests
         var tempUserPath = Path.Combine(Path.GetTempPath(), "agent-hub-test-workspace-" + Guid.NewGuid());
         try
         {
-            Directory.CreateDirectory(tempUserPath);
+            _ = Directory.CreateDirectory(tempUserPath);
             Assert.False(validator.IsForbiddenForBrowsing(tempUserPath, out var reasonBrowse));
             Assert.Null(reasonBrowse);
 
@@ -123,5 +123,29 @@ public sealed class SystemPathValidatorTests
                 Directory.Delete(tempUserPath, true);
             }
         }
+    }
+
+    [Fact]
+    public void IsForbiddenForBrowsing_WhitespaceOrInvalidPath_HandlesExpectedly()
+    {
+        var validator = new SystemPathValidator();
+
+        Assert.False(validator.IsForbiddenForBrowsing(null, out var r1));
+        Assert.Null(r1);
+
+        Assert.False(validator.IsForbiddenForBrowsing("   ", out var r2));
+        Assert.Null(r2);
+
+        // Invalid path format with null char or invalid syntax
+        var invalid = "C:\\invalid\0path";
+        Assert.True(validator.IsForbiddenForBrowsing(invalid, out var r3));
+        Assert.Contains("Invalid path format", r3);
+
+        Assert.True(validator.IsForbiddenForWorkspace(invalid, out var r4));
+        Assert.Contains("Invalid path format", r4);
+
+        // IsPathForbidden alias
+        Assert.True(validator.IsPathForbidden(invalid, out var r5));
+        Assert.Contains("Invalid path format", r5);
     }
 }

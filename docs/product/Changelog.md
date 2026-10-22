@@ -53,11 +53,29 @@ Security-related improvements.
 
 ---
 
-# [Unreleased]
+# [0.3.0] - Workspace Developer Tools & Git
 
 ## Added
 
+- **Native Git Integration**: Added full repository status, branch listing/creation/checkout, staging, commits, remote operations (push, pull, fetch), stashing, and commit history.
+- **Git Clone to Workspace**: Added direct repository cloning into new workspaces (`POST /api/v1/workspaces/clone`) with `Origin = WorkspaceOrigin.Git`.
+- **Studio File Explorer**: Interactive file tree supporting file creation, folder creation, renaming, safe deletion, drag-and-drop reorganization, and real-time path search/filtering.
+- **Embedded Lightweight Code Editor**: In-browser code editor featuring syntax highlighting for popular languages, search & replace (`Ctrl+F`), quick file jump (`Ctrl+P`), read-only toggle, and inline diff comparison against saved disk state.
+- **Expanded File Previews**: Added server-side content renderers for Documents & Web (PDF, HTML), Structured Data (CSV, TSV rendered as interactive tables), and Logs & Config (LOG, INI, TOML, ENV).
+- **Single-User Account Management**: Settings panel to update login username and password with automatic session cookie refreshment. Username updates are authorized solely by the active authenticated session (field pre-filled with the current username, no password required); password changes strictly require current password verification.
+- **Settings Danger Zone — Full System Reset**: New Danger Zone section in Settings (Account tab) that wipes the entire database and returns the system to first-run setup. Authorized by the current administrator password only, gated by an explicit confirmation dialog listing everything lost (all application data) versus preserved on disk (workspace files, git repositories, provider installations and configuration — external CLIs are not uninstalled).
+- **Mobile Responsive Design**: Fully responsive layout optimizations across all new developer tools (mobile tabs, responsive modals, touch-friendly tree controls, and collapsible panels).
+
+## Fixed
+
+- **Git Commit Graph Staircase**: The commit history graph rendered one lane per commit because the log format requested abbreviated parent hashes (`%p`) while lane matching compared full commit hashes. History now requests full parent hashes (`%P`), so linear history renders as a single lane and merges branch correctly.
+
+---
+
+# [0.2.0] - Multi-Provider Flexibility & Chat DX
+
 - **GitHub Copilot Provider**: Added official GitHub Copilot CLI (`@github/copilot`, `copilot`) integration with dynamic CLI model discovery, authentication probe testing, and multi-turn session persistence.
+- **Configurable Detached Execution Trigger Words & Intent Gating**: Added configurable trigger words (`AgentHub:CliExecution:DetachedExecutionTriggerWords` and provider-level `DetachedExecutionTriggerWords`) to intelligently inject detached background process rules into GitHub Copilot CLI prompts only when execution intent is detected, eliminating CLI runner deadlocks when launching persistent services while consuming 0 extra tokens on non-execution prompts.
 - **Reasoning Effort Control**: Added model reasoning effort / thinking level configuration (`low`, `medium`, `high`, `max`) mapped to provider CLI flags (`--effort` for Antigravity, `--variant` for OpenCode) and exposed via UI header dropdown.
 - **Dynamic CLI Model Discovery & Caching**: Added dynamic model listing from CLI (`opencode models`) with fallback catalogs, model caching, and forced refresh support (`GET /api/v1/providers/{id}/models?refresh=true`).
 - **Provider Status Monitoring**: Added real-time detailed provider status endpoint (`GET /api/v1/providers/{id}/status?refresh=true`) with enum status indicators (`Ready`, `NotInstalled`, `Unauthenticated`, `QuotaExceeded`, `Error`, `Running`).
@@ -78,6 +96,7 @@ Security-related improvements.
 
 ## Fixed
 
+- Fixed cross-conversation notification and stream bleeding across multiple browser tabs by scoping SignalR streaming groups to `usr_{userId}_conv_{conversationId}`, eliminating broad `Clients.All` broadcasts for conversation events, diffs, and permissions, ensuring client connections leave previous groups upon conversation switching, and filtering incoming events to the active conversation.
 - Fixed provider status showing "Unknown" by enabling global string enum serialization in ASP.NET Core (`JsonStringEnumConverter`).
 - Fixed OpenCode "Session not found" error by tagging initial runs with `--title agenthub-{conversationId}` and resolving generated native IDs (`ses_...`).
 - Fixed active model count not updating on provider cards after closing the model configuration modal by syncing provider state and fetching fresh DB model catalogs.

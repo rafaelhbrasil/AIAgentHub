@@ -1,8 +1,9 @@
-import React from 'react';
 import { WorkspaceDto } from '../../../types/workspace';
 import { ConversationDetailDto, ConversationStatus } from '../../../types/conversation';
 import { ModelInfo } from '../../../types/provider';
+import { GitStatusDto } from '../../../types/git';
 import { StudioActionsDropdown } from './StudioActionsDropdown';
+import { GitBranchIcon } from '../../common/Icons';
 
 interface StudioHeaderProps {
   workspace: WorkspaceDto;
@@ -10,6 +11,7 @@ interface StudioHeaderProps {
   models: ModelInfo[];
   showActionsMenu: boolean;
   isStreaming?: boolean;
+  gitStatus?: GitStatusDto | null;
   onBack: () => void;
   onModelChange: (modelId: string) => void;
   onToggleActionsMenu: () => void;
@@ -20,6 +22,9 @@ interface StudioHeaderProps {
   onSwitchProvider?: () => void;
   onEffortChange: (effort: string) => void;
   onDeleteConversation: (id: string, title: string) => void;
+  onToggleGit?: () => void;
+  studioMode?: 'chat' | 'git';
+  onSwitchStudioMode?: (mode: 'chat' | 'git') => void;
 }
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({
@@ -28,6 +33,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   models,
   showActionsMenu,
   isStreaming,
+  gitStatus,
   onBack,
   onModelChange,
   onToggleActionsMenu,
@@ -38,6 +44,9 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onSwitchProvider,
   onEffortChange,
   onDeleteConversation,
+  onToggleGit,
+  studioMode = 'chat',
+  onSwitchStudioMode,
 }) => {
   return (
     <div className="studio-compact-header glass">
@@ -104,7 +113,69 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
               </>
             );
           })()}
+
+          {gitStatus?.isRepository && onToggleGit && (
+            <button
+              type="button"
+              className="badge badge-provider desktop-only"
+              id="studioGitBadgeBtn"
+              onClick={onToggleGit}
+              title={`Git branch: ${gitStatus.currentBranch || 'detached'}. Click to toggle Git panel.`}
+              style={{
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(34, 197, 94, 0.12)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                color: '#4ade80',
+                marginLeft: '6px',
+              }}
+            >
+              <GitBranchIcon size={12} style={{ color: '#4ade80' }} />
+              <span>{gitStatus.currentBranch || 'Git'}</span>
+              {gitStatus.ahead > 0 && <span style={{ fontSize: '0.72rem' }}>↑{gitStatus.ahead}</span>}
+              {gitStatus.behind > 0 && <span style={{ fontSize: '0.72rem' }}>↓{gitStatus.behind}</span>}
+            </button>
+          )}
         </div>
+
+        {onSwitchStudioMode && (
+          <fieldset className="segmented-switch desktop-only" style={{ display: 'inline-flex', marginLeft: '12px', border: 'none', padding: 0, margin: 0 }} aria-label="Studio View Mode">
+            <button
+              type="button"
+              className={`btn compact-btn ${studioMode === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => onSwitchStudioMode('chat')}
+              id="studioModeChatBtn"
+              style={{
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+                fontSize: '0.78rem',
+                padding: '3px 10px',
+              }}
+            >
+              💬 Chat
+            </button>
+            <button
+              type="button"
+              className={`btn compact-btn ${studioMode === 'git' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => onSwitchStudioMode('git')}
+              id="studioModeGitBtn"
+              style={{
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                fontSize: '0.78rem',
+                padding: '3px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <GitBranchIcon size={12} style={{ color: studioMode === 'git' ? '#fff' : '#4ade80' }} />
+              <span>Git Workbench</span>
+            </button>
+          </fieldset>
+        )}
       </div>
 
       <div className="studio-header-right">

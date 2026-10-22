@@ -100,9 +100,21 @@ export class SignalRService {
   }
 
   public joinConversation(conversationId: string): void {
+    if (this.currentConversationId && this.currentConversationId !== conversationId) {
+      this.leaveConversation(this.currentConversationId);
+    }
     this.currentConversationId = conversationId;
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
       this.connection.invoke('JoinConversation', conversationId).catch(() => {});
+    }
+  }
+
+  public leaveConversation(conversationId: string): void {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      this.connection.invoke('LeaveConversation', conversationId).catch(() => {});
+    }
+    if (this.currentConversationId === conversationId) {
+      this.currentConversationId = null;
     }
   }
 

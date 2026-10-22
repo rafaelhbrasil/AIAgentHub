@@ -257,6 +257,8 @@ public sealed class ProviderManager(
             ProviderStatus.NotInstalled => 3,
             ProviderStatus.QuotaExceeded => 4,
             ProviderStatus.Discontinued => 99,
+            ProviderStatus.Error => throw new NotImplementedException(),
+            ProviderStatus.Running => throw new NotImplementedException(),
             _ => 5
         };
     }
@@ -313,65 +315,85 @@ public sealed class ProviderManager(
 
         if (!forceRefresh && _repositoryFactory != null)
         {
-            var repo = _repositoryFactory();
-            var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
-            if (dbModels.Count > 0)
+            var cachedModels = await TryGetCachedModelsAsync(providerId, cancellationToken);
+            if (cachedModels != null)
             {
-                return dbModels.Select(m => new ModelInfo
-                {
-                    Id = m.ModelId,
-                    DisplayName = m.DisplayName,
-                    Description = m.Description,
-                    ContextWindow = m.ContextWindow,
-                    IsDefault = m.IsDefault,
-                    IsDisplayed = m.IsDisplayed
-                }).ToList();
-            }
-
-            if (_detectionRecordFactory != null)
-            {
-                var detectionRepo = _detectionRecordFactory();
-                var dbRecord = await detectionRepo.GetByProviderIdAsync(providerId, cancellationToken);
-                if (dbRecord != null)
-                {
-                    // Detection was already performed and cached; return default delegation model from memory without spawning CLI subprocess
-                    return
-                    [
-                        new()
-                        {
-                            Id = "default",
-                            DisplayName = "Default",
-                            Description = "Default model. The model will not be enforced, and whatever was set or used last directly in the provider CLI will remain active without being overridden.",
-                            ContextWindow = null,
-                            IsDefault = true,
-                            IsDisplayed = true
-                        }
-                    ];
-                }
+                return cachedModels;
             }
         }
 
         var rawModels = await provider.GetModelsAsync(cancellationToken);
+        await ApplyModelDisplaySettingsAsync(providerId, rawModels, cancellationToken);
+        return rawModels;
+    }
 
-        if (_repositoryFactory != null)
+    private async Task<IReadOnlyList<ModelInfo>?> TryGetCachedModelsAsync(string providerId, CancellationToken cancellationToken)
+    {
+        var repo = _repositoryFactory();
+        var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
+        if (dbModels.Count > 0)
         {
-            var repo = _repositoryFactory();
-            await repo.ReconcileAsync(providerId, rawModels, cancellationToken);
-            var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
-            if (dbModels.Count > 0)
+            return dbModels.Select(m => new ModelInfo
             {
-                var dbMap = dbModels.ToDictionary(m => m.ModelId, m => m, StringComparer.OrdinalIgnoreCase);
-                foreach (var rm in rawModels)
-                {
-                    if (dbMap.TryGetValue(rm.Id, out var setting))
-                    {
-                        rm.IsDisplayed = setting.IsDisplayed;
-                    }
-                }
-            }
+                Id = m.ModelId,
+                DisplayName = m.DisplayName,
+                Description = m.Description,
+                ContextWindow = m.ContextWindow,
+                IsDefault = m.IsDefault,
+                IsDisplayed = m.IsDisplayed
+            }).ToList();
         }
 
-        return rawModels;
+        if (_detectionRecordFactory == null)
+        {
+            return null;
+        }
+
+        var detectionRepo = _detectionRecordFactory();
+        var dbRecord = await detectionRepo.GetByProviderIdAsync(providerId, cancellationToken);
+        if (dbRecord == null)
+        {
+            return null;
+        }
+
+        // Detection was already performed and cached; return default delegation model from memory without spawning CLI subprocess
+        return
+        [
+            new()
+            {
+                Id = "default",
+                DisplayName = "Default",
+                Description = "Default model. The model will not be enforced, and whatever was set or used last directly in the provider CLI will remain active without being overridden.",
+                ContextWindow = null,
+                IsDefault = true,
+                IsDisplayed = true
+            }
+        ];
+    }
+
+    private async Task ApplyModelDisplaySettingsAsync(string providerId, IReadOnlyList<ModelInfo> rawModels, CancellationToken cancellationToken)
+    {
+        if (_repositoryFactory == null)
+        {
+            return;
+        }
+
+        var repo = _repositoryFactory();
+        await repo.ReconcileAsync(providerId, rawModels, cancellationToken);
+        var dbModels = await repo.GetByProviderIdAsync(providerId, cancellationToken);
+        if (dbModels.Count == 0)
+        {
+            return;
+        }
+
+        var dbMap = dbModels.ToDictionary(m => m.ModelId, m => m, StringComparer.OrdinalIgnoreCase);
+        foreach (var rm in rawModels)
+        {
+            if (dbMap.TryGetValue(rm.Id, out var setting))
+            {
+                rm.IsDisplayed = setting.IsDisplayed;
+            }
+        }
     }
 
     public async Task UpdateModelSettingsAsync(string providerId, Dictionary<string, bool> modelStates, CancellationToken cancellationToken = default)
@@ -421,7 +443,7 @@ public sealed class ProviderManager(
     {
         if (_detectionRecordFactory == null)
         {
-            return Array.Empty<ProviderDetectionRecord>();
+            return [];
         }
 
         var repo = _detectionRecordFactory();
@@ -444,19 +466,7 @@ public sealed class ProviderManager(
             var record = await repo.GetByProviderIdAsync(providerId, cancellationToken);
             if (record != null)
             {
-                if (isHidden.HasValue)
-                {
-                    record.IsHidden = isHidden.Value;
-                }
-                if (defaultModelId != null)
-                {
-                    record.DefaultModelId = string.IsNullOrWhiteSpace(defaultModelId) || defaultModelId.Equals("default", StringComparison.OrdinalIgnoreCase) ? null : defaultModelId.Trim();
-                }
-                if (defaultEffort != null)
-                {
-                    record.DefaultEffort = string.IsNullOrWhiteSpace(defaultEffort) ? null : defaultEffort.Trim();
-                }
-                record.DetectedAtUtc = DateTimeOffset.UtcNow;
+                ApplyRecordSettings(record, isHidden, defaultModelId, defaultEffort);
                 await repo.UpsertAsync(record, cancellationToken);
             }
         }
@@ -465,6 +475,23 @@ public sealed class ProviderManager(
         {
             await UpdateModelSettingsAsync(providerId, modelStates, cancellationToken);
         }
+    }
+
+    private static void ApplyRecordSettings(ProviderDetectionRecord record, bool? isHidden, string? defaultModelId, string? defaultEffort)
+    {
+        if (isHidden.HasValue)
+        {
+            record.IsHidden = isHidden.Value;
+        }
+        if (defaultModelId != null)
+        {
+            record.DefaultModelId = string.IsNullOrWhiteSpace(defaultModelId) || defaultModelId.Equals("default", StringComparison.OrdinalIgnoreCase) ? null : defaultModelId.Trim();
+        }
+        if (defaultEffort != null)
+        {
+            record.DefaultEffort = string.IsNullOrWhiteSpace(defaultEffort) ? null : defaultEffort.Trim();
+        }
+        record.DetectedAtUtc = DateTimeOffset.UtcNow;
     }
 
 

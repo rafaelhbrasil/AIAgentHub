@@ -52,13 +52,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
     <>
       <header className="app-header">
         <div className="header-left">
-          <div className="logo-badge" onClick={() => handleTabClick('dashboard')}>
+          <button
+            type="button"
+            className="logo-badge"
+            onClick={() => handleTabClick('dashboard')}
+            style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+          >
             <img src="/logo.svg" alt="AI Agent Hub" className="logo-img" width="28" height="28" />
             <div className="logo-text">
               <span className="logo-title">AI Agent Hub</span>
               <span className="logo-version" title={versionTooltip}>{versionText}</span>
             </div>
-          </div>
+          </button>
 
           {isAuthenticated && (
             <nav className="nav-links desktop-nav" id="mainNav">
@@ -188,7 +193,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
       {/* Mobile Drawer Dropdown */}
       {mobileMenuOpen && isAuthenticated && (
         <>
-          <div className="mobile-nav-backdrop" onClick={() => setMobileMenuOpen(false)}></div>
+          <button
+            type="button"
+            className="mobile-nav-backdrop"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileMenuOpen(false)}
+          />
           <nav className="mobile-nav-drawer glass">
             <button
               className={`mobile-nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`}

@@ -90,6 +90,7 @@ Version 0.1 supports:
 * **Account Lockout Policy**: 3 consecutive failed password attempts temporarily lock the account for 10 minutes. During this period, further login attempts are blocked. After the 10-minute duration has elapsed, login attempts are permitted again. Successful authentication immediately resets the failed attempts counter.
 * **HTTP Rate Limiting**: Authentication and recovery endpoints (`/api/v1/auth/login`, `/api/v1/auth/recover`, `/api/v1/auth/setup/initialize`) are protected by an IP-based fixed window rate limiter (maximum 10 requests per minute) to prevent Denial of Service via Argon2id computation exhaustion.
 * **Recovery Code Hashing & Verification**: 16-character alphanumeric recovery codes are stored hashed via SHA-256 and verified using constant-time equality comparisons (`CryptographicOperations.FixedTimeEquals`).
+* **Single-User Account Credential Updates (v0.3)**: Authenticated administrators can update their login username and password directly from Settings without resetting database data, requiring current password verification while preserving single-user scoping.
 
 Future versions may introduce:
 
@@ -141,6 +142,7 @@ Session cookies must be configured as:
 * Secure
 * HttpOnly
 * SameSite=Strict
+* Configurable Cookie Name via `Authentication:CookieName` in `appsettings.json` (defaults to `AIAgentHub.Session` in Production/Published environments, and `AIAgentHub.Session.Dev` in `appsettings.Development.json` to prevent local browser cookie collisions when debugging on port 5432 alongside published instances on port 5001 on `localhost`).
 
 Sessions should:
 

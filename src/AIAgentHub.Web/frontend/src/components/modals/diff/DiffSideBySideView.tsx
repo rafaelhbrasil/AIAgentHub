@@ -11,7 +11,7 @@ interface DiffSideBySideViewProps {
   bottomPaneRef: React.RefObject<HTMLDivElement>;
   onTopScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   onBottomScroll: (e: React.UIEvent<HTMLDivElement>) => void;
-  onStartEditing: () => void;
+  onStartEditing?: () => void;
 }
 
 export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
@@ -33,7 +33,7 @@ export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
       const isLeftEmpty = l.leftLineNumber == null;
       return (
         <div
-          key={i}
+          key={`diff-line-left-${i}`}
           id={`diff-line-left-${i}`}
           className={`diff-line ${isDel ? 'deleted' : isLeftEmpty ? 'empty' : 'unchanged'}`}
         >
@@ -51,7 +51,7 @@ export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
       const isRightEmpty = l.rightLineNumber == null;
       return (
         <div
-          key={i}
+          key={`diff-line-right-${i}`}
           id={`diff-line-right-${i}`}
           className={`diff-line ${isAdd ? 'added' : isRightEmpty ? 'empty' : 'unchanged'}`}
         >
@@ -85,15 +85,17 @@ export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
           <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '0.82rem' }}>
             {isCreated ? 'NEW FILE (CREATED)' : 'MODIFIED (CURRENT)'}
           </span>
-          <button
-            type="button"
-            className="btn compact-btn btn-secondary"
-            style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-            onClick={onStartEditing}
-            title="Toggle interactive editing mode for right pane"
-          >
-            ✏️ Edit Content
-          </button>
+          {onStartEditing && (
+            <button
+              type="button"
+              className="btn compact-btn btn-secondary"
+              style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+              onClick={onStartEditing}
+              title="Toggle interactive editing mode for right pane"
+            >
+              ✏️ Edit Content
+            </button>
+          )}
         </div>
         <div className="diff-pane-lines">{renderRightLines()}</div>
       </div>
@@ -122,15 +124,17 @@ export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
             <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '0.82rem' }}>
               MODIFIED (CURRENT)
             </span>
-            <button
-              type="button"
-              className="btn compact-btn btn-secondary"
-              style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-              onClick={onStartEditing}
-              title="Toggle interactive editing mode for right pane"
-            >
-              ✏️ Edit Content
-            </button>
+            {onStartEditing && (
+              <button
+                type="button"
+                className="btn compact-btn btn-secondary"
+                style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                onClick={onStartEditing}
+                title="Toggle interactive editing mode for right pane"
+              >
+                ✏️ Edit Content
+              </button>
+            )}
           </div>
           <div className="diff-pane-lines">{renderRightLines()}</div>
         </div>
@@ -159,15 +163,17 @@ export const DiffSideBySideView: React.FC<DiffSideBySideViewProps> = ({
           <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '0.82rem' }}>
             MODIFIED (CURRENT)
           </span>
-          <button
-            type="button"
-            className="btn compact-btn btn-secondary"
-            style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-            onClick={onStartEditing}
-            title="Toggle interactive editing mode for right pane"
-          >
-            ✏️ Edit Content
-          </button>
+          {onStartEditing && (
+            <button
+              type="button"
+              className="btn compact-btn btn-secondary"
+              style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+              onClick={onStartEditing}
+              title="Toggle interactive editing mode for right pane"
+            >
+              ✏️ Edit Content
+            </button>
+          )}
         </div>
         <div className="diff-pane-lines">{renderRightLines()}</div>
       </div>

@@ -50,15 +50,7 @@ public sealed class RecoveryOptions
         return false;
     }
 
-    public bool IsSafeClientOrLoopback(System.Net.IPAddress? remoteIp)
-    {
-        if (remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp))
-        {
-            return true;
-        }
-
-        return IsSafeClient(remoteIp);
-    }
+    public bool IsSafeClientOrLoopback(System.Net.IPAddress? remoteIp) => remoteIp == null || System.Net.IPAddress.IsLoopback(remoteIp) || IsSafeClient(remoteIp);
 }
 
 public interface IDatabaseResetter
@@ -75,9 +67,14 @@ public interface ISetupService
     public Task<bool> WipeAllDataAsync(CancellationToken cancellationToken = default);
 }
 
+public sealed record UpdateAccountResult(bool Success, string? Error = null);
+
 public interface IAuthenticationService
 {
     public Task<AuthResult> LoginAsync(string username, string password, CancellationToken cancellationToken = default);
     public Task<UserAccount?> GetAdminAsync(CancellationToken cancellationToken = default);
     public Task<string?> GetAdminUsernameAsync(CancellationToken cancellationToken = default);
+    public Task<bool> VerifyCurrentPasswordAsync(string password, CancellationToken cancellationToken = default);
+    public Task<UpdateAccountResult> UpdateUsernameAsync(string newUsername, CancellationToken cancellationToken = default);
+    public Task<UpdateAccountResult> UpdatePasswordAsync(string currentPassword, string newPassword, string confirmNewPassword, CancellationToken cancellationToken = default);
 }

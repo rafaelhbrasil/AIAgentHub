@@ -109,12 +109,9 @@ public sealed class Conversation : AggregateRoot
 
     private static string? NormalizeModelId(string? modelId)
     {
-        if (string.IsNullOrWhiteSpace(modelId) || modelId.Trim().Equals("default", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        return modelId.Trim();
+        return string.IsNullOrWhiteSpace(modelId) || modelId.Trim().Equals("default", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : modelId.Trim();
     }
 
     public void SetEffort(string? effort)

@@ -19,6 +19,11 @@ public interface IFilesystemService
     public Task<string> ReadFileTextAsync(string fullPath, CancellationToken cancellationToken = default);
     public Task WriteFileTextAsync(string fullPath, string content, CancellationToken cancellationToken = default);
     public Task WriteFileBytesAsync(string fullPath, byte[] content, CancellationToken cancellationToken = default);
+    public Task CreateFileAsync(string fullPath, string? content = null, CancellationToken cancellationToken = default);
+    public Task CreateDirectoryAsync(string fullPath, CancellationToken cancellationToken = default);
+    public Task RenameItemAsync(string oldFullPath, string newFullPath, CancellationToken cancellationToken = default);
+    public Task DeleteItemAsync(string fullPath, CancellationToken cancellationToken = default);
+    public Task MoveItemAsync(string sourceFullPath, string destinationDirectoryFullPath, CancellationToken cancellationToken = default);
     public Task<ZipArchiveResult> WriteZipArchiveAsync(string directoryPath, Stream outputStream, IReadOnlyList<string>? ignoredPatterns = null, CancellationToken cancellationToken = default);
     public bool FileExists(string fullPath);
     public bool DirectoryExists(string fullPath);

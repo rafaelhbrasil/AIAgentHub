@@ -291,7 +291,7 @@ img {
   border: 1px solid rgba(99, 102, 241, 0.3);
   font-size: 0.85rem;
   font-weight: 600;
-  color: #A5B4FC;
+  color: #C7D2FE;
   margin-bottom: 1.5rem;
   animation: pulse-glow 3s infinite ease-in-out;
 }
@@ -1110,13 +1110,13 @@ img {
 .before-badge {
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #FCA5A5;
+  color: #FEE2E2;
 }
 
 .after-badge {
   background: rgba(99, 102, 241, 0.18);
   border: 1px solid rgba(99, 102, 241, 0.4);
-  color: #C7D2FE;
+  color: #EEF2FF;
 }
 
 .comparison-card-header h3 {
@@ -1160,13 +1160,13 @@ img {
 
 .comp-icon.bad {
   background: rgba(239, 68, 68, 0.15);
-  color: #EF4444;
+  color: #FCA5A5;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .comp-icon.good {
   background: rgba(16, 185, 129, 0.15);
-  color: #10B981;
+  color: #6EE7B7;
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 

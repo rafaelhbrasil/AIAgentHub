@@ -102,50 +102,54 @@ public sealed class ConversationRepository(AgentHubDbContext context) : IConvers
 
     public async Task UpdateAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
-        foreach (var message in conversation.Messages)
-        {
-            var entry = _context.Entry(message);
-            if (entry.State is EntityState.Detached or EntityState.Modified)
-            {
-                var exists = await _context.Messages.AnyAsync(m => m.Id == message.Id, cancellationToken);
-                if (!exists)
-                {
-                    entry.State = EntityState.Added;
-                }
-            }
-        }
-
-        foreach (var fileChange in conversation.FileChanges)
-        {
-            var entry = _context.Entry(fileChange);
-            if (entry.State is EntityState.Detached or EntityState.Modified)
-            {
-                var exists = await _context.FileChanges.AnyAsync(fc => fc.Id == fileChange.Id, cancellationToken);
-                if (!exists)
-                {
-                    entry.State = EntityState.Added;
-                }
-            }
-        }
-
-        foreach (var session in conversation.ProviderSessions)
-        {
-            var entry = _context.Entry(session);
-            if (entry.State is EntityState.Detached or EntityState.Modified)
-            {
-                var exists = await _context.ConversationProviderSessions.AnyAsync(s => s.Id == session.Id, cancellationToken);
-                if (!exists)
-                {
-                    entry.State = EntityState.Added;
-                }
-            }
-        }
+        await EnsureMessagesTrackedAsync(conversation, cancellationToken);
+        await EnsureFileChangesTrackedAsync(conversation, cancellationToken);
+        await EnsureProviderSessionsTrackedAsync(conversation, cancellationToken);
 
         if (_context.Entry(conversation).State == EntityState.Detached)
         {
             _ = _context.Conversations.Update(conversation);
         }
         _ = await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureMessagesTrackedAsync(Conversation conversation, CancellationToken cancellationToken)
+    {
+        foreach (var message in conversation.Messages)
+        {
+            var entry = _context.Entry(message);
+            if (entry.State is EntityState.Detached or EntityState.Modified &&
+                !await _context.Messages.AnyAsync(m => m.Id == message.Id, cancellationToken))
+            {
+                entry.State = EntityState.Added;
+            }
+        }
+    }
+
+    private async Task EnsureFileChangesTrackedAsync(Conversation conversation, CancellationToken cancellationToken)
+    {
+        foreach (var fileChange in conversation.FileChanges)
+        {
+            var entry = _context.Entry(fileChange);
+            if (entry.State is EntityState.Detached or EntityState.Modified &&
+                !await _context.FileChanges.AnyAsync(fc => fc.Id == fileChange.Id, cancellationToken))
+            {
+                entry.State = EntityState.Added;
+            }
+        }
+    }
+
+    private async Task EnsureProviderSessionsTrackedAsync(Conversation conversation, CancellationToken cancellationToken)
+    {
+        foreach (var session in conversation.ProviderSessions)
+        {
+            var entry = _context.Entry(session);
+            if (entry.State is EntityState.Detached or EntityState.Modified &&
+                !await _context.ConversationProviderSessions.AnyAsync(s => s.Id == session.Id, cancellationToken))
+            {
+                entry.State = EntityState.Added;
+            }
+        }
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)

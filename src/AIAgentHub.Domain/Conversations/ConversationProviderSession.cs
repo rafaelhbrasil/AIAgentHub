@@ -51,8 +51,5 @@ public sealed class ConversationProviderSession : Entity
         LastActiveAtUtc = DateTimeOffset.UtcNow;
     }
 
-    public void Touch()
-    {
-        LastActiveAtUtc = DateTimeOffset.UtcNow;
-    }
+    public void Touch() => LastActiveAtUtc = DateTimeOffset.UtcNow;
 }

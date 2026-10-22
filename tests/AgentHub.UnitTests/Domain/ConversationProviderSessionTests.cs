@@ -1,6 +1,5 @@
 using AIAgentHub.Domain.Conversations;
 using AIAgentHub.Domain.Workspaces;
-using Xunit;
 
 namespace AgentHub.UnitTests.Domain;
 

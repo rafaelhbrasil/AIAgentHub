@@ -5,7 +5,6 @@ using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Infrastructure.Providers;
 
@@ -14,6 +13,23 @@ public sealed class GitHubCopilotProviderTests
     private readonly IOptions<CliExecutionOptions> _options = Options.Create(new CliExecutionOptions { Headless = true });
     private readonly IPromptLogger _promptLogger = Substitute.For<IPromptLogger>();
     private readonly IProcessExecutor _executor = Substitute.For<IProcessExecutor>();
+
+    private static async Task<(bool Success, string? ErrorMessage)> InvokeRunTestCommandAsync(GitHubCopilotProvider provider, string exePath)
+    {
+        var method = typeof(GitHubCopilotProvider).GetMethod(
+            "RunTestCommandAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(method);
+        var task = (Task)method.Invoke(provider, [exePath, CancellationToken.None])!;
+        await task;
+        var resultProp = task.GetType().GetProperty("Result");
+        var result = resultProp?.GetValue(task);
+        var successProp = result?.GetType().GetProperty("IsSuccess");
+        var errorProp = result?.GetType().GetProperty("Error");
+        var success = (bool)(successProp?.GetValue(result) ?? false);
+        var error = (string?)errorProp?.GetValue(result);
+        return (success, error);
+    }
 
     private ProviderExecutionContext CreateContext(
         string? modelId,
@@ -28,7 +44,7 @@ public sealed class GitHubCopilotProviderTests
             prompt,
             modelId,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -47,13 +63,13 @@ public sealed class GitHubCopilotProviderTests
         Assert.Equal("npm install -g @github/copilot", provider.InstallCommand);
         Assert.Equal("GitHub Copilot", provider.DisplayName);
         Assert.Equal("login", provider.AuthCommand);
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Streaming));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.ToolCalling));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Skills));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Mcp));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.FileEditing));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.Vision));
-        Assert.True(provider.Capabilities.HasFlag(ProviderCapability.ModelSelection));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Streaming));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ToolCalling));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Skills));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Mcp));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.FileEditing));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Vision));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ModelSelection));
     }
 
     [Fact]
@@ -165,7 +181,7 @@ public sealed class GitHubCopilotProviderTests
             "Initial prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -179,5 +195,185 @@ public sealed class GitHubCopilotProviderTests
         await provider.ExecuteAsync(context);
 
         Assert.Equal(context.ConversationId.ToString(), capturedSessionId);
+    }
+
+    [Theory]
+    [InlineData("Please run the application in the background", true)]
+    [InlineData("Start the web server and test endpoints", true)]
+    [InlineData("Launch the calc project", true)]
+    [InlineData("Listen on port 5050 and host the api", true)]
+    [InlineData("Serve the client application", true)]
+    [InlineData("Run the tests", true)]
+    [InlineData("Refactor the authentication service", false)]
+    [InlineData("Explain how this function works", false)]
+    [InlineData("Fix the typo in README.md", false)]
+    public void GitHubCopilotProvider_ShouldInjectDetachedExecutionInstruction_GatingWorks(string prompt, bool expected)
+    {
+        var triggerWords = new[] { "run", "start", "launch", "serve", "server", "host", "daemon", "listen", "up", "project", "calc", "web" };
+        var actual = CliProviderBase.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_ShouldInjectDetachedExecutionInstruction_DoesNotDuplicateIfAlreadyPresent()
+    {
+        var prompt = $"{CliProviderBase.DetachedExecutionInstruction} run the app";
+        var triggerWords = new[] { "run" };
+        var actual = CliProviderBase.ShouldInjectDetachedExecutionInstruction(prompt, triggerWords);
+        Assert.False(actual);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_BuildArguments_WithTriggerWord_InjectsDetachedExecutionInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new GitHubCopilotProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Please run the application in the background");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains(CliProviderBase.DetachedExecutionInstruction, args);
+        Assert.Contains("Please run the application in the background", args);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_BuildArguments_WithoutTriggerWord_DoesNotInjectedInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new GitHubCopilotProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Explain the structure of this code");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.DoesNotContain(CliProviderBase.DetachedExecutionInstruction, args);
+        Assert.Contains("-p \"Explain the structure of this code\"", args);
+    }
+
+    [Fact]
+    public void GitHubCopilotProvider_GetDetachedExecutionTriggerWords_MergesGlobalAndProviderOverrides()
+    {
+        var globalOpts = Options.Create(new CliExecutionOptions
+        {
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+
+        var providerSettings = new ProvidersOptions
+        {
+            ["copilot"] = new ProviderSettingsOptions
+            {
+                DetachedExecutionTriggerWords = ["customtrigger", "START"]
+            }
+        };
+        var providersOpts = Options.Create(providerSettings);
+
+        var provider = new GitHubCopilotProvider(globalOpts, _promptLogger, _executor, providersOpts);
+        var words = provider.GetDetachedExecutionTriggerWords();
+
+        Assert.Contains("run", words);
+        Assert.Contains("start", words, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("customtrigger", words);
+        Assert.Equal(3, words.Count); // "start" and "START" deduplicated
+    }
+
+    [Fact]
+    public async Task TestAsync_WhenCopilotAuthenticated_ReturnsSuccess()
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns(Task.FromResult(new ProcessCommandResult(0, "pong", "")));
+
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, executor);
+        var result = await InvokeRunTestCommandAsync(provider, "copilot");
+
+        Assert.True(result.Success);
+        Assert.Null(result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("no authentication information found")]
+    [InlineData("not logged in")]
+    [InlineData("unauthenticated")]
+    [InlineData("auth login required")]
+    public async Task TestAsync_WhenCopilotNotAuthenticated_ReturnsFailure(string errorOutput)
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns(Task.FromResult(new ProcessCommandResult(1, "", errorOutput)));
+
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, executor);
+        var result = await InvokeRunTestCommandAsync(provider, "copilot");
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task TestAsync_WhenCopilotThrows_ReturnsFailureWithExceptionMessage()
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns<Task<ProcessCommandResult>>(_ => throw new InvalidOperationException("Process crashed"));
+
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, executor);
+        var result = await InvokeRunTestCommandAsync(provider, "copilot");
+
+        Assert.False(result.Success);
+        Assert.Contains("Process crashed", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task StartSessionAsync_ReturnsNull()
+    {
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, _executor);
+        var result = await provider.StartSessionAsync(Guid.NewGuid(), "C:\\test\\workspace", null);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void BuildArguments_WithTabbedModel_ExtractsModelId()
+    {
+        var provider = new GitHubCopilotProvider(_options, _promptLogger, _executor);
+        var context = CreateContext("claude-3.5-sonnet\tAnthropic model", prompt: "Hello world");
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains("--model \"claude-3.5-sonnet\"", args);
+        Assert.DoesNotContain("Anthropic model", args);
+    }
+
+    [Fact]
+    public void ParseModelsHelpOutput_HandlesEmptyAndDefaultFilters()
+    {
+        // When help output has empty list
+        var empty = GitHubCopilotProvider.ParseModelsHelpOutput("`model`: AI model to use\n");
+        Assert.Empty(empty);
+
+        // When help output has default and other models
+        var models = GitHubCopilotProvider.ParseModelsHelpOutput("`model`: AI model to use\n  - \"default\"\n  - \"gpt-4o\"\n  - \"claude-3.5-sonnet\"\n");
+        Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
+        Assert.Contains(models, m => m.Id == "gpt-4o");
+        Assert.Contains(models, m => m.Id == "claude-3.5-sonnet");
     }
 }

@@ -2,7 +2,6 @@ using AIAgentHub.Web.Controllers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Controllers;
 
@@ -26,7 +25,7 @@ public class SystemControllerTests
     public void GetVersion_ReturnsExpectedStructure()
     {
         var environment = Substitute.For<IWebHostEnvironment>();
-        environment.EnvironmentName.Returns("Production");
+        _ = environment.EnvironmentName.Returns("Production");
 
         var controller = new SystemController(environment);
         var actionResult = controller.GetVersion();

@@ -17,6 +17,23 @@ public sealed class ClaudeCodeAndCodexProviderTests
     private readonly IPromptLogger _promptLogger = Substitute.For<IPromptLogger>();
     private readonly IProcessExecutor _executor = Substitute.For<IProcessExecutor>();
 
+    private static async Task<(bool Success, string? ErrorMessage)> InvokeRunTestCommandAsync(ClaudeCodeProvider provider, string exePath)
+    {
+        var method = typeof(ClaudeCodeProvider).GetMethod(
+            "RunTestCommandAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(method);
+        var task = (Task)method.Invoke(provider, [exePath, CancellationToken.None])!;
+        await task;
+        var resultProp = task.GetType().GetProperty("Result");
+        var result = resultProp?.GetValue(task);
+        var successProp = result?.GetType().GetProperty("IsSuccess");
+        var errorProp = result?.GetType().GetProperty("Error");
+        var success = (bool)(successProp?.GetValue(result) ?? false);
+        var error = (string?)errorProp?.GetValue(result);
+        return (success, error);
+    }
+
     private ProviderExecutionContext CreateContext(
         string? modelId,
         string prompt = "Implement feature X",
@@ -30,7 +47,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             prompt,
             modelId,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -48,7 +65,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
 
         Assert.NotEmpty(models);
         Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
-        Assert.Single(models);
+        _ = Assert.Single(models);
         Assert.Null(models[0].ContextWindow);
     }
 
@@ -77,7 +94,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
 
         var args = provider.BuildArguments(context);
 
-        Assert.Contains($"-p \"Fix bug in parser\"", args);
+        Assert.Contains("-p \"Fix bug in parser\"", args);
         Assert.Contains($"--session-id \"{context.ConversationId}\"", args);
         Assert.DoesNotContain("--resume", args);
     }
@@ -165,7 +182,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
 
         Assert.NotEmpty(models);
         Assert.Contains(models, m => m.Id == "default" && m.IsDefault);
-        Assert.Single(models);
+        _ = Assert.Single(models);
         Assert.Null(models[0].ContextWindow);
     }
 
@@ -204,7 +221,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
     [Fact]
     public void CodexCliProvider_ParseModelsJson_ParsesModelsCorrectly()
     {
-        var sampleJson = """
+        var sampleJson = /*lang=json,strict*/ """
         {
           "models": [
             {
@@ -288,7 +305,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             "hello",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 streamedTokens.Add(token);
@@ -317,7 +334,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
         _ = buffer.Append("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Hello! How can I help?\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":100,\"output_tokens\":10}}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
-        Assert.Single(streamedTokens);
+        _ = Assert.Single(streamedTokens);
         Assert.Equal("Hello! How can I help?", streamedTokens[0]);
     }
 
@@ -333,7 +350,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             "hello",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 streamedTokens.Add(token);
@@ -346,10 +363,10 @@ public sealed class ClaudeCodeAndCodexProviderTests
         var buffer = new StringBuilder();
         var isFirstMessage = true;
 
-        _ = buffer.Append("{\"type\":\"error\",\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"Model not supported.\\\"}}\"}\n");
+        _ = buffer.Append(/*lang=json,strict*/ "{\"type\":\"error\",\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"Model not supported.\\\"}}\"}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
-        Assert.Single(streamedTokens);
+        _ = Assert.Single(streamedTokens);
         Assert.Contains("Model not supported.", streamedTokens[0]);
     }
 
@@ -365,7 +382,7 @@ public sealed class ClaudeCodeAndCodexProviderTests
             "hello",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 streamedTokens.Add(token);
@@ -379,18 +396,196 @@ public sealed class ClaudeCodeAndCodexProviderTests
         var isFirstMessage = true;
 
         // Command started
-        _ = buffer.Append("{\"type\":\"item.started\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\"}}\n");
+        _ = buffer.Append(/*lang=json,strict*/ "{\"type\":\"item.started\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\"}}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
-        Assert.Single(streamedTokens);
+        _ = Assert.Single(streamedTokens);
         Assert.Contains("Running command:", streamedTokens[0]);
         Assert.Contains("dotnet build", streamedTokens[0]);
 
         // Command completed
-        _ = buffer.Append("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\",\"aggregated_output\":\"Build succeeded.\"}}\n");
+        _ = buffer.Append(/*lang=json,strict*/ "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"dotnet build\",\"aggregated_output\":\"Build succeeded.\"}}\n");
         await CodexCliProvider.ProcessBufferAsync(buffer, context, isFirst => isFirstMessage = isFirst, isFirstMessage, isFinal: false);
 
         Assert.Equal(2, streamedTokens.Count);
         Assert.Contains("Build succeeded.", streamedTokens[1]);
     }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_WithTriggerWord_InjectsDetachedExecutionInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new CodexCliProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Please run the calculator service");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.Contains(CliProviderBase.DetachedExecutionInstruction, args);
+        Assert.Contains("Please run the calculator service", args);
+    }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_WithoutTriggerWord_DoesNotInjectInstruction()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new CodexCliProvider(options, _promptLogger, _executor);
+        var context = CreateContext(null, "Explain the architecture of this solution");
+
+        var args = provider.BuildArguments(context);
+
+        Assert.DoesNotContain(CliProviderBase.DetachedExecutionInstruction, args);
+        Assert.Contains("\"Explain the architecture of this solution\"", args);
+    }
+
+    [Fact]
+    public void CodexCliProvider_BuildArguments_DoesNotDuplicateIfAlreadyPresent()
+    {
+        var options = Options.Create(new CliExecutionOptions
+        {
+            Headless = true,
+            DetachedExecutionTriggerWords = ["run", "start"]
+        });
+        var provider = new CodexCliProvider(options, _promptLogger, _executor);
+        var promptWithInstruction = $"{CliProviderBase.DetachedExecutionInstruction} run the app";
+        var context = CreateContext(null, promptWithInstruction);
+
+        var args = provider.BuildArguments(context);
+
+        var firstIndex = args.IndexOf(CliProviderBase.DetachedExecutionInstruction, StringComparison.Ordinal);
+        var lastIndex = args.LastIndexOf(CliProviderBase.DetachedExecutionInstruction, StringComparison.Ordinal);
+        Assert.NotEqual(-1, firstIndex);
+        Assert.Equal(firstIndex, lastIndex);
+    }
+
+    [Theory]
+    [InlineData("logged in as user@example.com", 0, true)]
+    [InlineData("authenticated with Claude Code", 0, true)]
+    [InlineData("not logged in. Please run claude login", 1, false)]
+    [InlineData("error: unauthenticated", 1, false)]
+    public async Task ClaudeCodeProvider_TestAsync_ReturnsExpectedResult(string output, int exitCode, bool expectedSuccess)
+    {
+        var originalKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
+
+            var executor = Substitute.For<IProcessExecutor>();
+            executor.RunCommandAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<string?>()
+            ).Returns(Task.FromResult(new ProcessCommandResult(exitCode, output, "")));
+
+            var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+            var result = await InvokeRunTestCommandAsync(provider, "claude");
+
+            Assert.Equal(expectedSuccess, result.Success);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", originalKey);
+        }
+    }
+
+    [Fact]
+    public async Task ClaudeCodeProvider_TestAsync_WhenApiKeySet_ReturnsSuccessWithoutRunningCli()
+    {
+        var originalKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-test-key-123");
+
+            var executor = Substitute.For<IProcessExecutor>();
+            var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+            var result = await InvokeRunTestCommandAsync(provider, "claude");
+
+            Assert.True(result.Success);
+            Assert.Null(result.ErrorMessage);
+            _ = executor.DidNotReceiveWithAnyArgs().RunCommandAsync(default!, default!, default!, default!, default!);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", originalKey);
+        }
+    }
+
+    [Fact]
+    public async Task ClaudeCodeProvider_TestAsync_WhenThrows_ReturnsFailure()
+    {
+        var originalKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        try
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
+
+            var executor = Substitute.For<IProcessExecutor>();
+            executor.RunCommandAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<string?>()
+            ).Returns<Task<ProcessCommandResult>>(_ => throw new InvalidOperationException("Executable missing"));
+
+            var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+            var result = await InvokeRunTestCommandAsync(provider, "claude");
+
+            Assert.False(result.Success);
+            Assert.Contains("Executable missing", result.ErrorMessage);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", originalKey);
+        }
+    }
+
+    [Fact]
+    public async Task ClaudeCodeProvider_Capabilities_And_SupportedEfforts_ReturnsExpectedDefaults()
+    {
+        var executor = Substitute.For<IProcessExecutor>();
+        var provider = new ClaudeCodeProvider(_options, _promptLogger, executor);
+
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.ModelSelection));
+        Assert.True(provider.Capabilities.HasFlag(ProviderCapabilities.Skills));
+
+        // When executor returns empty/error, GetSupportedEffortsAsync returns DefaultEfforts
+        executor.RunCommandAsync(
+            Arg.Any<string>(),
+            Arg.Is<string>(s => s.Contains("config get effort")),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>()
+        ).Returns(Task.FromResult(new ProcessCommandResult(1, "", "unknown command")));
+
+        var efforts = await provider.GetSupportedEffortsAsync();
+        Assert.Contains("low", efforts);
+        Assert.Contains("medium", efforts);
+        Assert.Contains("high", efforts);
+        Assert.Contains("max", efforts);
+    }
+
+    [Fact]
+    public void ClaudeCodeProvider_ParseEffortOutput_HandlesInvalidInputGracefully()
+    {
+        var empty = ClaudeCodeProvider.ParseEffortOutput("");
+        Assert.Empty(empty);
+
+        var nonMatching = ClaudeCodeProvider.ParseEffortOutput("Available efforts: [low, medium, high, max]");
+        Assert.Empty(nonMatching);
+
+        var valid = ClaudeCodeProvider.ParseEffortOutput("Usage: /effort <low|medium|high|max>");
+        Assert.Equal(4, valid.Count);
+        Assert.Contains("low", valid);
+        Assert.Contains("max", valid);
+    }
 }
+

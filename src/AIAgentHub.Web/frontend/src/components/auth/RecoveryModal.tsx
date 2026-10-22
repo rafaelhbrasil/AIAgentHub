@@ -131,9 +131,10 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({ onResetSuccess, on
         Enter your 16-character recovery code (e.g. XXXX-XXXX-XXXX-XXXX) to reset the system to Setup Mode.
       </p>
       <div className="form-group">
-        <label className="form-label">Recovery Code</label>
+        <label className="form-label" htmlFor="recoveryCodeInput">Recovery Code</label>
         <input
           type="text"
+          id="recoveryCodeInput"
           className="form-input"
           value={recoveryCode}
           onChange={(e) => setRecoveryCode(e.target.value)}

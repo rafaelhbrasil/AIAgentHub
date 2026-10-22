@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useCallback, useState } from 'react';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -12,8 +12,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'aiagenthub_theme';
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
+export function ThemeProvider({ children }: Readonly<{ children: React.ReactNode }>) {
+  const [theme, setTheme] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
     return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'dark';
   });
@@ -46,13 +46,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [effectiveTheme]);
 
-  const setTheme = (newTheme: ThemeMode) => {
-    setThemeState(newTheme);
+  const updateTheme = useCallback((newTheme: ThemeMode) => {
+    setTheme(newTheme);
     localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({ theme, effectiveTheme, setTheme: updateTheme }),
+    [theme, effectiveTheme, updateTheme]
+  );
 
   return (
-    <ThemeContext.Provider value={{ theme, effectiveTheme, setTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

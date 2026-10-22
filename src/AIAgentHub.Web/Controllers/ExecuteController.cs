@@ -34,6 +34,8 @@ public sealed class ExecuteController(
             return Conflict(new { code = "execution_in_progress", message = "An AI prompt execution is already running for this conversation." });
         }
 
+        var userId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User?.Identity?.Name;
+
         _ = Task.Run(async () =>
         {
             using (cts)
@@ -42,7 +44,7 @@ public sealed class ExecuteController(
                 var orchestrator = scope.ServiceProvider.GetRequiredService<IExecutionOrchestrator>();
                 try
                 {
-                    await orchestrator.ExecuteAsync(id, request.Prompt, cts.Token);
+                    await orchestrator.ExecuteAsync(id, request.Prompt, userId, cts.Token);
                 }
                 catch (Exception ex)
                 {
@@ -57,9 +59,10 @@ public sealed class ExecuteController(
     [HttpPost("abort")]
     public async Task<IActionResult> AbortExecution(Guid id)
     {
+        var userId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User?.Identity?.Name;
         using var scope = _scopeFactory.CreateScope();
         var orchestrator = scope.ServiceProvider.GetRequiredService<IExecutionOrchestrator>();
-        await orchestrator.AbortAsync(id);
+        await orchestrator.AbortAsync(id, userId);
         return Ok(new { status = "aborted", conversationId = id });
     }
 }

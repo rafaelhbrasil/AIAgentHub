@@ -46,7 +46,6 @@ public sealed class LocalDiskSnapshotStore(
 
         var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
 
-        // Clean up any historical duplicate change records for the same path
         var duplicateChanges = existingChanges
             .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
@@ -72,13 +71,38 @@ public sealed class LocalDiskSnapshotStore(
             .GroupBy(s => s.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
-        // Clean up snapshots for files that have been accepted as deleted
         var acceptedDeletedPaths = new HashSet<string>(
             latestChangesByPath
                 .Where(kv => kv.Value.Status == ReviewStatus.Accepted && kv.Value.ChangeType == FileChangeType.Deleted)
                 .Select(kv => kv.Key),
             StringComparer.OrdinalIgnoreCase);
 
+        await DeleteAcceptedDeletedSnapshotsAsync(snapshotDir, acceptedDeletedPaths, existingSnapshotMap, cancellationToken);
+
+        var captureContext = new SnapshotCaptureContext(
+            rootDir,
+            ignored,
+            pendingPaths,
+            existingSnapshotMap,
+            snapshotDir,
+            workspaceId,
+            conversationId);
+
+        var files = rootDir.GetFiles("*", SearchOption.AllDirectories);
+        foreach (var file in files)
+        {
+            await CaptureFileSnapshotAsync(file, captureContext, cancellationToken);
+        }
+
+        return conversationId.ToString();
+    }
+
+    private async Task DeleteAcceptedDeletedSnapshotsAsync(
+        string snapshotDir,
+        HashSet<string> acceptedDeletedPaths,
+        Dictionary<string, List<FileSnapshot>> existingSnapshotMap,
+        CancellationToken cancellationToken)
+    {
         foreach (var deletedRelPath in acceptedDeletedPaths)
         {
             if (existingSnapshotMap.TryGetValue(deletedRelPath, out var oldSnapshots))
@@ -86,59 +110,55 @@ public sealed class LocalDiskSnapshotStore(
                 foreach (var oldSnap in oldSnapshots)
                 {
                     await _snapshotRepository.DeleteAsync(oldSnap, cancellationToken);
-                    var oldBackup = Path.Combine(snapshotDir, oldSnap.StorageKey);
-                    try { if (File.Exists(oldBackup)) File.Delete(oldBackup); } catch { }
+                    TryDeleteQuietly(Path.Combine(snapshotDir, oldSnap.StorageKey));
                 }
             }
         }
+    }
 
-        var files = rootDir.GetFiles("*", SearchOption.AllDirectories);
-        foreach (var file in files)
+    private async Task CaptureFileSnapshotAsync(
+        FileInfo file,
+        SnapshotCaptureContext ctx,
+        CancellationToken cancellationToken)
+    {
+        if (IsIgnored(file, ctx.RootDir.FullName, ctx.Ignored))
         {
-            if (IsIgnored(file, rootDir.FullName, ignored))
-            {
-                continue;
-            }
-
-            var relativePath = Path.GetRelativePath(rootDir.FullName, file.FullName).Replace('\\', '/');
-
-            // If this file already has an active pending change, preserve the original baseline snapshot!
-            if (pendingPaths.Contains(relativePath))
-            {
-                continue;
-            }
-
-            var fileHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
-
-            // Clean up any older snapshots for this non-pending file so only the latest baseline is kept
-            if (existingSnapshotMap.TryGetValue(relativePath, out var oldSnapshots))
-            {
-                foreach (var oldSnap in oldSnapshots)
-                {
-                    await _snapshotRepository.DeleteAsync(oldSnap, cancellationToken);
-                    var oldBackup = Path.Combine(snapshotDir, oldSnap.StorageKey);
-                    try { if (File.Exists(oldBackup)) File.Delete(oldBackup); } catch { }
-                }
-            }
-
-            var storageKey = Guid.NewGuid().ToString("N");
-            var backupDest = Path.Combine(snapshotDir, storageKey);
-
-            File.Copy(file.FullName, backupDest, true);
-
-            var snapshot = FileSnapshot.Create(
-                workspaceId,
-                conversationId,
-                relativePath,
-                storageKey,
-                fileHash,
-                file.Length
-            );
-
-            await _snapshotRepository.AddAsync(snapshot, cancellationToken);
+            return;
         }
 
-        return conversationId.ToString();
+        var relativePath = Path.GetRelativePath(ctx.RootDir.FullName, file.FullName).Replace('\\', '/');
+
+        if (ctx.PendingPaths.Contains(relativePath))
+        {
+            return;
+        }
+
+        var fileHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
+
+        if (ctx.ExistingSnapshotMap.TryGetValue(relativePath, out var oldSnapshots))
+        {
+            foreach (var oldSnap in oldSnapshots)
+            {
+                await _snapshotRepository.DeleteAsync(oldSnap, cancellationToken);
+                TryDeleteQuietly(Path.Combine(ctx.SnapshotDir, oldSnap.StorageKey));
+            }
+        }
+
+        var storageKey = Guid.NewGuid().ToString("N");
+        var backupDest = Path.Combine(ctx.SnapshotDir, storageKey);
+
+        File.Copy(file.FullName, backupDest, true);
+
+        var snapshot = FileSnapshot.Create(
+            ctx.WorkspaceId,
+            ctx.ConversationId,
+            relativePath,
+            storageKey,
+            fileHash,
+            file.Length
+        );
+
+        await _snapshotRepository.AddAsync(snapshot, cancellationToken);
     }
 
     public async Task<IReadOnlyList<FileChange>> DetectAndRecordChangesAsync(
@@ -149,28 +169,9 @@ public sealed class LocalDiskSnapshotStore(
         IReadOnlyList<string> ignoredPatterns,
         CancellationToken cancellationToken = default)
     {
-        var baselineSnapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
-        // Use the latest baseline snapshot captured for each relative path
-        var baselineMap = baselineSnapshots
-            .GroupBy(s => s.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.CapturedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
-
+        var baselineMap = await GetBaselinesByPathAsync(conversationId, cancellationToken);
         var existingChanges = await _fileChangeRepository.GetByConversationIdAsync(conversationId, cancellationToken);
-
-        // Clean up any historical duplicate change records for the same relative path
-        var duplicateChanges = existingChanges
-            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
-            .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
-            .ToList();
-
-        foreach (var dup in duplicateChanges)
-        {
-            await _fileChangeRepository.DeleteAsync(dup, cancellationToken);
-        }
-
-        var latestChangesByPath = existingChanges
-            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+        var latestChangesByPath = await DeduplicateChangesAsync(existingChanges, cancellationToken);
 
         var pendingChangesMap = latestChangesByPath
             .Where(kv => kv.Value.Status == ReviewStatus.Pending)
@@ -195,95 +196,144 @@ public sealed class LocalDiskSnapshotStore(
         var detectedChanges = new List<FileChange>();
         var seenRelativePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        var changeContext = new ChangeDetectionContext(
+            rootDir,
+            baselineMap,
+            pendingChangesMap,
+            seenRelativePaths,
+            conversationId,
+            detectedChanges);
+
         foreach (var file in currentFiles)
         {
-            var relativePath = Path.GetRelativePath(rootDir.FullName, file.FullName).Replace('\\', '/');
-            _ = seenRelativePaths.Add(relativePath);
-
-            var currentHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
-
-            if (pendingChangesMap.TryGetValue(relativePath, out var existingPending))
-            {
-                // File was already pending from previous prompt
-                if (baselineMap.TryGetValue(relativePath, out var baseline))
-                {
-                    if (string.Equals(baseline.FileHash, currentHash, StringComparison.Ordinal))
-                    {
-                        // File has been reverted back to baseline exactly! Remove pending change.
-                        await _fileChangeRepository.DeleteAsync(existingPending, cancellationToken);
-                    }
-                    else
-                    {
-                        // Still modified from original baseline - retain single change record
-                        detectedChanges.Add(existingPending);
-                    }
-                }
-                else if (existingPending.ChangeType == FileChangeType.Created)
-                {
-                    // Created file still exists
-                    detectedChanges.Add(existingPending);
-                }
-            }
-            else if (baselineMap.TryGetValue(relativePath, out var baseline))
-            {
-                // First time this file was modified
-                if (!string.Equals(baseline.FileHash, currentHash, StringComparison.Ordinal))
-                {
-                    var change = FileChange.Create(conversationId, relativePath, FileChangeType.Modified, baseline.StorageKey);
-                    await _fileChangeRepository.AddAsync(change, cancellationToken);
-                    detectedChanges.Add(change);
-                }
-            }
-            else
-            {
-                // New created file
-                var change = FileChange.Create(conversationId, relativePath, FileChangeType.Created, null);
-                await _fileChangeRepository.AddAsync(change, cancellationToken);
-                detectedChanges.Add(change);
-            }
+            await DetectFileChangeAsync(file, changeContext, cancellationToken);
         }
 
-        // Check for deleted files
+        await DetectDeletedChangesAsync(baselineMap, acceptedDeletedPaths, seenRelativePaths, pendingChangesMap, conversationId, detectedChanges, cancellationToken);
+
+        return detectedChanges;
+    }
+
+    private async Task<Dictionary<string, FileSnapshot>> GetBaselinesByPathAsync(Guid conversationId, CancellationToken cancellationToken)
+    {
+        var baselineSnapshots = await _snapshotRepository.GetByConversationIdAsync(conversationId, cancellationToken);
+        return baselineSnapshots
+            .GroupBy(s => s.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.CapturedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<Dictionary<string, FileChange>> DeduplicateChangesAsync(IReadOnlyList<FileChange> existingChanges, CancellationToken cancellationToken)
+    {
+        var duplicateChanges = existingChanges
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .SelectMany(g => g.OrderByDescending(c => c.CreatedAtUtc).Skip(1))
+            .ToList();
+
+        foreach (var dup in duplicateChanges)
+        {
+            await _fileChangeRepository.DeleteAsync(dup, cancellationToken);
+        }
+
+        return existingChanges
+            .GroupBy(c => c.RelativePath.Replace('\\', '/').TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAtUtc).First(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task DetectFileChangeAsync(
+        FileInfo file,
+        ChangeDetectionContext ctx,
+        CancellationToken cancellationToken)
+    {
+        var relativePath = Path.GetRelativePath(ctx.RootDir.FullName, file.FullName).Replace('\\', '/');
+        _ = ctx.SeenRelativePaths.Add(relativePath);
+
+        var currentHash = await ComputeFileHashAsync(file.FullName, cancellationToken);
+
+        if (ctx.PendingChangesMap.TryGetValue(relativePath, out var existingPending))
+        {
+            if (ctx.BaselineMap.TryGetValue(relativePath, out var baseline))
+            {
+                if (string.Equals(baseline.FileHash, currentHash, StringComparison.Ordinal))
+                {
+                    await _fileChangeRepository.DeleteAsync(existingPending, cancellationToken);
+                }
+                else
+                {
+                    ctx.DetectedChanges.Add(existingPending);
+                }
+            }
+            else if (existingPending.ChangeType == FileChangeType.Created)
+            {
+                ctx.DetectedChanges.Add(existingPending);
+            }
+        }
+        else if (ctx.BaselineMap.TryGetValue(relativePath, out var baseline))
+        {
+            if (!string.Equals(baseline.FileHash, currentHash, StringComparison.Ordinal))
+            {
+                var change = FileChange.Create(ctx.ConversationId, relativePath, FileChangeType.Modified, baseline.StorageKey);
+                await _fileChangeRepository.AddAsync(change, cancellationToken);
+                ctx.DetectedChanges.Add(change);
+            }
+        }
+        else
+        {
+            var change = FileChange.Create(ctx.ConversationId, relativePath, FileChangeType.Created, null);
+            await _fileChangeRepository.AddAsync(change, cancellationToken);
+            ctx.DetectedChanges.Add(change);
+        }
+    }
+
+    private async Task DetectDeletedChangesAsync(
+        Dictionary<string, FileSnapshot> baselineMap,
+        HashSet<string> acceptedDeletedPaths,
+        HashSet<string> seenRelativePaths,
+        Dictionary<string, FileChange> pendingChangesMap,
+        Guid conversationId,
+        List<FileChange> detectedChanges,
+        CancellationToken cancellationToken)
+    {
         foreach (var (relPath, baseline) in baselineMap)
         {
             if (acceptedDeletedPaths.Contains(relPath))
             {
-                // Deletion was already accepted by user in a previous turn - clean up any stale snapshot and ignore
                 await _snapshotRepository.DeleteAsync(baseline, cancellationToken);
-                var backup = Path.Combine(GetSnapshotDir(conversationId), baseline.StorageKey);
-                try { if (File.Exists(backup)) File.Delete(backup); } catch { }
+                TryDeleteQuietly(Path.Combine(GetSnapshotDir(conversationId), baseline.StorageKey));
                 continue;
             }
 
-            if (!seenRelativePaths.Contains(relPath))
+            if (seenRelativePaths.Contains(relPath))
             {
-                if (pendingChangesMap.TryGetValue(relPath, out var existingPending))
-                {
-                    if (existingPending.ChangeType == FileChangeType.Created)
-                    {
-                        // Created in this cycle then deleted -> clean up
-                        await _fileChangeRepository.DeleteAsync(existingPending, cancellationToken);
-                    }
-                    else
-                    {
-                        if (existingPending.ChangeType != FileChangeType.Deleted)
-                        {
-                            existingPending.UpdateChangeType(FileChangeType.Deleted);
-                            await _fileChangeRepository.UpdateAsync(existingPending, cancellationToken);
-                        }
-                        detectedChanges.Add(existingPending);
-                    }
-                }
-                else
-                {
-                    var change = FileChange.Create(conversationId, relPath, FileChangeType.Deleted, baseline.StorageKey);
-                    await _fileChangeRepository.AddAsync(change, cancellationToken);
-                    detectedChanges.Add(change);
-                }
+                continue;
+            }
+
+            if (pendingChangesMap.TryGetValue(relPath, out var existingPending))
+            {
+                await HandlePendingDeletionAsync(existingPending, detectedChanges, cancellationToken);
+            }
+            else
+            {
+                var change = FileChange.Create(conversationId, relPath, FileChangeType.Deleted, baseline.StorageKey);
+                await _fileChangeRepository.AddAsync(change, cancellationToken);
+                detectedChanges.Add(change);
             }
         }
+    }
 
-        return detectedChanges;
+    private async Task HandlePendingDeletionAsync(FileChange existingPending, List<FileChange> detectedChanges, CancellationToken cancellationToken)
+    {
+        if (existingPending.ChangeType == FileChangeType.Created)
+        {
+            await _fileChangeRepository.DeleteAsync(existingPending, cancellationToken);
+            return;
+        }
+
+        if (existingPending.ChangeType != FileChangeType.Deleted)
+        {
+            existingPending.UpdateChangeType(FileChangeType.Deleted);
+            await _fileChangeRepository.UpdateAsync(existingPending, cancellationToken);
+        }
+        detectedChanges.Add(existingPending);
     }
 
     public async Task DeleteSnapshotAsync(Guid conversationId, string relativePath, CancellationToken cancellationToken = default)
@@ -296,8 +346,7 @@ public sealed class LocalDiskSnapshotStore(
         foreach (var snap in matching)
         {
             await _snapshotRepository.DeleteAsync(snap, cancellationToken);
-            var backup = Path.Combine(snapshotDir, snap.StorageKey);
-            try { if (File.Exists(backup)) File.Delete(backup); } catch { }
+            TryDeleteQuietly(Path.Combine(snapshotDir, snap.StorageKey));
         }
     }
 
@@ -320,27 +369,29 @@ public sealed class LocalDiskSnapshotStore(
                 File.Delete(targetFullPath);
             }
         }
-        else if (change.ChangeType is FileChangeType.Modified or FileChangeType.Deleted)
+        else if (change.ChangeType is FileChangeType.Modified or FileChangeType.Deleted && !string.IsNullOrEmpty(change.SnapshotPath))
         {
-            if (!string.IsNullOrEmpty(change.SnapshotPath))
-            {
-                var snapshotDir = GetSnapshotDir(change.ConversationId);
-                var backupFile = Path.Combine(snapshotDir, change.SnapshotPath);
-
-                if (File.Exists(backupFile))
-                {
-                    var targetDir = Path.GetDirectoryName(targetFullPath);
-                    if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
-                    {
-                        _ = Directory.CreateDirectory(targetDir);
-                    }
-
-                    File.Copy(backupFile, targetFullPath, true);
-                }
-            }
+            RestoreFromSnapshot(change.ConversationId, change.SnapshotPath!, targetFullPath);
         }
 
         return Task.CompletedTask;
+    }
+
+    private static void RestoreFromSnapshot(Guid conversationId, string snapshotPath, string targetFullPath)
+    {
+        var backupFile = Path.Combine(GetSnapshotDir(conversationId), snapshotPath);
+        if (!File.Exists(backupFile))
+        {
+            return;
+        }
+
+        var targetDir = Path.GetDirectoryName(targetFullPath);
+        if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+        {
+            _ = Directory.CreateDirectory(targetDir);
+        }
+
+        File.Copy(backupFile, targetFullPath, true);
     }
 
     public async Task<string?> GetSnapshotContentAsync(FileChange change, CancellationToken cancellationToken = default)
@@ -370,4 +421,33 @@ public sealed class LocalDiskSnapshotStore(
         var hash = await sha.ComputeHashAsync(stream, cancellationToken);
         return Convert.ToHexString(hash);
     }
+
+    private static void TryDeleteQuietly(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch { /* Non-fatal: snapshot file locked or already deleted */ }
+    }
+
+    private sealed record SnapshotCaptureContext(
+        DirectoryInfo RootDir,
+        HashSet<string> Ignored,
+        HashSet<string> PendingPaths,
+        Dictionary<string, List<FileSnapshot>> ExistingSnapshotMap,
+        string SnapshotDir,
+        Guid WorkspaceId,
+        Guid ConversationId);
+
+    private sealed record ChangeDetectionContext(
+        DirectoryInfo RootDir,
+        Dictionary<string, FileSnapshot> BaselineMap,
+        Dictionary<string, FileChange> PendingChangesMap,
+        HashSet<string> SeenRelativePaths,
+        Guid ConversationId,
+        List<FileChange> DetectedChanges);
 }

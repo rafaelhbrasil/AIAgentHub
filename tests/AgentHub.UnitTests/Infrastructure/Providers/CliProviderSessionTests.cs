@@ -54,7 +54,7 @@ public sealed class CliProviderSessionTests
             "what's the ID of the current conversation?",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -83,7 +83,7 @@ public sealed class CliProviderSessionTests
             "what's the ID of the current conversation?",
             null,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None
@@ -119,7 +119,7 @@ public sealed class CliProviderSessionTests
             "test prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None,
@@ -148,7 +148,7 @@ public sealed class CliProviderSessionTests
             "test prompt",
             null,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None
@@ -172,7 +172,7 @@ public sealed class CliProviderSessionTests
             "test prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None
@@ -207,7 +207,7 @@ public sealed class CliProviderSessionTests
             "test prompt",
             null,
             sessionId,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None
@@ -231,7 +231,7 @@ public sealed class CliProviderSessionTests
             "test prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None

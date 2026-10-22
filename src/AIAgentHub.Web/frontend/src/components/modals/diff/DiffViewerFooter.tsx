@@ -4,6 +4,8 @@ interface DiffViewerFooterProps {
   changeCount: number;
   isEditing: boolean;
   isProcessing: boolean;
+  readOnly?: boolean;
+  onClose?: () => void;
   onRejectAll: () => void;
   onAcceptAll: () => void;
   onReject: () => void;
@@ -14,11 +16,34 @@ export const DiffViewerFooter: React.FC<DiffViewerFooterProps> = ({
   changeCount,
   isEditing,
   isProcessing,
+  readOnly = false,
+  onClose,
   onRejectAll,
   onAcceptAll,
   onReject,
   onAccept,
 }) => {
+  if (readOnly) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingTop: '8px',
+        }}
+      >
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onClose}
+          id="diffViewerReadOnlyCloseBtn"
+        >
+          Close
+        </button>
+      </div>
+    );
+  }
   return (
     <div
       style={{

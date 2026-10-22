@@ -95,6 +95,11 @@ Requires browser ecosystem (gRPC-web) and adds complexity without being the same
 - Endpoints:
   - REST for request/response (unchanged)
   - SignalR for real-time events, streaming, and progress
+- **User + Conversation Group Isolation**: Real-time streams (`streamChunk`), conversation lifecycle events (`conversationEvent`: `conversation.started`, `conversation.heartbeat`, `conversation.completed`, `conversation.aborted`), file diffs (`diffCreated`), and permission requests (`permissionRequested`) are dispatched strictly to scoped SignalR groups:
+  - Group pattern: `usr_{userId}_conv_{conversationId}` (with fallback to `conv_{conversationId}`).
+  - Prevents cross-tab bleeding where responses or completion events from one conversation interfere with another active conversation tab.
+  - Ensures multi-user isolation so streams and notifications are delivered only to the user and conversation session that initiated the turn.
+  - Client connections invoke `JoinConversation` on active conversation selection and `LeaveConversation` upon switching or navigating away.
 - Real-time contract details (hub methods, event names) are part of the run-time/OpenAPI-related real-time design (see `ApiDesign.md`).
 
 ---

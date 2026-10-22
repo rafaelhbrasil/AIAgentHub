@@ -1,7 +1,9 @@
 using AIAgentHub.Application.Conversations;
+using AIAgentHub.Application.Diagnostics;
 using AIAgentHub.Application.Execution;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Filesystem;
+using AIAgentHub.Application.Git;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Realtime;
 using AIAgentHub.Application.Rendering;
@@ -12,6 +14,8 @@ using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Cryptography;
 using AIAgentHub.Infrastructure.Executors;
+using AIAgentHub.Infrastructure.Git;
+using AIAgentHub.Infrastructure.Logging;
 using AIAgentHub.Infrastructure.Persistence;
 using AIAgentHub.Infrastructure.Providers;
 using AIAgentHub.Infrastructure.Realtime;
@@ -83,6 +87,10 @@ public static class DependencyInjection
         _ = services.AddSingleton<IContentRenderer, JsonContentRenderer>();
         _ = services.AddSingleton<IContentRenderer, XmlContentRenderer>();
         _ = services.AddSingleton<IContentRenderer, YamlContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, PdfContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, HtmlContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, DelimitedContentRenderer>();
+        _ = services.AddSingleton<IContentRenderer, ConfigLogContentRenderer>();
         _ = services.AddSingleton<IContentRenderingManager, ContentRenderingManager>();
 
         // 7. Provider Adapters & Manager (including Antigravity CLI / agy)
@@ -115,6 +123,7 @@ public static class DependencyInjection
 
         // 7b. Prompt Logging & Execution Tracking
         _ = services.AddSingleton<IPromptLogger, PromptLogger>();
+        _ = services.AddSingleton<ILogFileService, LogFileService>();
 
         // 8. Application Services
         _ = services.AddSingleton<IActiveExecutionTracker, ActiveExecutionTracker>();
@@ -126,6 +135,7 @@ public static class DependencyInjection
         _ = services.AddScoped<IAppAuthService, AuthenticationService>();
         _ = services.AddScoped<IPermissionService, PermissionService>();
         _ = services.AddScoped<IExecutionOrchestrator, ExecutionOrchestrator>();
+        _ = services.AddScoped<IGitService, GitCliService>();
 
         // 9. Real-time (SignalR)
         _ = services.AddSignalR().AddJsonProtocol(options =>
@@ -135,46 +145,29 @@ public static class DependencyInjection
         _ = services.AddScoped<IAgentRealtimeBroadcaster, SignalRAgentRealtimeBroadcaster>();
 
         // 10. Authentication & Cookie Sessions
+        var cookieName = configuration["Authentication:CookieName"];
+        if (string.IsNullOrWhiteSpace(cookieName))
+        {
+            var isDev = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+            cookieName = isDev ? "AIAgentHub.Session.Dev" : "AIAgentHub.Session";
+        }
+
+        _ = services.Configure<AuthenticationOptions>(options =>
+        {
+            options.CookieName = cookieName;
+        });
+        _ = services.AddSingleton(sp => sp.GetRequiredService<IOptions<AuthenticationOptions>>().Value);
+
         _ = services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
             {
-                options.Cookie.Name = "AIAgentHub.Session";
+                options.Cookie.Name = cookieName;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Strict;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.ExpireTimeSpan = TimeSpan.FromDays(30);
                 options.SlidingExpiration = true;
-                options.Events.OnRedirectToLogin = context =>
-                {
-                    var path = context.Request.Path;
-                    var accept = context.Request.Headers.Accept.ToString();
-
-                    var isApiOrHub = path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs");
-                    var isHtmlPage = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
-
-                    if (isApiOrHub || !isHtmlPage)
-                    {
-                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    }
-                    else
-                    {
-                        var originalPath = path.Value ?? string.Empty;
-                        var queryString = context.Request.QueryString.Value ?? string.Empty;
-                        var fullTarget = originalPath + queryString;
-
-                        if (string.IsNullOrEmpty(fullTarget) || fullTarget == "/" || fullTarget.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
-                        {
-                            context.Response.Redirect("/login");
-                        }
-                        else
-                        {
-                            var returnUrl = Uri.EscapeDataString(fullTarget);
-                            context.Response.Redirect($"/login?returnUrl={returnUrl}");
-                        }
-                    }
-
-                    return Task.CompletedTask;
-                };
+                options.Events.OnRedirectToLogin = HandleRedirectToLogin;
             });
 
         _ = services.AddAuthorization(options =>
@@ -185,5 +178,36 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    private static Task HandleRedirectToLogin(Microsoft.AspNetCore.Authentication.RedirectContext<CookieAuthenticationOptions> context)
+    {
+        var path = context.Request.Path;
+        var accept = context.Request.Headers.Accept.ToString();
+
+        var isApiOrHub = path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs");
+        var isHtmlPage = accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
+
+        if (isApiOrHub || !isHtmlPage)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
+
+        var originalPath = path.Value ?? string.Empty;
+        var queryString = context.Request.QueryString.Value ?? string.Empty;
+        var fullTarget = originalPath + queryString;
+
+        if (string.IsNullOrEmpty(fullTarget) || fullTarget == "/" || fullTarget.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.Redirect("/login");
+        }
+        else
+        {
+            var returnUrl = Uri.EscapeDataString(fullTarget);
+            context.Response.Redirect($"/login?returnUrl={returnUrl}");
+        }
+
+        return Task.CompletedTask;
     }
 }

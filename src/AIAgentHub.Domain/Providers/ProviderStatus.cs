@@ -1,7 +1,7 @@
 namespace AIAgentHub.Domain.Providers;
 
 [Flags]
-public enum ProviderCapability
+public enum ProviderCapabilities
 {
     None = 0,
     Streaming = 1 << 0,

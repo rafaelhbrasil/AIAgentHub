@@ -177,9 +177,12 @@ export const ProviderModelsModal: React.FC<ProviderModelsModalProps> = ({
                   <code>{m.id}</code>
                 </div>
               </div>
-              <label className="toggle-switch" title="Toggle model visibility in assistant selectors">
+              <label className="toggle-switch" htmlFor={`model-toggle-${m.id}`} title="Toggle model visibility in assistant selectors">
+                <span className="sr-only">Toggle model visibility for {m.displayName || m.id}</span>
                 <input
+                  id={`model-toggle-${m.id}`}
                   type="checkbox"
+                  aria-label={`Toggle model visibility for ${m.displayName || m.id}`}
                   checked={modelStates[m.id] !== false}
                   onChange={(e) => handleToggle(m.id, e.target.checked)}
                 />

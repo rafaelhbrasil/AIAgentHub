@@ -106,10 +106,10 @@ public sealed class DatabaseMigrationTests
                     INSERT INTO Messages (Id, ConversationId, Role, Content, CreatedAtUtc, Metadata)
                     VALUES ($m2Id, $cId, 1, 'First assistant response', '2026-08-10 12:07:00+00:00', NULL);
                 ";
-                cmd.Parameters.AddWithValue("$wsId", workspaceId);
-                cmd.Parameters.AddWithValue("$cId", conversationId);
-                cmd.Parameters.AddWithValue("$m1Id", message1Id);
-                cmd.Parameters.AddWithValue("$m2Id", message2Id);
+                _ = cmd.Parameters.AddWithValue("$wsId", workspaceId);
+                _ = cmd.Parameters.AddWithValue("$cId", conversationId);
+                _ = cmd.Parameters.AddWithValue("$m1Id", message1Id);
+                _ = cmd.Parameters.AddWithValue("$m2Id", message2Id);
                 _ = await cmd.ExecuteNonQueryAsync();
 
                 // 3. Apply the v0.2 migration on top of the legacy database
@@ -152,7 +152,7 @@ public sealed class DatabaseMigrationTests
                 Assert.Equal("gemini", messages[1].OriginProviderId);
 
                 // Initial provider session should be automatically created
-                Assert.Single(conversation.ProviderSessions);
+                _ = Assert.Single(conversation.ProviderSessions);
                 var session = conversation.ProviderSessions.First();
                 Assert.Equal("gemini", session.ProviderId);
                 Assert.Equal("session-123", session.ProviderSessionId);

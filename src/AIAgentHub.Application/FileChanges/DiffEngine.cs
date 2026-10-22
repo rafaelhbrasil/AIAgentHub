@@ -9,29 +9,44 @@ public sealed class DiffEngine : IDiffEngine
 
         if (oldText == null && newText != null)
         {
-            var unified = new List<DiffLine>();
-            var sideBySide = new List<SideBySideLine>();
-            for (var i = 0; i < newLines.Length; i++)
-            {
-                unified.Add(new DiffLine(null, i + 1, newLines[i], DiffLineKind.Added));
-                sideBySide.Add(new SideBySideLine(null, null, DiffLineKind.Unchanged, i + 1, newLines[i], DiffLineKind.Added));
-            }
-            return new DiffResult(relativePath, false, true, newLines.Length, 0, unified, sideBySide, oldText, newText);
+            return BuildAllAddedDiff(relativePath, newLines, oldText, newText);
         }
 
         if (oldText != null && newText == null)
         {
-            var unified = new List<DiffLine>();
-            var sideBySide = new List<SideBySideLine>();
-            for (var i = 0; i < oldLines.Length; i++)
-            {
-                unified.Add(new DiffLine(i + 1, null, oldLines[i], DiffLineKind.Deleted));
-                sideBySide.Add(new SideBySideLine(i + 1, oldLines[i], DiffLineKind.Deleted, null, null, DiffLineKind.Unchanged));
-            }
-            return new DiffResult(relativePath, false, true, 0, oldLines.Length, unified, sideBySide, oldText, newText);
+            return BuildAllDeletedDiff(relativePath, oldLines, oldText, newText);
         }
 
-        // Standard dynamic programming LCS (Longest Common Subsequence)
+        var dp = BuildLcsMatrix(oldLines, newLines);
+        return BuildLcsDiff(relativePath, oldLines, newLines, dp, oldText, newText);
+    }
+
+    private static DiffResult BuildAllAddedDiff(string relativePath, string[] newLines, string? oldText, string? newText)
+    {
+        var unified = new List<DiffLine>();
+        var sideBySide = new List<SideBySideLine>();
+        for (var i = 0; i < newLines.Length; i++)
+        {
+            unified.Add(new DiffLine(null, i + 1, newLines[i], DiffLineKind.Added));
+            sideBySide.Add(new SideBySideLine(null, null, DiffLineKind.Unchanged, i + 1, newLines[i], DiffLineKind.Added));
+        }
+        return new DiffResult(relativePath, false, true, newLines.Length, 0, unified, sideBySide, oldText, newText);
+    }
+
+    private static DiffResult BuildAllDeletedDiff(string relativePath, string[] oldLines, string? oldText, string? newText)
+    {
+        var unified = new List<DiffLine>();
+        var sideBySide = new List<SideBySideLine>();
+        for (var i = 0; i < oldLines.Length; i++)
+        {
+            unified.Add(new DiffLine(i + 1, null, oldLines[i], DiffLineKind.Deleted));
+            sideBySide.Add(new SideBySideLine(i + 1, oldLines[i], DiffLineKind.Deleted, null, null, DiffLineKind.Unchanged));
+        }
+        return new DiffResult(relativePath, false, true, 0, oldLines.Length, unified, sideBySide, oldText, newText);
+    }
+
+    private static int[,] BuildLcsMatrix(string[] oldLines, string[] newLines)
+    {
         var n = oldLines.Length;
         var m = newLines.Length;
         var dp = new int[n + 1, m + 1];
@@ -46,6 +61,13 @@ public sealed class DiffEngine : IDiffEngine
             }
         }
 
+        return dp;
+    }
+
+    private static DiffResult BuildLcsDiff(string relativePath, string[] oldLines, string[] newLines, int[,] dp, string? oldText, string? newText)
+    {
+        var n = oldLines.Length;
+        var m = newLines.Length;
         var unifiedList = new List<DiffLine>();
         var sbsList = new List<SideBySideLine>();
         int curOld = 0, curNew = 0;
@@ -105,8 +127,8 @@ public sealed class DiffEngine : IDiffEngine
             hasChanges,
             hasChanges ? 1 : 0,
             hasChanges ? 1 : 0,
-            Array.Empty<DiffLine>(),
-            Array.Empty<SideBySideLine>(),
+            [],
+            [],
             oldDataUri,
             newDataUri
         );

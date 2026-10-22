@@ -1,9 +1,7 @@
-using System.IO;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Persistence;
-using AIAgentHub.Infrastructure.Providers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -35,10 +33,7 @@ public sealed class TestProcessExecutor : IProcessExecutor
         string arguments,
         string? workingDirectory = null,
         CancellationToken cancellationToken = default,
-        string? operationTitle = null)
-    {
-        return Task.FromResult(new ProcessCommandResult(0, "mock-output", string.Empty));
-    }
+        string? operationTitle = null) => Task.FromResult(new ProcessCommandResult(0, "mock-output", string.Empty));
 
     public bool AbortProcess(Guid conversationId) => true;
     public bool IsRunning(Guid conversationId) => false;
@@ -75,8 +70,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             });
 
             var rateLimiterDescriptors = services.Where(d =>
-                d.ServiceType == typeof(Microsoft.Extensions.Options.IConfigureOptions<Microsoft.AspNetCore.RateLimiting.RateLimiterOptions>) ||
-                d.ServiceType == typeof(Microsoft.Extensions.Options.IPostConfigureOptions<Microsoft.AspNetCore.RateLimiting.RateLimiterOptions>)).ToList();
+                d.ServiceType == typeof(Microsoft.Extensions.Options.IConfigureOptions<RateLimiterOptions>) ||
+                d.ServiceType == typeof(Microsoft.Extensions.Options.IPostConfigureOptions<RateLimiterOptions>)).ToList();
             foreach (var d in rateLimiterDescriptors)
             {
                 _ = services.Remove(d);
@@ -84,7 +79,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             _ = services.AddRateLimiter(options =>
             {
-                options.AddFixedWindowLimiter("AuthLimiter", opt =>
+                _ = options.AddFixedWindowLimiter("AuthLimiter", opt =>
                 {
                     opt.PermitLimit = 100000;
                     opt.Window = TimeSpan.FromMinutes(1);
@@ -101,7 +96,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         });
     }
 
-    private readonly object _initLock = new();
+    private readonly Lock _initLock = new();
     private bool _initialized;
 
     public void InitializeDatabase()

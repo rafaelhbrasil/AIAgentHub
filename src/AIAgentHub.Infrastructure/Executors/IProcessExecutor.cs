@@ -34,10 +34,7 @@ public abstract class ProcessExecutorBase : IProcessExecutor
 {
     private readonly ConcurrentDictionary<Guid, Process> _activeProcesses = new();
 
-    public bool IsRunning(Guid conversationId)
-    {
-        return _activeProcesses.TryGetValue(conversationId, out var process) && !process.HasExited;
-    }
+    public bool IsRunning(Guid conversationId) => _activeProcesses.TryGetValue(conversationId, out var process) && !process.HasExited;
 
     public abstract Task ExecuteAsync(
         string displayName,
@@ -86,12 +83,9 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         return false;
     }
 
+    [Obsolete("Process execution is now supported cross-platform (Windows, Linux, macOS).")]
     protected virtual void EnsureWindowsPlatform(string executorTypeName)
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new NotImplementedException($"{executorTypeName} is not supported on non-Windows operating systems yet.");
-        }
     }
 
     protected virtual string ResolveExecutablePath(string executableName) => CliProviderBase.FindExecutable(executableName) ?? executableName;
@@ -118,7 +112,7 @@ public abstract class ProcessExecutorBase : IProcessExecutor
         bool createNoWindow,
         ProcessWindowStyle windowStyle = ProcessWindowStyle.Hidden)
     {
-        return new ProcessStartInfo
+        var psi = new ProcessStartInfo
         {
             FileName = fileName,
             Arguments = arguments,
@@ -127,6 +121,48 @@ public abstract class ProcessExecutorBase : IProcessExecutor
             CreateNoWindow = createNoWindow,
             WindowStyle = windowStyle
         };
+
+        if (!useShellExecute)
+        {
+            psi.EnvironmentVariables.Remove("ASPNETCORE_URLS");
+            psi.EnvironmentVariables.Remove("ASPNETCORE_HTTPS_PORTS");
+            psi.EnvironmentVariables.Remove("DOTNET_LAUNCH_PROFILE");
+        }
+
+        return psi;
+    }
+
+    protected static void TryKillQuietly(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch { /* Non-fatal: process already exited or terminated */ }
+    }
+
+    protected static void TryDeleteQuietly(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch { /* Non-fatal: file locked or already deleted */ }
+    }
+
+    protected static void TryCloseQuietly(StreamWriter writer)
+    {
+        try
+        {
+            writer.Close();
+        }
+        catch { /* Non-fatal: writer already closed or disposed */ }
     }
 
     protected sealed class ProcessRegistrationScope(ConcurrentDictionary<Guid, Process> allProcesses, Guid conversationId, Process process) : IDisposable

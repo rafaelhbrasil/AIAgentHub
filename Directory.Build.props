@@ -8,13 +8,14 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <NoWarn>$(NoWarn);NU1901;NU1902;NU1903;NU1904;NU1905</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);NU1901;NU1902;NU1903;NU1904;NU1905;CS1591</NoWarn>
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904;NU1905</WarningsNotAsErrors>
     <NuGetAudit>false</NuGetAudit>
     <Deterministic>true</Deterministic>
 
     <!-- Base Semantic Version -->
-    <BaseVersion>0.2.2</BaseVersion>
+    <BaseVersion>0.3.0</BaseVersion>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
   </PropertyGroup>
 

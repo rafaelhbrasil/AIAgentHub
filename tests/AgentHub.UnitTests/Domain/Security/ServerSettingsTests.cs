@@ -1,4 +1,3 @@
-using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Security;
 
 namespace AgentHub.UnitTests.Domain.Security;

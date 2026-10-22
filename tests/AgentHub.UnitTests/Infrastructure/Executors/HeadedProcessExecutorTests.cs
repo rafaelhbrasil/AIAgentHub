@@ -3,7 +3,6 @@ using System.Text;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Executors;
-using AIAgentHub.Infrastructure.Providers;
 
 using NSubstitute;
 
@@ -43,7 +42,7 @@ public sealed class HeadedProcessExecutorTests
                 "test prompt",
                 null,
                 null,
-                Array.Empty<string>(),
+                [],
                 token =>
                 {
                     _ = outputBuilder.Append(token);
@@ -88,7 +87,7 @@ public sealed class HeadedProcessExecutorTests
             "test prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token => Task.CompletedTask,
             (type, target) => Task.FromResult(true),
             cts.Token
@@ -117,7 +116,7 @@ public sealed class HeadedProcessExecutorTests
             "build help prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);
@@ -176,5 +175,31 @@ public sealed class HeadedProcessExecutorTests
         var executor = new TestableHeadedProcessExecutor();
         var ex = Assert.Throws<NotImplementedException>(() => executor.CallEnsureWindowsPlatform(simulateWindows: false));
         Assert.Contains("HeadedProcessExecutor", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(5, true, true, "Session Finished", "Window will close in 5s...")]
+    [InlineData(0, true, false, "Command Finished", "[System.Environment]::Exit($exitCode)")]
+    [InlineData(-1, true, false, "Command Finished", "=== [AI Agent Hub] Command Finished ===")]
+    [InlineData(5, false, true, "Session Finished", "Window will close in 5s...")]
+    [InlineData(0, false, false, "Command Finished", "exit $EXIT_CODE")]
+    [InlineData(-1, false, false, "Command Finished", "exit $EXIT_CODE")]
+    public void BuildAutoCloseScript_AllPlatformsAndDelays_GeneratesExpectedScript(
+        int autoCloseDelay,
+        bool isWindows,
+        bool isSession,
+        string expectedBanner,
+        string expectedFragment)
+    {
+        var method = typeof(HeadedProcessExecutor).GetMethod(
+            "BuildAutoCloseScript",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        Assert.NotNull(method);
+        var result = (string?)method.Invoke(null, [autoCloseDelay, isWindows, isSession]);
+
+        Assert.NotNull(result);
+        Assert.Contains(expectedBanner, result);
+        Assert.Contains(expectedFragment, result);
     }
 }

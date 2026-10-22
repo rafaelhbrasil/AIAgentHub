@@ -1,8 +1,5 @@
-using System.IO;
 using System.Net;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
-using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Security;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Repositories;
@@ -10,7 +7,6 @@ using AIAgentHub.Domain.Security;
 using AIAgentHub.Infrastructure.Certificates;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Persistence;
-using AIAgentHub.Infrastructure.Providers;
 using AIAgentHub.Infrastructure.Realtime;
 using AIAgentHub.Web;
 using AIAgentHub.Web.Middleware;
@@ -23,7 +19,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Playwright;
-using Xunit;
 
 namespace AgentHub.IntegrationTests.Web.Playwright;
 
@@ -61,7 +56,7 @@ public class PlaywrightTestFixture : IAsyncLifetime
             options.Listen(IPAddress.Loopback, HttpsPort, listenOptions =>
             {
                 var certManager = new CertificateManager();
-                listenOptions.UseHttps(certManager.GetOrCreateSelfSignedCertificate());
+                _ = listenOptions.UseHttps(certManager.GetOrCreateSelfSignedCertificate());
             });
         });
         _ = builder.WebHost.UseUrls(ServerAddress);
@@ -71,7 +66,7 @@ public class PlaywrightTestFixture : IAsyncLifetime
         _ = builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.AddFixedWindowLimiter("AuthLimiter", opt =>
+            _ = options.AddFixedWindowLimiter("AuthLimiter", opt =>
             {
                 opt.PermitLimit = 100;
                 opt.Window = TimeSpan.FromMinutes(1);
@@ -140,17 +135,17 @@ public class PlaywrightTestFixture : IAsyncLifetime
             _ = app.UseStaticFiles();
         }
 
-        app.UseRouting();
-        app.UseRateLimiter();
-        app.UseMiddleware<NetworkModeMiddleware>();
-        app.UseAuthentication();
-        app.UseAuthorization();
-        app.MapControllers();
-        app.MapHub<AgentHubHub>("/hubs/agent");
+        _ = app.UseRouting();
+        _ = app.UseRateLimiter();
+        _ = app.UseMiddleware<NetworkModeMiddleware>();
+        _ = app.UseAuthentication();
+        _ = app.UseAuthorization();
+        _ = app.MapControllers();
+        _ = app.MapHub<AgentHubHub>("/hubs/agent");
 
         if (Directory.Exists(resolvedWebRoot) && File.Exists(Path.Combine(resolvedWebRoot, "index.html")))
         {
-            app.MapFallback(async context =>
+            _ = app.MapFallback(async context =>
             {
                 context.Response.ContentType = "text/html; charset=utf-8";
                 await context.Response.SendFileAsync(Path.Combine(resolvedWebRoot, "index.html"));
@@ -158,7 +153,7 @@ public class PlaywrightTestFixture : IAsyncLifetime
         }
         else
         {
-            app.MapFallbackToFile("index.html");
+            _ = app.MapFallbackToFile("index.html");
         }
 
         _host = app;

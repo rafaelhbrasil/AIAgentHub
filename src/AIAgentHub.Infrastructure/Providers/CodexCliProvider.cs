@@ -24,8 +24,8 @@ public sealed class CodexCliProvider(
     protected override string? DefaultInstallInstructions => "Install Codex CLI via official OpenAI distribution.";
     protected override string? DefaultAuthCommand => "auth login";
     protected override string? DefaultDocumentationUrl => "https://learn.chatgpt.com/docs/codex/cli";
-    public override ProviderCapability Capabilities =>
-        ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.FileEditing | ProviderCapability.ModelSelection;
+    public override ProviderCapabilities Capabilities =>
+        ProviderCapabilities.Streaming | ProviderCapabilities.ToolCalling | ProviderCapabilities.FileEditing | ProviderCapabilities.ModelSelection;
 
     public override Task<string?> StartSessionAsync(Guid conversationId, string workspacePath, string? modelId, CancellationToken cancellationToken = default) =>
         Task.FromResult<string?>(null);
@@ -96,118 +96,160 @@ public sealed class CodexCliProvider(
             ? text.Split('\n', StringSplitOptions.RemoveEmptyEntries)
             : text[..lastNewline].Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        if (!isFinal)
-        {
-            _ = buffer.Remove(0, lastNewline + 1);
-        }
-        else
-        {
-            _ = buffer.Clear();
-        }
+        _ = !isFinal ? buffer.Remove(0, lastNewline + 1) : buffer.Clear();
 
         foreach (var rawLine in linesToProcess)
         {
-            var line = rawLine.Trim();
-            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('{') || !line.EndsWith('}'))
+            await ProcessLineAsync(rawLine, context, setIsFirstMessage, isFirstMessage);
+        }
+    }
+
+    private static async Task ProcessLineAsync(
+        string rawLine,
+        ProviderExecutionContext context,
+        Action<bool> setIsFirstMessage,
+        bool isFirstMessage)
+    {
+        var line = rawLine.Trim();
+        if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('{') || !line.EndsWith('}'))
+        {
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeProp))
             {
-                continue;
+                return;
             }
 
-            try
+            switch (typeProp.GetString())
             {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-                if (!root.TryGetProperty("type", out var typeProp))
-                {
-                    continue;
-                }
+                case "thread.started":
+                    await HandleThreadStartedAsync(root, context);
+                    break;
 
-                var type = typeProp.GetString();
-                switch (type)
-                {
-                    case "thread.started":
-                        if (root.TryGetProperty("thread_id", out var threadIdProp) &&
-                            threadIdProp.GetString() is { } threadId &&
-                            !string.IsNullOrWhiteSpace(threadId) &&
-                            context.OnSessionCreated != null)
-                        {
-                            await context.OnSessionCreated(threadId.Trim());
-                        }
-                        break;
+                case "item.started":
+                    await HandleItemStartedAsync(root, context, isFirstMessage, setIsFirstMessage);
+                    break;
 
-                    case "item.started":
-                        if (root.TryGetProperty("item", out var startItemProp))
-                        {
-                            var startItemType = startItemProp.TryGetProperty("type", out var stProp) ? stProp.GetString() : null;
-                            if (startItemType == "command_execution" &&
-                                startItemProp.TryGetProperty("command", out var cmdProp) &&
-                                cmdProp.GetString() is { } cmdText &&
-                                !string.IsNullOrWhiteSpace(cmdText))
-                            {
-                                var prefix = isFirstMessage ? "" : "\n\n";
-                                setIsFirstMessage(false);
-                                await context.OnStreamToken($"{prefix}⚡ **Running command:** `{cmdText}`\n");
-                            }
-                        }
-                        break;
+                case "item.completed":
+                    await HandleItemCompletedAsync(root, context, isFirstMessage, setIsFirstMessage);
+                    break;
 
-                    case "item.completed":
-                        if (root.TryGetProperty("item", out var itemProp))
-                        {
-                            var itemType = itemProp.TryGetProperty("type", out var itProp) ? itProp.GetString() : null;
-                            if (itemType == "agent_message" &&
-                                itemProp.TryGetProperty("text", out var textProp) &&
-                                textProp.GetString() is { } msgText &&
-                                !string.IsNullOrEmpty(msgText))
-                            {
-                                var prefix = isFirstMessage ? "" : "\n\n";
-                                setIsFirstMessage(false);
-                                await context.OnStreamToken(prefix + msgText);
-                            }
-                            else if (itemType == "command_execution" &&
-                                     itemProp.TryGetProperty("aggregated_output", out var outProp) &&
-                                     outProp.GetString() is { } cmdOut &&
-                                     !string.IsNullOrWhiteSpace(cmdOut))
-                            {
-                                var trimmedOut = cmdOut.Trim();
-                                if (trimmedOut.Length > 0)
-                                {
-                                    var formattedOut = trimmedOut.Length > 3000
-                                        ? trimmedOut[..3000] + "\n...(truncated)"
-                                        : trimmedOut;
-                                    await context.OnStreamToken($"```text\n{formattedOut}\n```\n");
-                                }
-                            }
-                        }
-                        break;
+                case "turn.failed":
+                    await HandleTurnFailedAsync(root, context);
+                    break;
 
-                    case "turn.failed":
-                        if (root.TryGetProperty("error", out var turnErrProp))
-                        {
-                            var errMsg = turnErrProp.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : turnErrProp.ToString();
-                            if (!string.IsNullOrWhiteSpace(errMsg))
-                            {
-                                var cleanErr = ExtractErrorMessage(errMsg);
-                                await context.OnStreamToken($"\n\n⚠️ **Error:** {cleanErr}\n");
-                            }
-                        }
-                        break;
-
-                    case "error":
-                        if (root.TryGetProperty("message", out var errProp) &&
-                            errProp.GetString() is { } errMsgStr &&
-                            !string.IsNullOrEmpty(errMsgStr))
-                        {
-                            var cleanErr = ExtractErrorMessage(errMsgStr);
-                            await context.OnStreamToken($"\n\n⚠️ **Error:** {cleanErr}\n");
-                        }
-                        break;
-                }
+                case "error":
+                    await HandleErrorAsync(root, context);
+                    break;
+                default:
+                    break;
             }
-            catch
+        }
+        catch
+        {
+            // Ignore non-JSON or malformed lines
+        }
+    }
+
+    private static async Task HandleThreadStartedAsync(JsonElement root, ProviderExecutionContext context)
+    {
+        if (root.TryGetProperty("thread_id", out var threadIdProp) &&
+            threadIdProp.GetString() is { } threadId &&
+            !string.IsNullOrWhiteSpace(threadId) &&
+            context.OnSessionCreated != null)
+        {
+            await context.OnSessionCreated(threadId.Trim());
+        }
+    }
+
+    private static async Task HandleItemStartedAsync(
+        JsonElement root,
+        ProviderExecutionContext context,
+        bool isFirstMessage,
+        Action<bool> setIsFirstMessage)
+    {
+        if (!root.TryGetProperty("item", out var startItemProp))
+        {
+            return;
+        }
+
+        var startItemType = startItemProp.TryGetProperty("type", out var stProp) ? stProp.GetString() : null;
+        if (startItemType == "command_execution" &&
+            startItemProp.TryGetProperty("command", out var cmdProp) &&
+            cmdProp.GetString() is { } cmdText &&
+            !string.IsNullOrWhiteSpace(cmdText))
+        {
+            var prefix = isFirstMessage ? "" : "\n\n";
+            setIsFirstMessage(false);
+            await context.OnStreamToken($"{prefix}⚡ **Running command:** `{cmdText}`\n");
+        }
+    }
+
+    private static async Task HandleItemCompletedAsync(
+        JsonElement root,
+        ProviderExecutionContext context,
+        bool isFirstMessage,
+        Action<bool> setIsFirstMessage)
+    {
+        if (!root.TryGetProperty("item", out var itemProp))
+        {
+            return;
+        }
+
+        var itemType = itemProp.TryGetProperty("type", out var itProp) ? itProp.GetString() : null;
+        if (itemType == "agent_message" &&
+            itemProp.TryGetProperty("text", out var textProp) &&
+            textProp.GetString() is { } msgText &&
+            !string.IsNullOrEmpty(msgText))
+        {
+            var prefix = isFirstMessage ? "" : "\n\n";
+            setIsFirstMessage(false);
+            await context.OnStreamToken(prefix + msgText);
+        }
+        else if (itemType == "command_execution" &&
+                 itemProp.TryGetProperty("aggregated_output", out var outProp) &&
+                 outProp.GetString() is { } cmdOut &&
+                 !string.IsNullOrWhiteSpace(cmdOut))
+        {
+            var trimmedOut = cmdOut.Trim();
+            if (trimmedOut.Length > 0)
             {
-                // Ignore non-JSON or malformed lines
+                var formattedOut = trimmedOut.Length > 3000
+                    ? trimmedOut[..3000] + "\n...(truncated)"
+                    : trimmedOut;
+                await context.OnStreamToken($"```text\n{formattedOut}\n```\n");
             }
+        }
+    }
+
+    private static async Task HandleTurnFailedAsync(JsonElement root, ProviderExecutionContext context)
+    {
+        if (!root.TryGetProperty("error", out var turnErrProp))
+        {
+            return;
+        }
+
+        var errMsg = turnErrProp.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : turnErrProp.ToString();
+        if (!string.IsNullOrWhiteSpace(errMsg))
+        {
+            var cleanErr = ExtractErrorMessage(errMsg);
+            await context.OnStreamToken($"\n\n⚠️ **Error:** {cleanErr}\n");
+        }
+    }
+
+    private static async Task HandleErrorAsync(JsonElement root, ProviderExecutionContext context)
+    {
+        if (root.TryGetProperty("message", out var errProp) &&
+            errProp.GetString() is { } errMsgStr &&
+            !string.IsNullOrEmpty(errMsgStr))
+        {
+            var cleanErr = ExtractErrorMessage(errMsgStr);
+            await context.OnStreamToken($"\n\n⚠️ **Error:** {cleanErr}\n");
         }
     }
 
@@ -239,7 +281,14 @@ public sealed class CodexCliProvider(
 
     public override string BuildArguments(ProviderExecutionContext context)
     {
-        var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
+        var prompt = context.Prompt;
+        var triggerWords = GetDetachedExecutionTriggerWords();
+        if (ShouldInjectDetachedExecutionInstruction(prompt, triggerWords))
+        {
+            prompt = $"{DetachedExecutionInstruction} {prompt}";
+        }
+
+        var escapedPrompt = prompt.Replace("\"", "\\\"");
         var modelArg = FormatFlag("--model", context.ModelId, skipDefaultModel: true);
         var effortArg = !string.IsNullOrWhiteSpace(context.Effort)
             ? $" -c model_reasoning_effort={context.Effort.ToLowerInvariant()}"
@@ -282,7 +331,7 @@ public sealed class CodexCliProvider(
     {
         if (string.IsNullOrWhiteSpace(output))
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
 
         try
@@ -298,7 +347,7 @@ public sealed class CodexCliProvider(
             using var doc = JsonDocument.Parse(trimmed);
             if (!doc.RootElement.TryGetProperty("models", out var modelsProp) || modelsProp.ValueKind != JsonValueKind.Array)
             {
-                return Array.Empty<ModelInfo>();
+                return [];
             }
 
             var models = new List<ModelInfo>();
@@ -306,34 +355,13 @@ public sealed class CodexCliProvider(
 
             foreach (var item in modelsProp.EnumerateArray())
             {
-                if (!item.TryGetProperty("slug", out var slugProp) || slugProp.GetString() is not { } slug || string.IsNullOrWhiteSpace(slug))
+                var model = ParseModelItem(item, isFirst);
+                if (model == null)
                 {
                     continue;
                 }
 
-                var displayName = item.TryGetProperty("display_name", out var dnProp) && !string.IsNullOrWhiteSpace(dnProp.GetString())
-                    ? dnProp.GetString()!
-                    : slug;
-
-                var description = item.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
-
-                int? contextWindow = item.TryGetProperty("context_window", out var cwProp) && cwProp.TryGetInt32(out var cw)
-                    ? cw
-                    : null;
-
-                var visibility = item.TryGetProperty("visibility", out var visProp) ? visProp.GetString() : null;
-                var isDisplayed = !string.Equals(visibility, "hidden", StringComparison.OrdinalIgnoreCase);
-
-                models.Add(new ModelInfo
-                {
-                    Id = slug,
-                    DisplayName = displayName,
-                    Description = description,
-                    ContextWindow = contextWindow,
-                    IsDefault = isFirst,
-                    IsDisplayed = isDisplayed
-                });
-
+                models.Add(model);
                 isFirst = false;
             }
 
@@ -341,7 +369,38 @@ public sealed class CodexCliProvider(
         }
         catch
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
+    }
+
+    private static ModelInfo? ParseModelItem(JsonElement item, bool isFirst)
+    {
+        if (!item.TryGetProperty("slug", out var slugProp) || slugProp.GetString() is not { } slug || string.IsNullOrWhiteSpace(slug))
+        {
+            return null;
+        }
+
+        var displayName = item.TryGetProperty("display_name", out var dnProp) && !string.IsNullOrWhiteSpace(dnProp.GetString())
+            ? dnProp.GetString()!
+            : slug;
+
+        var description = item.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+
+        int? contextWindow = item.TryGetProperty("context_window", out var cwProp) && cwProp.TryGetInt32(out var cw)
+            ? cw
+            : null;
+
+        var visibility = item.TryGetProperty("visibility", out var visProp) ? visProp.GetString() : null;
+        var isDisplayed = !string.Equals(visibility, "hidden", StringComparison.OrdinalIgnoreCase);
+
+        return new ModelInfo
+        {
+            Id = slug,
+            DisplayName = displayName,
+            Description = description,
+            ContextWindow = contextWindow,
+            IsDefault = isFirst,
+            IsDisplayed = isDisplayed
+        };
     }
 }

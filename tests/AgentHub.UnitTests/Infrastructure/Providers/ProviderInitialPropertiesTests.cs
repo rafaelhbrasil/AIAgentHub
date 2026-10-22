@@ -5,7 +5,6 @@ using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Infrastructure.Providers;
 
@@ -43,7 +42,7 @@ public sealed class ProviderInitialPropertiesTests
         Assert.Equal("Gemini CLI is no longer supported by Google for individuals. Please install and migrate to Antigravity CLI.", provider.InstallInstructions);
         Assert.Equal("auth login", provider.AuthCommand);
         Assert.Equal("https://antigravity.google", provider.DocumentationUrl);
-        Assert.Equal(ProviderCapability.None, provider.Capabilities);
+        Assert.Equal(ProviderCapabilities.None, provider.Capabilities);
     }
 
     [Fact]

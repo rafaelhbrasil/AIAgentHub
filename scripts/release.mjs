@@ -23,8 +23,7 @@ let targetVersion = null;
 let skipTests = false;
 let createTag = false;
 
-for (let i = 0; i < args.length; i++) {
-  const arg = args[i];
+for (const arg of args) {
   if (arg === '--skip-tests') {
     skipTests = true;
   } else if (arg === '--create-tag' || arg === '-t') {
@@ -276,7 +275,7 @@ if (fs.existsSync(targetPublishDir)) {
     console.log('🔍 Releasing locking processes for publish directory...');
     try {
       if (process.platform === 'win32') {
-        execSync(`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'AIAgentHub.Web.exe'\\" | Where-Object { \\$_.ExecutablePath -like '*publish*' } | ForEach-Object { Stop-Process -Id \\$_.ProcessId -Force }"`, { stdio: 'ignore' });
+        execSync(String.raw`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name = 'AIAgentHub.Web.exe'\" | Where-Object { \$_.ExecutablePath -like '*publish*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }"`, { stdio: 'ignore' });
       } else {
         execSync('pkill -f AIAgentHub.Web', { stdio: 'ignore' });
       }
@@ -310,8 +309,8 @@ console.log(`\n✅ dotnet publish succeeded -> ${targetPublishDir}`);
 // 3.1 Resolve release timestamp (from SOURCE_DATE_EPOCH, Git tag/commit, or fallback)
 function getReleaseTimestamp(version) {
   if (process.env.SOURCE_DATE_EPOCH) {
-    const epoch = parseInt(process.env.SOURCE_DATE_EPOCH, 10);
-    if (!isNaN(epoch) && epoch > 0) {
+    const epoch = Number.parseInt(process.env.SOURCE_DATE_EPOCH, 10);
+    if (!Number.isNaN(epoch) && epoch > 0) {
       const d = new Date(epoch * 1000);
       console.log(`⏱️ Using release timestamp from SOURCE_DATE_EPOCH: ${d.toISOString()}`);
       return d;
@@ -334,7 +333,7 @@ function getReleaseTimestamp(version) {
     if (gitLog.status === 0 && gitLog.stdout?.trim()) {
       const gitDateStr = gitLog.stdout.trim();
       const d = new Date(gitDateStr);
-      if (!isNaN(d.getTime())) {
+      if (!Number.isNaN(d.getTime())) {
         console.log(`⏱️ Using release timestamp from Git (${targetRef}): ${d.toISOString()}`);
         return d;
       }
@@ -371,7 +370,7 @@ function getAllFilesSync(dir, baseDir = dir) {
   entries.sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
-    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+    const relPath = path.relative(baseDir, fullPath).replaceAll('\\', '/');
     if (entry.isDirectory()) {
       files = files.concat(getAllFilesSync(fullPath, baseDir));
     } else {

@@ -25,7 +25,7 @@ public sealed class ProviderInfo
     public DateTimeOffset? QuotaResetsAt { get; set; }
     public string? Version { get; set; }
     public string? ExecutablePath { get; set; }
-    public ProviderCapability Capabilities { get; set; } = ProviderCapability.None;
+    public ProviderCapabilities Capabilities { get; set; } = ProviderCapabilities.None;
     public List<ModelInfo> SupportedModels { get; set; } = [];
     public string? InstallInstructions { get; set; }
     public string? InstallCommand { get; set; }

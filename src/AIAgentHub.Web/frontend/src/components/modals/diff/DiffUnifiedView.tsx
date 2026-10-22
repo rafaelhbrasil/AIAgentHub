@@ -14,7 +14,7 @@ export const DiffUnifiedView: React.FC<DiffUnifiedViewProps> = ({ unifiedLines, 
         const isDel = l.kind === 2 || (l.kind as any) === 'Deleted' || (l.kind as any) === 'Deletion';
         return (
           <div
-            key={i}
+            key={`diff-line-row-${i}`}
             id={`diff-line-row-${i}`}
             className={`diff-line ${isAdd ? 'added' : isDel ? 'deleted' : 'unchanged'}`}
             style={{ display: 'flex', gap: '8px', minWidth: isWordWrap ? '0' : 'max-content' }}

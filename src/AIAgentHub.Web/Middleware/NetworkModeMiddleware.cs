@@ -37,7 +37,8 @@ public sealed class NetworkModeMiddleware(RequestDelegate next, RecoveryOptions 
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(
-                "{\"code\":\"forbidden\",\"message\":\"Remote access is disabled. Server is configured in Localhost-only mode.\"}",
+                /*lang=json,strict*/
+                                     "{\"code\":\"forbidden\",\"message\":\"Remote access is disabled. Server is configured in Localhost-only mode.\"}",
                 context.RequestAborted);
             return;
         }
@@ -63,7 +64,8 @@ public sealed class NetworkModeMiddleware(RequestDelegate next, RecoveryOptions 
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(
-                "{\"code\":\"forbidden\",\"message\":\"Remote access forbidden. Client IP is not in the allowed network interfaces list.\"}",
+                /*lang=json,strict*/
+                                     "{\"code\":\"forbidden\",\"message\":\"Remote access forbidden. Client IP is not in the allowed network interfaces list.\"}",
                 context.RequestAborted);
             return;
         }
@@ -79,6 +81,13 @@ public sealed class NetworkModeMiddleware(RequestDelegate next, RecoveryOptions 
             return allowed;
         }
 
+        AddParsedAddresses(selectedInterfaces, allowed);
+        AddNetworkInterfaceAddresses(selectedInterfaces, allowed);
+        return allowed;
+    }
+
+    private static void AddParsedAddresses(List<string> selectedInterfaces, List<IPAddress> allowed)
+    {
         foreach (var selected in selectedInterfaces)
         {
             if (IPAddress.TryParse(selected, out var parsedIp))
@@ -86,27 +95,33 @@ public sealed class NetworkModeMiddleware(RequestDelegate next, RecoveryOptions 
                 allowed.Add(parsedIp);
             }
         }
+    }
 
+    private static void AddNetworkInterfaceAddresses(List<string> selectedInterfaces, List<IPAddress> allowed)
+    {
         // Also resolve matching network interface names
         foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
         {
-            if (selectedInterfaces.Contains(nic.Name, StringComparer.OrdinalIgnoreCase) ||
-                selectedInterfaces.Contains(nic.Id, StringComparer.OrdinalIgnoreCase) ||
-                selectedInterfaces.Contains(nic.Description, StringComparer.OrdinalIgnoreCase))
+            if (!MatchesSelectedInterface(nic, selectedInterfaces))
             {
-                var props = nic.GetIPProperties();
-                foreach (var unicast in props.UnicastAddresses)
+                continue;
+            }
+
+            var props = nic.GetIPProperties();
+            foreach (var unicast in props.UnicastAddresses)
+            {
+                if (unicast.Address.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
                 {
-                    if (unicast.Address.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
-                    {
-                        allowed.Add(unicast.Address);
-                    }
+                    allowed.Add(unicast.Address);
                 }
             }
         }
-
-        return allowed;
     }
+
+    private static bool MatchesSelectedInterface(NetworkInterface nic, List<string> selectedInterfaces) =>
+        selectedInterfaces.Contains(nic.Name, StringComparer.OrdinalIgnoreCase) ||
+        selectedInterfaces.Contains(nic.Id, StringComparer.OrdinalIgnoreCase) ||
+        selectedInterfaces.Contains(nic.Description, StringComparer.OrdinalIgnoreCase);
 
     private static bool IsInSameSubnet(IPAddress clientIp, IPAddress adapterIp)
     {

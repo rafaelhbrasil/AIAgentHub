@@ -173,11 +173,11 @@ public sealed class ConversationService(
     {
         if (string.IsNullOrWhiteSpace(query))
         {
-            return Array.Empty<ConversationDto>();
+            return [];
         }
 
         var workspaces = await _workspaceRepository.GetAllAsync(cancellationToken);
-        var allConversations = new List<ConversationDto>();
+        List<ConversationDto> allConversations = [];
 
         foreach (var ws in workspaces)
         {

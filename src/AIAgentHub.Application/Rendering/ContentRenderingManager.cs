@@ -16,7 +16,7 @@ public sealed class TextContentRenderer : IContentRenderer
         ".sln", ".csproj", ".props", ".targets", ".rs", ".go", ".py", ".java", ".cpp", ".c", ".h"
     };
 
-    public bool CanRender(string fileExtension, string? mimeType) => SupportedExts.Contains(fileExtension) || (mimeType?.StartsWith("text/") ?? false);
+    public bool CanRender(string fileExtension, string? mimeType) => SupportedExts.Contains(fileExtension) || (mimeType?.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ?? false);
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
     {
@@ -63,7 +63,7 @@ public sealed class ImageContentRenderer : IContentRenderer
         { ".bmp", "image/bmp" }
     };
 
-    public bool CanRender(string fileExtension, string? mimeType) => MimeMap.ContainsKey(fileExtension) || (mimeType?.StartsWith("image/") ?? false);
+    public bool CanRender(string fileExtension, string? mimeType) => MimeMap.ContainsKey(fileExtension) || (mimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false);
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
     {
@@ -120,7 +120,7 @@ public sealed class XmlContentRenderer : IContentRenderer
         return string.Equals(fileExtension, ".xml", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(fileExtension, ".config", StringComparison.OrdinalIgnoreCase) ||
                (!string.Equals(fileExtension, ".svg", StringComparison.OrdinalIgnoreCase) &&
-               (mimeType?.Contains("xml") ?? false));
+               (mimeType?.Contains("xml", StringComparison.OrdinalIgnoreCase) ?? false));
     }
 
     public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
@@ -162,6 +162,123 @@ public sealed class YamlContentRenderer : IContentRenderer
         var html = $"<pre class=\"code-preview\"><code class=\"language-yaml\">{escaped}</code></pre>";
 
         return Task.FromResult(new RenderedContentResult(filePath, Name, "application/x-yaml", html, text, false, content.Length));
+    }
+}
+
+public sealed class PdfContentRenderer : IContentRenderer
+{
+    public string Name => "PdfRenderer";
+    public int Priority => 100;
+
+    public bool CanRender(string fileExtension, string? mimeType)
+    {
+        return string.Equals(fileExtension, ".pdf", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "application/pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
+    {
+        var base64 = Convert.ToBase64String(content);
+        var dataUri = $"data:application/pdf;base64,{base64}";
+        var fileName = Path.GetFileName(filePath);
+        var html = $"<div class=\"pdf-preview-container\"><object data=\"{dataUri}\" type=\"application/pdf\" class=\"pdf-preview-object\" style=\"width:100%;height:100%;min-height:550px;border:none;border-radius:6px;\"><div class=\"pdf-fallback-banner\"><p>PDF Preview for <strong>{System.Net.WebUtility.HtmlEncode(fileName)}</strong></p><a href=\"{dataUri}\" download=\"{System.Net.WebUtility.HtmlEncode(fileName)}\" class=\"btn btn-primary compact-btn\">Download PDF</a></div></object></div>";
+
+        return Task.FromResult(new RenderedContentResult(filePath, Name, "application/pdf", html, dataUri, true, content.Length));
+    }
+}
+
+public sealed class HtmlContentRenderer : IContentRenderer
+{
+    public string Name => "HtmlRenderer";
+    public int Priority => 100;
+
+    public bool CanRender(string fileExtension, string? mimeType)
+    {
+        return string.Equals(fileExtension, ".html", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(fileExtension, ".htm", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "text/html", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
+    {
+        var text = Encoding.UTF8.GetString(content);
+        var escaped = System.Net.WebUtility.HtmlEncode(text);
+        var html = $"<div class=\"html-preview-wrapper\"><div class=\"html-preview-toolbar\"><span class=\"badge\">HTML Sandbox</span></div><iframe class=\"html-preview-frame\" sandbox=\"allow-scripts\" srcdoc=\"{escaped}\" style=\"width:100%;height:100%;min-height:550px;border:1px solid var(--border-color);border-radius:6px;background:#ffffff;\"></iframe></div>";
+
+        return Task.FromResult(new RenderedContentResult(filePath, Name, "text/html", html, text, false, content.Length));
+    }
+}
+
+public sealed class DelimitedContentRenderer : IContentRenderer
+{
+    public string Name => "DelimitedRenderer";
+    public int Priority => 100;
+
+    public bool CanRender(string fileExtension, string? mimeType)
+    {
+        return string.Equals(fileExtension, ".csv", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(fileExtension, ".tsv", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "text/csv", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(mimeType, "text/tab-separated-values", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
+    {
+        var text = Encoding.UTF8.GetString(content);
+        var isTsv = Path.GetExtension(filePath).Equals(".tsv", StringComparison.OrdinalIgnoreCase);
+        var delimiter = isTsv ? '\t' : ',';
+
+        var lines = text.Split(["\r\n", "\r", "\n"], StringSplitOptions.RemoveEmptyEntries);
+        var sb = new StringBuilder();
+        _ = sb.Append("<div class=\"table-preview-container\"><table class=\"data-table\">");
+
+        for (var i = 0; i < lines.Length && i < 200; i++)
+        {
+            var row = lines[i];
+            var cells = row.Split(delimiter);
+            var isHeader = i == 0;
+            var tag = isHeader ? "th" : "td";
+
+            _ = sb.Append("<tr>");
+            foreach (var cell in cells)
+            {
+                var cleanCell = System.Net.WebUtility.HtmlEncode(cell.Trim().Trim('"'));
+                _ = sb.Append($"<{tag}>{cleanCell}</{tag}>");
+            }
+            _ = sb.Append("</tr>");
+        }
+
+        _ = sb.Append("</table>");
+        if (lines.Length > 200)
+        {
+            _ = sb.Append($"<p class=\"preview-truncated-notice\">Showing first 200 rows of {lines.Length:N0} total rows.</p>");
+        }
+        _ = sb.Append("</div>");
+
+        return Task.FromResult(new RenderedContentResult(filePath, Name, isTsv ? "text/tab-separated-values" : "text/csv", sb.ToString(), text, false, content.Length));
+    }
+}
+
+public sealed class ConfigLogContentRenderer : IContentRenderer
+{
+    public string Name => "ConfigLogRenderer";
+    public int Priority => 90;
+
+    private static readonly HashSet<string> ConfigExts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".log", ".ini", ".toml", ".env"
+    };
+
+    public bool CanRender(string fileExtension, string? mimeType) => ConfigExts.Contains(fileExtension);
+
+    public Task<RenderedContentResult> RenderAsync(string filePath, byte[] content, string? mimeType = null, CancellationToken cancellationToken = default)
+    {
+        var text = Encoding.UTF8.GetString(content);
+        var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
+        var escaped = System.Net.WebUtility.HtmlEncode(text);
+        var html = $"<pre class=\"code-preview config-preview\"><code class=\"language-{ext}\">{escaped}</code></pre>";
+
+        return Task.FromResult(new RenderedContentResult(filePath, Name, $"text/{ext}", html, text, false, content.Length));
     }
 }
 

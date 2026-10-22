@@ -67,8 +67,8 @@ public sealed class WorkspaceServiceTests
         var fs = Substitute.For<IFilesystemService>();
         var validator = Substitute.For<ISystemPathValidator>();
 
-        string? reasonOut = "Directory is a protected system folder.";
-        validator.IsPathForbidden(Arg.Any<string>(), out Arg.Any<string?>())
+        var reasonOut = "Directory is a protected system folder.";
+        _ = validator.IsPathForbidden(Arg.Any<string>(), out Arg.Any<string?>())
             .Returns(x =>
             {
                 x[1] = reasonOut;

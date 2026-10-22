@@ -367,5 +367,21 @@ MigrationBackup/
 # Superpowers temporary brainstorm & planning artifacts
 docs/superpowers/
 
+# Local scratch testing scripts and results
+scratch/
+
 # Release distribution archives
 archive/
+
+# Local developer credentials and test environment configuration
+credentials.md
+credentials.*.md
+
+# SonarQube & Code Coverage
+.sonarqube/
+coverage/
+TestResults/
+*.trx
+coverage.opencover.xml
+sonarscan.bat
+

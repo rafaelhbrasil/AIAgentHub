@@ -1,3 +1,4 @@
+using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Providers;
 
 using Microsoft.Extensions.Configuration;
@@ -14,10 +15,27 @@ public sealed class PromptLogger : IPromptLogger
     public PromptLogger(ILogger<PromptLogger> logger, IConfiguration configuration)
     {
         _logger = logger;
-        var configValue = configuration["AgentHub:PromptLogging"];
+        var configValue = configuration["Logging:PromptLogging"]
+            ?? configuration["Logging:PromptLogging:Enabled"]
+            ?? configuration["AgentHub:PromptLogging"];
         IsEnabled = string.IsNullOrEmpty(configValue) ||
                    configValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                    configValue.Equals("1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void LogPromptExecution(Guid conversationId, string providerId, string? modelId, string prompt, bool hasHandoffPreamble, int unsharedMessageCount)
+    {
+        if (!IsEnabled) return;
+
+        _logger.LogInformation(
+            "Prompt sent to {ProviderId} (model: {ModelId}) for conversation {ConversationId}. HandoffInjected: {HandoffInjected} (unshared: {UnsharedCount}), Length: {Length} chars. Prompt: {Prompt}",
+            providerId,
+            modelId ?? "default",
+            conversationId,
+            hasHandoffPreamble,
+            unsharedMessageCount,
+            prompt.Length,
+            prompt);
     }
 
     public void LogPromptSent(string providerName, string modelName, string commandLine, int promptLength)
@@ -39,7 +57,7 @@ public sealed class PromptLogger : IPromptLogger
         if (exitCode != 0)
         {
             var combined = $"{error} {output}".ToLowerInvariant();
-            if (combined.Contains("auth") || combined.Contains("unauthorized") || combined.Contains("login") || combined.Contains("not authenticated"))
+            if (combined.Contains("auth", StringComparison.Ordinal) || combined.Contains("unauthorized", StringComparison.Ordinal) || combined.Contains("login", StringComparison.Ordinal) || combined.Contains("not authenticated", StringComparison.Ordinal))
             {
                 _logger.LogWarning(
                     "Provider {ProviderName} unauthenticated during '{Operation}' (exit code {ExitCode}): {Error}",
@@ -48,7 +66,7 @@ public sealed class PromptLogger : IPromptLogger
                     exitCode,
                     error ?? output);
             }
-            else if (combined.Contains("quota") || combined.Contains("rate limit") || combined.Contains("429"))
+            else if (combined.Contains("quota", StringComparison.Ordinal) || combined.Contains("rate limit", StringComparison.Ordinal) || combined.Contains("429", StringComparison.Ordinal))
             {
                 _logger.LogWarning(
                     "Provider {ProviderName} quota exceeded during '{Operation}' (exit code {ExitCode}): {Error}",
@@ -98,7 +116,6 @@ public sealed class PromptLogger : IPromptLogger
             case ProviderStatus.Discontinued:
                 _logger.LogWarning("Provider {ProviderName} status: Discontinued. {Details}", providerName, message ?? string.Empty);
                 break;
-            case ProviderStatus.Error:
             default:
                 _logger.LogError("Provider {ProviderName} status: Error. {Details}", providerName, message ?? string.Empty);
                 break;

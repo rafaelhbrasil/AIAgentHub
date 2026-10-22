@@ -59,3 +59,13 @@ export interface PermissionRequestDto {
   target: string;
   reason: string;
 }
+
+export interface UpdateUsernameRequest {
+  newUsername: string;
+}
+
+export interface UpdatePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}

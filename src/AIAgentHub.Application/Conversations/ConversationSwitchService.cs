@@ -19,6 +19,7 @@ public sealed class ConversationSwitchService(
     public async Task<SwitchProviderResult> SwitchProviderAsync(
         Guid conversationId,
         SwitchProviderRequest request,
+        string? userId = null,
         CancellationToken cancellationToken = default)
     {
         if (request == null)
@@ -46,6 +47,7 @@ public sealed class ConversationSwitchService(
             "conversation.status_changed",
             conversationId,
             new { Status = (int)ConversationStatus.SwitchingProvider, StatusName = nameof(ConversationStatus.SwitchingProvider) },
+            userId,
             cancellationToken);
 
         try
@@ -60,44 +62,8 @@ public sealed class ConversationSwitchService(
                 .ToList();
 
             var userPrompts = allMessages.Where(m => m.Role == MessageRole.User).ToList();
-            int initialSharedIndex;
-            int migratedInteractionsCount;
-
             var scope = request.HistoryScope?.Trim().ToLowerInvariant() ?? "all";
-            if (scope == "delta" || (scope == "auto" && existingSession != null))
-            {
-                initialSharedIndex = existingSession?.LastSharedSequenceIndex ?? 0;
-                migratedInteractionsCount = initialSharedIndex == 0
-                    ? userPrompts.Count
-                    : userPrompts.Count(m => m.SequenceIndex > initialSharedIndex);
-            }
-            else if (scope.StartsWith("recent_") && int.TryParse(scope.AsSpan(7), out var recentCount) && recentCount > 0)
-            {
-                if (userPrompts.Count > recentCount)
-                {
-                    var targetPrompt = userPrompts[userPrompts.Count - recentCount];
-                    initialSharedIndex = Math.Max(0, targetPrompt.SequenceIndex - 1);
-                    migratedInteractionsCount = recentCount;
-                }
-                else
-                {
-                    initialSharedIndex = 0;
-                    migratedInteractionsCount = userPrompts.Count;
-                }
-            }
-            else if (scope == "none")
-            {
-                // None: 0 interactions migrated.
-                // Keep target provider's existing checkpoint without advancing it,
-                // so if the user performs no interaction in the new provider, they can return and still migrate history.
-                initialSharedIndex = existingSession?.LastSharedSequenceIndex ?? 0;
-                migratedInteractionsCount = 0;
-            }
-            else
-            {
-                initialSharedIndex = 0;
-                migratedInteractionsCount = userPrompts.Count;
-            }
+            var (initialSharedIndex, migratedInteractionsCount) = ResolveHistoryScope(scope, existingSession, userPrompts);
 
             // 3. Start or attach target session
             var targetSessionId = existingSession?.ProviderSessionId;
@@ -141,6 +107,7 @@ public sealed class ConversationSwitchService(
                     MigratedMessageCount = migratedInteractionsCount,
                     TargetSessionId = targetSessionId
                 },
+                userId,
                 cancellationToken);
 
             return new SwitchProviderResult(
@@ -160,9 +127,45 @@ public sealed class ConversationSwitchService(
                     "conversation.status_changed",
                     conversationId,
                     new { Status = (int)ConversationStatus.Active, StatusName = nameof(ConversationStatus.Active) },
+                    userId,
                     cancellationToken);
             }
         }
+    }
+
+    private static (int InitialSharedIndex, int MigratedInteractionsCount) ResolveHistoryScope(
+        string scope,
+        ConversationProviderSession? existingSession,
+        List<Message> userPrompts)
+    {
+        if (scope == "delta" || (scope == "auto" && existingSession != null))
+        {
+            var initialSharedIndex = existingSession?.LastSharedSequenceIndex ?? 0;
+            var migratedInteractionsCount = initialSharedIndex == 0
+                ? userPrompts.Count
+                : userPrompts.Count(m => m.SequenceIndex > initialSharedIndex);
+            return (initialSharedIndex, migratedInteractionsCount);
+        }
+
+        if (scope.StartsWith("recent_", StringComparison.OrdinalIgnoreCase) && int.TryParse(scope.AsSpan(7), out var recentCount) && recentCount > 0)
+        {
+            if (userPrompts.Count > recentCount)
+            {
+                var targetPrompt = userPrompts[^recentCount];
+                return (Math.Max(0, targetPrompt.SequenceIndex - 1), recentCount);
+            }
+
+            return (0, userPrompts.Count);
+        }
+
+        if (scope == "none")
+        {
+            // Keep target provider's existing checkpoint without advancing it,
+            // so if the user performs no interaction in the new provider, they can return and still migrate history.
+            return (existingSession?.LastSharedSequenceIndex ?? 0, 0);
+        }
+
+        return (0, userPrompts.Count);
     }
 
     public async Task<IReadOnlyList<ConversationProviderSessionDto>> GetSessionsAsync(
@@ -188,6 +191,7 @@ public sealed class ConversationSwitchService(
 
     public async Task<ConversationDetailDto> AbortSwitchAsync(
         Guid conversationId,
+        string? userId = null,
         CancellationToken cancellationToken = default)
     {
         var conversation = await _conversationRepository.GetByIdAsync(conversationId, cancellationToken)
@@ -201,6 +205,7 @@ public sealed class ConversationSwitchService(
                 "conversation.status_changed",
                 conversationId,
                 new { Status = (int)ConversationStatus.Active, StatusName = nameof(ConversationStatus.Active) },
+                userId,
                 cancellationToken);
         }
 

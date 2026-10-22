@@ -64,7 +64,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
   }
   const [isDropdownOpen, setIsDropdownOpen] = useState(initialDropdownOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const pathScrollRef = useRef<HTMLDivElement>(null);
+  const pathScrollRef = useRef<HTMLButtonElement>(null);
 
   const isCreated = isCreatedDiff(activeDiff);
   const isDeleted = isDeletedDiff(activeDiff);
@@ -135,7 +135,8 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
       }}
     >
       {/* Horizontally scrollable path area (focused on filename) */}
-      <div
+      <button
+        type="button"
         ref={pathScrollRef}
         className={`diff-path-scroll-area ${changes.length > 1 ? 'is-clickable' : ''}`}
         onClick={() => {
@@ -153,8 +154,13 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
           cursor: changes.length > 1 ? 'pointer' : 'default',
           flex: '1 1 auto',
           minWidth: 0,
-          paddingRight: '6px',
+          padding: '0 6px 0 0',
           scrollbarWidth: 'none',
+          background: 'none',
+          border: 'none',
+          color: 'inherit',
+          fontFamily: 'inherit',
+          textAlign: 'left',
         }}
       >
         <span style={{ fontSize: '0.82rem', marginRight: '2px', flexShrink: 0 }}>📄</span>
@@ -190,7 +196,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
             {isDropdownOpen ? '▴' : '▾'}
           </span>
         )}
-      </div>
+      </button>
 
       {/* Copy Path Icon Button */}
       <button
@@ -464,7 +470,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                   }}
                 >
                   {changeHunks.length > 0
-                    ? `${(activeHunkIndex >= 0 ? activeHunkIndex : 0) + 1} / ${changeHunks.length}`
+                    ? `${Math.max(activeHunkIndex, 0) + 1} / ${changeHunks.length}`
                     : '0 diffs'}
                 </span>
                 <button
@@ -544,7 +550,7 @@ export const DiffControlsBar: React.FC<DiffControlsBarProps> = ({
                   }}
                 >
                   {changeHunks.length > 0
-                    ? `${(activeHunkIndex >= 0 ? activeHunkIndex : 0) + 1} / ${changeHunks.length}`
+                    ? `${Math.max(activeHunkIndex, 0) + 1} / ${changeHunks.length}`
                     : '0 diffs'}
                 </span>
                 <button

@@ -58,10 +58,17 @@ csharp_preserve_single_line_blocks = true
 csharp_prefer_braces = false:warning
 dotnet_diagnostic.IDE0011.severity = warning
 
+######## Diagnostic Severity for Cleanup ########
+
+# Auto-remove unused usings, unused members, and unread variables
+dotnet_diagnostic.IDE0005.severity = warning
+dotnet_diagnostic.IDE0051.severity = warning
+dotnet_diagnostic.IDE0059.severity = warning
+
 ######## Using Directives ########
 
 dotnet_sort_system_directives_first = true
-dotnet_separate_import_directive_groups = true
+dotnet_separate_import_directive_groups = false
 
 ######## Namespace Declarations ########
 
@@ -140,3 +147,12 @@ dotnet_analyzer_diagnostic.category-Style.severity = suggestion
 dotnet_analyzer_diagnostic.category-Performance.severity = suggestion
 dotnet_analyzer_diagnostic.category-Reliability.severity = warning
 dotnet_analyzer_diagnostic.category-Security.severity = warning
+
+###########################################################
+# Migrations Protection
+###########################################################
+
+[**/Migrations/**.cs]
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.IDE0011.severity = none
+dotnet_diagnostic.IDE0005.severity = none

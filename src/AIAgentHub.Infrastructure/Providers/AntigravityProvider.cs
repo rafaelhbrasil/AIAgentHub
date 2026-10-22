@@ -23,8 +23,8 @@ public sealed class AntigravityProvider(
     protected override string? DefaultInstallInstructions => "Install Google DeepMind Antigravity CLI from official website.";
     protected override string? DefaultAuthCommand => "auth login";
     protected override string? DefaultDocumentationUrl => "https://antigravity.google/download#antigravity-cli";
-    public override ProviderCapability Capabilities =>
-        ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.Skills | ProviderCapability.Mcp | ProviderCapability.FileEditing | ProviderCapability.Vision | ProviderCapability.ModelSelection;
+    public override ProviderCapabilities Capabilities =>
+        ProviderCapabilities.Streaming | ProviderCapabilities.ToolCalling | ProviderCapabilities.Skills | ProviderCapabilities.Mcp | ProviderCapabilities.FileEditing | ProviderCapabilities.Vision | ProviderCapabilities.ModelSelection;
 
     public override bool IsInstalledFastCheck() =>
         !string.IsNullOrEmpty(FindExecutable(ExecutableName)) || !string.IsNullOrEmpty(FindExecutable("antigravity"));
@@ -71,11 +71,11 @@ public sealed class AntigravityProvider(
             if (needsSessionCapture && agyLogFile != null && File.Exists(agyLogFile))
             {
                 var logContent = await File.ReadAllTextAsync(agyLogFile, context.CancellationToken);
-                var match = Regex.Match(logContent, @"(?:Created conversation|conversation=)([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", RegexOptions.IgnoreCase);
-                if (match.Success)
+                var match = Regex.Match(logContent, @"(?:Created conversation|conversation=)([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", RegexOptions.IgnoreCase, RegexTimeout);
+                if (match.Success && context.OnSessionCreated != null)
                 {
                     var createdSessionId = match.Groups[1].Value;
-                    await context.OnSessionCreated!(createdSessionId);
+                    await context.OnSessionCreated(createdSessionId);
                 }
             }
         }
@@ -84,7 +84,7 @@ public sealed class AntigravityProvider(
             _currentLogFile.Value = null;
             if (agyLogFile != null)
             {
-                try { if (File.Exists(agyLogFile)) { File.Delete(agyLogFile); } } catch { }
+                try { if (File.Exists(agyLogFile)) { File.Delete(agyLogFile); } } catch { /* Non-fatal: temporary log file cleanup */ }
             }
         }
     }
@@ -95,12 +95,9 @@ public sealed class AntigravityProvider(
         var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
 
         var model = context.ModelId;
-        if (!string.IsNullOrWhiteSpace(model))
+        if (!string.IsNullOrWhiteSpace(model) && model.Contains('\t'))
         {
-            if (model.Contains('\t'))
-            {
-                model = model.Split('\t')[0].Trim();
-            }
+            model = model.Split('\t')[0].Trim();
         }
 
         var modelArg = FormatFlag("--model", model, skipDefaultModel: true);
@@ -114,10 +111,10 @@ public sealed class AntigravityProvider(
         var logArg = !string.IsNullOrWhiteSpace(logFilePath)
             ? FormatFlag("--log-file", logFilePath)
             : string.Empty;
-        var timeoutMinutes = GetExecutionOptions().TimeoutMinutes > 0 ? GetExecutionOptions().TimeoutMinutes : 10;
-        var timeoutArg = $" --print-timeout \"{timeoutMinutes}m\"";
 
-        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}{logArg}{timeoutArg}";
+        // Omit --print-timeout so agy defaults to 0s (wait only for first turn to finish),
+        // preventing it from blocking on background tasks (e.g., dev servers) after the prompt turn finishes.
+        return $"--output-format text --add-dir \"{escapedWorkspace}\" --mode accept-edits -p \"{escapedPrompt}\"{modelArg}{effortArg}{sessionArg}{logArg}";
     }
 
     public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => TryFetchDynamicModelsAsync("models", cancellationToken);

@@ -1,9 +1,7 @@
 using System.Reflection;
 
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
 
 namespace AIAgentHub.Web.Controllers;
 
@@ -44,11 +42,8 @@ public sealed class SystemController(IWebHostEnvironment environment) : Controll
 
     public static string FormatDisplayVersion(string rawVersion)
     {
-        if (System.Version.TryParse(rawVersion, out var parsed) && parsed.Revision == 0)
-        {
-            return $"{parsed.Major}.{parsed.Minor}.{parsed.Build}";
-        }
-
-        return rawVersion;
+        return Version.TryParse(rawVersion, out var parsed) && parsed.Revision == 0
+            ? $"{parsed.Major}.{parsed.Minor}.{parsed.Build}"
+            : rawVersion;
     }
 }

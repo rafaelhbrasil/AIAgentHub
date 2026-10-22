@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
@@ -28,8 +28,13 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setModal(null);
   }, []);
 
+  const contextValue = useMemo(
+    () => ({ modal, showModal, hideModal }),
+    [modal, showModal, hideModal]
+  );
+
   return (
-    <ModalContext.Provider value={{ modal, showModal, hideModal }}>
+    <ModalContext.Provider value={contextValue}>
       {children}
     </ModalContext.Provider>
   );

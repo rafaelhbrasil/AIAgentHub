@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 using AIAgentHub.Application.Providers;
@@ -20,6 +21,8 @@ public abstract class CliProviderBase(
     private readonly IPromptLogger _promptLogger = promptLogger;
     private readonly IProcessExecutor _processExecutor = processExecutor;
     private readonly IOptions<ProvidersOptions>? _providersOptions = providersOptions;
+
+    protected static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
     public abstract string Id { get; }
 
@@ -50,9 +53,60 @@ public abstract class CliProviderBase(
         }
     }
 
-    public abstract ProviderCapability Capabilities { get; }
+    public abstract ProviderCapabilities Capabilities { get; }
 
     protected CliExecutionOptions GetExecutionOptions() => _options.Value;
+
+    public const string DetachedExecutionInstruction =
+        "[Instructions: When running any web application, dev server, dotnet project, or long-running service, always launch it as a detached background process using PowerShell (e.g. Start-Process -FilePath 'dotnet' -ArgumentList 'run' -WindowStyle Hidden; always launch via dotnet run to respect launchSettings.json ports) and return immediately without running sleep, wait loops, or post-startup curl/ping checks, so the command exits immediately without blocking.]";
+
+    public IReadOnlyList<string> GetDetachedExecutionTriggerWords()
+    {
+        var globalWords = GetExecutionOptions().DetachedExecutionTriggerWords;
+        var providerWords = GetConfig()?.DetachedExecutionTriggerWords;
+
+        var merged = new List<string>();
+        if (globalWords != null)
+        {
+            merged.AddRange(globalWords);
+        }
+
+        if (providerWords != null)
+        {
+            merged.AddRange(providerWords);
+        }
+
+        return merged
+            .Where(w => !string.IsNullOrWhiteSpace(w))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public static bool ShouldInjectDetachedExecutionInstruction(string prompt, IEnumerable<string> triggerWords)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return false;
+        }
+
+        if (prompt.Contains("detached background process", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var words = triggerWords
+            .Where(w => !string.IsNullOrWhiteSpace(w))
+            .Select(w => Regex.Escape(w.Trim()))
+            .ToList();
+
+        if (words.Count == 0)
+        {
+            return false;
+        }
+
+        var pattern = $@"\b(?:{string.Join("|", words)})\b";
+        return Regex.IsMatch(prompt, pattern, RegexOptions.IgnoreCase);
+    }
 
     public virtual bool IsInstalledFastCheck() => !string.IsNullOrEmpty(FindExecutable(ExecutableName));
 
@@ -167,7 +221,7 @@ public abstract class CliProviderBase(
         // Default test: run version check
         try
         {
-            var version = await RunVersionCheckAsync(exePath, cancellationToken);
+            _ = await RunVersionCheckAsync(exePath, cancellationToken);
             return new TestCommandResult(true, null);
         }
         catch (Exception ex)
@@ -183,11 +237,10 @@ public abstract class CliProviderBase(
             return false;
         }
 
-        var lower = error.ToLowerInvariant();
-        return lower.Contains("quota") ||
-               lower.Contains("rate limit") ||
-               lower.Contains("too many requests") ||
-               lower.Contains("429");
+        return error.Contains("quota", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("rate limit", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("too many requests", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("429", StringComparison.Ordinal);
     }
 
     protected virtual bool IsAuthError(string? error)
@@ -197,19 +250,18 @@ public abstract class CliProviderBase(
             return false;
         }
 
-        var lower = error.ToLowerInvariant();
-        return lower.Contains("auth") ||
-               lower.Contains("login") ||
-               lower.Contains("unauthorized") ||
-               lower.Contains("401") ||
-               lower.Contains("credential");
+        return error.Contains("auth", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("login", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("401", StringComparison.Ordinal) ||
+               error.Contains("credential", StringComparison.OrdinalIgnoreCase);
     }
 
     protected virtual DateTimeOffset? ParseQuotaResetTime(string error)
     {
         // Try to parse common reset time formats
         // Example: "Rate limit exceeded. Resets in 2 hours"
-        var match = Regex.Match(error, @"resets? in (\d+) (hour|minute|day)s?", RegexOptions.IgnoreCase);
+        var match = Regex.Match(error, @"resets? in (\d+) (hour|minute|day)s?", RegexOptions.IgnoreCase, RegexTimeout);
         if (match.Success)
         {
             var amount = int.Parse(match.Groups[1].Value);
@@ -225,8 +277,8 @@ public abstract class CliProviderBase(
         }
 
         // Example: "Try again after 2024-01-01T12:00:00Z"
-        match = Regex.Match(error, @"try again after (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?)", RegexOptions.IgnoreCase);
-        return match.Success && DateTimeOffset.TryParse(match.Groups[1].Value, out var resetTime) ? resetTime : null;
+        match = Regex.Match(error, @"try again after (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?)", RegexOptions.IgnoreCase, RegexTimeout);
+        return match.Success && DateTimeOffset.TryParse(match.Groups[1].Value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var resetTime) ? resetTime : null;
     }
 
     public virtual Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default) => Task.FromResult(CreateDefaultModelList());
@@ -251,63 +303,13 @@ public abstract class CliProviderBase(
                 foreach (var rawLine in lines)
                 {
                     var cleanLine = rawLine.TrimStart('-', '*', ' ', '\t').TrimEnd();
-                    if (string.IsNullOrWhiteSpace(cleanLine) ||
-                        cleanLine.StartsWith("Usage", StringComparison.OrdinalIgnoreCase) ||
-                        cleanLine.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ||
-                        cleanLine.StartsWith("Available models", StringComparison.OrdinalIgnoreCase) ||
-                        cleanLine.StartsWith("===", StringComparison.OrdinalIgnoreCase) ||
-                        cleanLine.StartsWith("---", StringComparison.OrdinalIgnoreCase) ||
-                        cleanLine.Contains("[AI Agent Hub]", StringComparison.OrdinalIgnoreCase))
+                    var model = ParseDynamicModelLine(cleanLine, DisplayName, isFirst);
+                    if (model == null)
                     {
                         continue;
                     }
 
-                    string modelId;
-                    string displayName;
-
-                    // 1. Check if line contains a tab separator
-                    var tabIndex = cleanLine.IndexOf('\t');
-                    if (tabIndex > 0)
-                    {
-                        modelId = cleanLine[..tabIndex].Trim();
-                        displayName = cleanLine[(tabIndex + 1)..].Trim();
-                        if (string.IsNullOrEmpty(displayName))
-                        {
-                            displayName = modelId;
-                        }
-                    }
-                    else
-                    {
-                        // 2. Check if line contains 2 or more consecutive spaces separating ID and Name
-                        var match = Regex.Match(cleanLine, @"^(\S+)\s{2,}(.+)$");
-                        if (match.Success)
-                        {
-                            modelId = match.Groups[1].Value.Trim();
-                            displayName = match.Groups[2].Value.Trim();
-                        }
-                        else
-                        {
-                            modelId = cleanLine;
-                            displayName = cleanLine;
-                        }
-                    }
-
-                    if (displayName == modelId && modelId.Contains('/'))
-                    {
-                        var parts = modelId.Split('/');
-                        var cleanName = parts.Length > 1 ? parts[1] : modelId;
-                        displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleanName.Replace("-", " ").Replace("_", " "));
-                    }
-
-                    dynamicModels.Add(new ModelInfo
-                    {
-                        Id = modelId,
-                        DisplayName = displayName == modelId ? displayName : $"{displayName} ({modelId})",
-                        Description = $"{DisplayName} model: {displayName}",
-                        ContextWindow = null,
-                        IsDefault = isFirst
-                    });
-
+                    dynamicModels.Add(model);
                     isFirst = false;
                 }
 
@@ -316,10 +318,58 @@ public abstract class CliProviderBase(
                     return dynamicModels;
                 }
             }
-            catch { }
+            catch { /* Non-fatal: fall back to default predefined models */ }
         }
 
         return CreateDefaultModelList();
+    }
+
+    private static ModelInfo? ParseDynamicModelLine(string cleanLine, string providerName, bool isFirst)
+    {
+        if (string.IsNullOrWhiteSpace(cleanLine) ||
+            cleanLine.StartsWith("Usage", StringComparison.OrdinalIgnoreCase) ||
+            cleanLine.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ||
+            cleanLine.StartsWith("Available models", StringComparison.OrdinalIgnoreCase) ||
+            cleanLine.StartsWith("===", StringComparison.OrdinalIgnoreCase) ||
+            cleanLine.StartsWith("---", StringComparison.OrdinalIgnoreCase) ||
+            cleanLine.Contains("[AI Agent Hub]", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var (modelId, displayName) = SplitModelLine(cleanLine);
+
+        if (displayName == modelId && modelId.Contains('/'))
+        {
+            var parts = modelId.Split('/');
+            var cleanName = parts.Length > 1 ? parts[1] : modelId;
+            displayName = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleanName.Replace("-", " ").Replace("_", " "));
+        }
+
+        return new ModelInfo
+        {
+            Id = modelId,
+            DisplayName = displayName == modelId ? displayName : $"{displayName} ({modelId})",
+            Description = $"{providerName} model: {displayName}",
+            ContextWindow = null,
+            IsDefault = isFirst
+        };
+    }
+
+    private static (string ModelId, string DisplayName) SplitModelLine(string cleanLine)
+    {
+        var tabIndex = cleanLine.IndexOf('\t');
+        if (tabIndex > 0)
+        {
+            var modelId = cleanLine[..tabIndex].Trim();
+            var displayName = cleanLine[(tabIndex + 1)..].Trim();
+            return (modelId, string.IsNullOrEmpty(displayName) ? modelId : displayName);
+        }
+
+        var match = Regex.Match(cleanLine, @"^(\S+)\s{2,}(.+)$", RegexOptions.None, RegexTimeout);
+        return match.Success
+            ? (match.Groups[1].Value.Trim(), match.Groups[2].Value.Trim())
+            : (cleanLine, cleanLine);
     }
 
     protected virtual IReadOnlyList<ModelInfo> CreateDefaultModelList() =>
@@ -404,12 +454,7 @@ public abstract class CliProviderBase(
             return string.Empty;
         }
 
-        if (skipDefaultModel && IsDefaultModel(value))
-        {
-            return string.Empty;
-        }
-
-        return $" {flag} \"{value.Replace("\"", "\\\"")}\"";
+        return skipDefaultModel && IsDefaultModel(value) ? string.Empty : $" {flag} \"{value.Replace("\"", "\\\"")}\"";
     }
 
     protected virtual async Task<ProcessCommandResult> RunCommandAsync(
@@ -455,41 +500,12 @@ public abstract class CliProviderBase(
 
     public static string? FindExecutable(string name)
     {
+        var isWsl = !OperatingSystem.IsWindows() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WSL_DISTRO_NAME"));
         var extensions = OperatingSystem.IsWindows()
             ? (Environment.GetEnvironmentVariable("PATHEXT") ?? ".EXE;.CMD;.BAT").Split(';')
-            : [""];
+            : (isWsl ? ["", ".exe", ".EXE", ".cmd", ".bat"] : [""]);
 
-        var searchDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // 1. Process PATH
-        var processPath = Environment.GetEnvironmentVariable("PATH") ?? "";
-        foreach (var p in processPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            _ = searchDirectories.Add(p);
-        }
-
-        if (OperatingSystem.IsWindows())
-        {
-            // 2. User & Machine PATH from Windows Registry (handles cases where Process PATH did not inherit user environment)
-            try
-            {
-                var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
-                foreach (var p in userPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    _ = searchDirectories.Add(p);
-                }
-
-                var machinePath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-                foreach (var p in machinePath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    _ = searchDirectories.Add(p);
-                }
-            }
-            catch
-            {
-                // Fallback if registry access is restricted
-            }
-        }
+        var searchDirectories = GetSearchDirectories();
 
         foreach (var p in searchDirectories)
         {
@@ -498,13 +514,60 @@ public abstract class CliProviderBase(
                 continue;
             }
 
-            foreach (var ext in extensions)
+            var candidate = FindInDirectory(p, name, extensions);
+            if (candidate != null)
             {
-                var candidate = Path.Combine(p, name + ext);
-                if (File.Exists(candidate))
-                {
-                    return candidate;
-                }
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static HashSet<string> GetSearchDirectories()
+    {
+        var searchDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Process PATH
+        var processPath = Environment.GetEnvironmentVariable("PATH") ?? "";
+        AddPaths(searchDirectories, processPath);
+
+        if (OperatingSystem.IsWindows())
+        {
+            // 2. User & Machine PATH from Windows Registry (handles cases where Process PATH did not inherit user environment)
+            try
+            {
+                var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+                AddPaths(searchDirectories, userPath);
+
+                var machinePath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+                AddPaths(searchDirectories, machinePath);
+            }
+            catch
+            {
+                // Fallback if registry access is restricted
+            }
+        }
+
+        return searchDirectories;
+    }
+
+    private static void AddPaths(HashSet<string> directories, string pathValue)
+    {
+        foreach (var p in pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            _ = directories.Add(p);
+        }
+    }
+
+    private static string? FindInDirectory(string directory, string name, string[] extensions)
+    {
+        foreach (var ext in extensions)
+        {
+            var candidate = Path.Combine(directory, name + ext);
+            if (File.Exists(candidate))
+            {
+                return candidate;
             }
         }
 

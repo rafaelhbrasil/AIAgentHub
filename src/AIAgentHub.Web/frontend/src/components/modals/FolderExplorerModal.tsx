@@ -167,10 +167,11 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
   return (
     <div>
       <div className="form-group">
-        <label className="form-label">Workspace Root Directory</label>
+        <label className="form-label" htmlFor="workspaceRootDirInput">Workspace Root Directory</label>
         <div style={{ display: 'flex', gap: '8px' }}>
           <input
             type="text"
+            id="workspaceRootDirInput"
             className="form-input"
             value={currentPath}
             onChange={(e) => setCurrentPath(e.target.value)}
@@ -217,27 +218,31 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
         <div className="explorer-sidebar">
           <div className="explorer-section-title">Drives & Devices</div>
           {drives.map((d) => (
-            <div
+            <button
+              type="button"
               key={d.name}
               className={`explorer-pin ${currentPath.toLowerCase().startsWith(d.path.toLowerCase()) ? 'active' : ''}`}
               onClick={() => loadDirectory(d.path)}
               title={`${d.name} (${d.driveType})`}
+              style={{ background: 'transparent', border: 'none', textAlign: 'left', font: 'inherit', width: '100%' }}
             >
               💾 <span>{d.name}</span>
-            </div>
+            </button>
           ))}
 
           <div className="explorer-section-title" style={{ marginTop: '12px' }}>
             Quick Links
           </div>
-          <div
+          <button
+            type="button"
             className="explorer-pin"
             onClick={() => {
               loadDirectory('');
             }}
+            style={{ background: 'transparent', border: 'none', textAlign: 'left', font: 'inherit', width: '100%' }}
           >
             👤 <span>Home Profile</span>
-          </div>
+          </button>
         </div>
 
         {/* Main Folder Explorer Area */}
@@ -275,7 +280,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
               {pathParts.map((part, idx) => {
                 const subPath = pathParts.slice(0, idx + 1).join('\\') + (idx === 0 ? '\\' : '');
                 return (
-                  <React.Fragment key={idx}>
+                  <React.Fragment key={subPath}>
                     <button
                       type="button"
                       className="crumb-btn"
@@ -383,14 +388,16 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
               browserData.entries
                 .filter((e) => e.isDirectory)
                 .map((d) => (
-                  <div
+                  <button
+                    type="button"
                     key={d.fullPath}
                     className={`folder-tile ${currentPath.toLowerCase() === d.fullPath.toLowerCase() ? 'selected' : ''}`}
                     onClick={() => loadDirectory(d.fullPath)}
                     title={`Click to open: ${d.name}`}
+                    style={{ background: 'transparent', border: 'none', textAlign: 'left', font: 'inherit' }}
                   >
                     📁 <span>{d.name}</span>
-                  </div>
+                  </button>
                 ))
             )}
           </div>
@@ -398,9 +405,10 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
       </div>
 
       <div className="form-group" style={{ marginTop: '14px' }}>
-        <label className="form-label">Workspace Display Name</label>
+        <label className="form-label" htmlFor="workspaceDisplayNameInput">Workspace Display Name</label>
         <input
           type="text"
+          id="workspaceDisplayNameInput"
           className="form-input"
           value={wsName}
           onChange={(e) => setWsName(e.target.value)}
@@ -409,7 +417,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
       </div>
 
       <div className="form-group">
-        <label className="form-label">Default AI Assistant Provider</label>
+        <label className="form-label" htmlFor="workspaceDefaultProviderSelect">Default AI Assistant Provider</label>
         {isLoadingProviders ? (
           <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '6px 0' }}>
             Loading available providers...
@@ -443,6 +451,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
           </div>
         ) : (
           <select
+            id="workspaceDefaultProviderSelect"
             className="form-select"
             value={defaultProvider}
             onChange={(e) => setDefaultProvider(e.target.value)}

@@ -18,9 +18,13 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         IPromptLogger promptLogger,
         CliExecutionOptions options)
     {
-        EnsureWindowsPlatform(nameof(HeadlessProcessExecutor));
-
         var exePath = ResolveExecutablePath(executableName);
+        if (OperatingSystem.IsWindows() && exePath.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+        {
+            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
+            arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{exePath}\" {arguments}";
+            exePath = shellExe;
+        }
 
         var startInfo = CreateStartInfo(
             exePath,
@@ -30,21 +34,11 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
             createNoWindow: true,
             windowStyle: ProcessWindowStyle.Hidden);
 
-        startInfo.RedirectStandardInput = true;
-        startInfo.RedirectStandardOutput = true;
-        startInfo.RedirectStandardError = true;
-        startInfo.StandardOutputEncoding = Encoding.UTF8;
-        startInfo.StandardErrorEncoding = Encoding.UTF8;
+        ConfigureStreams(startInfo);
 
         var timeoutMinutes = options.TimeoutMinutes > 0 ? options.TimeoutMinutes : 10;
         var timeoutMs = timeoutMinutes * 60 * 1000;
-        startInfo.EnvironmentVariables["API_TIMEOUT_MS"] = timeoutMs.ToString();
-        startInfo.EnvironmentVariables["REQUEST_TIMEOUT_MS"] = timeoutMs.ToString();
-        startInfo.EnvironmentVariables["TIMEOUT"] = (timeoutMs / 1000).ToString();
-        startInfo.EnvironmentVariables["CLI_TIMEOUT"] = (timeoutMs / 1000).ToString();
-        startInfo.EnvironmentVariables["ANTIGRAVITY_TIMEOUT_MS"] = timeoutMs.ToString();
-        startInfo.EnvironmentVariables["ANTHROPIC_TIMEOUT_MS"] = timeoutMs.ToString();
-        startInfo.EnvironmentVariables["OPENAI_TIMEOUT_MS"] = timeoutMs.ToString();
+        ConfigureTimeoutEnvironment(startInfo, timeoutMs);
 
         LogPrompt(
             promptLogger,
@@ -57,74 +51,19 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
 
         if (startInfo.RedirectStandardInput)
         {
-            try { processScope.StandardInput.Close(); } catch { }
+            TryCloseQuietly(processScope.StandardInput);
         }
-
-        var readOutputTask = Task.Run(async () =>
-        {
-            await processScope.StandardOutput.StreamChunksAsync(
-                async chunk => await context.OnStreamToken(chunk),
-                CancellationToken.None,
-                512);
-        });
-
-        var readErrorTask = Task.Run(async () =>
-        {
-            await processScope.StandardError.StreamChunksAsync(
-                async rawChunk =>
-                {
-                    var cleanChunk = CleanAnsiCodes(rawChunk);
-                    if (!ShouldFilterErrorChunk(cleanChunk))
-                    {
-                        await context.OnStreamToken(cleanChunk);
-                    }
-                },
-                CancellationToken.None,
-                512);
-        });
-
-        var heartbeatIntervalSeconds = options.HeartbeatIntervalSeconds > 0 ? options.HeartbeatIntervalSeconds : 60;
-        using var heartbeatCts = new CancellationTokenSource();
-        var heartbeatTask = Task.Run(async () =>
-        {
-            var sw = Stopwatch.StartNew();
-            var step = 0;
-            while (!heartbeatCts.Token.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(heartbeatIntervalSeconds), heartbeatCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-
-                if (heartbeatCts.Token.IsCancellationRequested) break;
-
-                step++;
-                var elapsedSecs = (int)sw.Elapsed.TotalSeconds;
-                var msg = step switch
-                {
-                    1 => $"Still thinking... ({FormatElapsed(elapsedSecs)} elapsed)",
-                    2 => $"Still working on code and analysis... ({FormatElapsed(elapsedSecs)} elapsed)",
-                    3 => $"Thinking a little longer on complex task... ({FormatElapsed(elapsedSecs)} elapsed)",
-                    _ => $"Still running task... ({FormatElapsed(elapsedSecs)} elapsed)"
-                };
-
-                if (context.OnHeartbeat != null)
-                {
-                    try
-                    {
-                        await context.OnHeartbeat(msg, elapsedSecs);
-                    }
-                    catch { }
-                }
-            }
-        });
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(timeoutMinutes));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, timeoutCts.Token);
+
+        var readOutputTask = Task.Run(() => ReadOutputAsync(processScope, context, linkedCts.Token), linkedCts.Token);
+
+        var readErrorTask = Task.Run(() => ReadErrorAsync(processScope, context, linkedCts.Token), linkedCts.Token);
+
+        var heartbeatIntervalSeconds = options.HeartbeatIntervalSeconds > 0 ? options.HeartbeatIntervalSeconds : 60;
+        using var heartbeatCts = new CancellationTokenSource();
+        var heartbeatTask = Task.Run(() => RunHeartbeatAsync(context, heartbeatIntervalSeconds, heartbeatCts.Token), heartbeatCts.Token);
 
         try
         {
@@ -132,13 +71,13 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !context.CancellationToken.IsCancellationRequested)
         {
-            try { if (!processScope.HasExited) processScope.Kill(entireProcessTree: true); } catch { }
+            TryKillQuietly(processScope);
             throw new TimeoutException($"Provider execution timed out after {timeoutMinutes} minutes.");
         }
         finally
         {
-            heartbeatCts.Cancel();
-            try { await heartbeatTask; } catch { }
+            await heartbeatCts.CancelAsync();
+            try { await heartbeatTask; } catch { /* Non-fatal: heartbeat task cancelled */ }
         }
 
         try
@@ -146,7 +85,88 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
             _ = await Task.WhenAny(Task.WhenAll(readOutputTask, readErrorTask), Task.Delay(1000, cts.Token));
         }
-        catch { }
+        catch { /* Non-fatal: process output drain timeout */ }
+    }
+
+    private static async Task ReadOutputAsync(ProcessRegistrationScope processScope, ProviderExecutionContext context, CancellationToken cancellationToken)
+    {
+        await processScope.StandardOutput.StreamChunksAsync(
+            async chunk => await context.OnStreamToken(chunk),
+            cancellationToken,
+            512);
+    }
+
+    private static async Task ReadErrorAsync(ProcessRegistrationScope processScope, ProviderExecutionContext context, CancellationToken cancellationToken)
+    {
+        await processScope.StandardError.StreamChunksAsync(
+            async rawChunk =>
+            {
+                var cleanChunk = CleanAnsiCodes(rawChunk);
+                if (!ShouldFilterErrorChunk(cleanChunk))
+                {
+                    await context.OnStreamToken(cleanChunk);
+                }
+            },
+            cancellationToken,
+            512);
+    }
+
+    private static async Task RunHeartbeatAsync(ProviderExecutionContext context, int heartbeatIntervalSeconds, CancellationToken cancellationToken)
+    {
+        var sw = Stopwatch.StartNew();
+        var step = 0;
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(heartbeatIntervalSeconds), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            if (cancellationToken.IsCancellationRequested) break;
+
+            step++;
+            var elapsedSecs = (int)sw.Elapsed.TotalSeconds;
+            var msg = step switch
+            {
+                1 => $"Still thinking... ({FormatElapsed(elapsedSecs)} elapsed)",
+                2 => $"Still working on code and analysis... ({FormatElapsed(elapsedSecs)} elapsed)",
+                3 => $"Thinking a little longer on complex task... ({FormatElapsed(elapsedSecs)} elapsed)",
+                _ => $"Still running task... ({FormatElapsed(elapsedSecs)} elapsed)"
+            };
+
+            if (context.OnHeartbeat != null)
+            {
+                try
+                {
+                    await context.OnHeartbeat(msg, elapsedSecs);
+                }
+                catch { /* Non-fatal: heartbeat consumer error */ }
+            }
+        }
+    }
+
+    private static void ConfigureStreams(ProcessStartInfo startInfo)
+    {
+        startInfo.RedirectStandardInput = true;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        startInfo.StandardOutputEncoding = Encoding.UTF8;
+        startInfo.StandardErrorEncoding = Encoding.UTF8;
+    }
+
+    private static void ConfigureTimeoutEnvironment(ProcessStartInfo startInfo, int timeoutMs)
+    {
+        startInfo.EnvironmentVariables["API_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["REQUEST_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["TIMEOUT"] = (timeoutMs / 1000).ToString();
+        startInfo.EnvironmentVariables["CLI_TIMEOUT"] = (timeoutMs / 1000).ToString();
+        startInfo.EnvironmentVariables["ANTIGRAVITY_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["ANTHROPIC_TIMEOUT_MS"] = timeoutMs.ToString();
+        startInfo.EnvironmentVariables["OPENAI_TIMEOUT_MS"] = timeoutMs.ToString();
     }
 
     private static string FormatElapsed(int totalSeconds)
@@ -163,8 +183,13 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         CancellationToken cancellationToken = default,
         string? operationTitle = null)
     {
-        EnsureWindowsPlatform(nameof(HeadlessProcessExecutor));
         var exePath = ResolveExecutablePath(executable);
+        if (OperatingSystem.IsWindows() && exePath.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+        {
+            var shellExe = CliProviderBase.FindExecutable("pwsh") ?? "powershell.exe";
+            arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{exePath}\" {arguments}";
+            exePath = shellExe;
+        }
 
         var startInfo = CreateStartInfo(
             fileName: exePath,
@@ -184,7 +209,7 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         try
         {
             _ = process.Start();
-            try { process.StandardInput.Close(); } catch { }
+            TryCloseQuietly(process.StandardInput);
 
             var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
@@ -196,24 +221,17 @@ public class HeadlessProcessExecutor : ProcessExecutorBase
         }
         catch
         {
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch { }
+            TryKillQuietly(process);
             throw;
         }
     }
 
-    protected static string CleanAnsiCodes(string input) => Regex.Replace(input, @"\x1B\[[^@-~]*[@-~]", "");
+    protected static string CleanAnsiCodes(string input) => Regex.Replace(input, @"\x1B\[[^@-~]*[@-~]", "", RegexOptions.None, TimeSpan.FromSeconds(1));
 
     protected static bool ShouldFilterErrorChunk(string cleanChunk)
     {
         return string.IsNullOrWhiteSpace(cleanChunk) ||
-               cleanChunk.TrimStart().StartsWith(">") ||
-               cleanChunk.Contains("build ·");
+               cleanChunk.TrimStart().StartsWith('>') ||
+               cleanChunk.Contains("build ·", StringComparison.Ordinal);
     }
 }

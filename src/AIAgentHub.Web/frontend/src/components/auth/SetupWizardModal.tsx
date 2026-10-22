@@ -87,23 +87,30 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({ onComplete }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} method="post" autoComplete="on">
       <p className="card-subtitle">
         Create the single administrator account. A cryptographically secure Master Key will be initialized.
       </p>
       <div className="form-group">
-        <label className="form-label">Admin Username</label>
+        <label className="form-label" htmlFor="setupUsername">Admin Username</label>
         <input
           type="text"
+          id="setupUsername"
+          name="username"
+          autoComplete="username"
           className="form-input"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          placeholder="admin"
         />
       </div>
       <div className="form-group">
-        <label className="form-label">Password</label>
+        <label className="form-label" htmlFor="setupPassword">Password</label>
         <input
           type="password"
+          id="setupPassword"
+          name="new-password"
+          autoComplete="new-password"
           className="form-input"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -111,12 +118,16 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({ onComplete }
         />
       </div>
       <div className="form-group">
-        <label className="form-label">Confirm Password</label>
+        <label className="form-label" htmlFor="setupConfirmPassword">Confirm Password</label>
         <input
           type="password"
+          id="setupConfirmPassword"
+          name="confirm-password"
+          autoComplete="new-password"
           className="form-input"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Re-enter password"
         />
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>

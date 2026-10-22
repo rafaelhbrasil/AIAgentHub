@@ -39,6 +39,9 @@ export const Modal: React.FC = () => {
     <div
       id="modalContainer"
       className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalTitle"
       onClick={(e) => {
         if (e.target === e.currentTarget) hideModal();
       }}

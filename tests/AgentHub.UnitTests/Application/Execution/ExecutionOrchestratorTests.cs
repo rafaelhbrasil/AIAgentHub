@@ -1,10 +1,8 @@
-using AIAgentHub.Application.Conversations;
 using AIAgentHub.Application.Execution;
 using AIAgentHub.Application.FileChanges;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Application.Realtime;
 using AIAgentHub.Domain.Conversations;
-using AIAgentHub.Domain.Permissions;
 using AIAgentHub.Domain.Repositories;
 using AIAgentHub.Domain.Workspaces;
 
@@ -26,7 +24,7 @@ public sealed class ExecutionOrchestratorTests
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions());
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions(), Substitute.For<IPromptLogger>());
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
         var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
@@ -74,7 +72,7 @@ public sealed class ExecutionOrchestratorTests
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, options);
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, options, Substitute.For<IPromptLogger>());
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
         var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
@@ -90,11 +88,7 @@ public sealed class ExecutionOrchestratorTests
         _ = provider.ExecuteAsync(Arg.Any<ProviderExecutionContext>()).Returns(x =>
         {
             callCount++;
-            if (callCount == 1)
-            {
-                return Task.FromException(new TimeoutException("Operation timed out"));
-            }
-            return Task.CompletedTask;
+            return callCount == 1 ? Task.FromException(new TimeoutException("Operation timed out")) : Task.CompletedTask;
         });
 
         await orchestrator.ExecuteAsync(conv.Id, "Initial Prompt");
@@ -104,7 +98,7 @@ public sealed class ExecutionOrchestratorTests
         await provider.Received(1).ExecuteAsync(Arg.Is<ProviderExecutionContext>(c => c.Prompt == "Continue from where you left off."));
 
         // Only 1 user message should exist in the conversation (the continuation prompt must not be persisted as a user message)
-        Assert.Single(conv.Messages, m => m.Role == MessageRole.User);
+        _ = Assert.Single(conv.Messages, m => m.Role == MessageRole.User);
         Assert.Contains(conv.Messages, m => m.Role == MessageRole.Assistant);
     }
 
@@ -120,7 +114,7 @@ public sealed class ExecutionOrchestratorTests
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions());
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions(), Substitute.For<IPromptLogger>());
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
         var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
@@ -147,6 +141,7 @@ public sealed class ExecutionOrchestratorTests
             "conversation.heartbeat",
             conv.Id,
             Arg.Any<object>(),
+            Arg.Any<string?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -188,17 +183,19 @@ public sealed class ExecutionOrchestratorTests
         var broadcaster = Substitute.For<IAgentRealtimeBroadcaster>();
         var snapshotSvc = Substitute.For<ISnapshotService>();
         var permRepo = Substitute.For<IPermissionRequestRepository>();
+        var promptLogger = Substitute.For<IPromptLogger>();
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions());
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions(), promptLogger);
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
-        var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
+        var conv = Conversation.Create(ws.Id, "Conv", "testprovider", "model-1");
 
-        // Prior messages from SAME provider
-        _ = conv.AddMessage(MessageRole.User, "Hello turn 1", null, "testprovider", "model-1");
-        _ = conv.AddMessage(MessageRole.Assistant, "Hi from testprovider", null, "testprovider", "model-1");
+        // Add prior message from the SAME provider, but checkpoint at 0 (e.g. previous turn was aborted)
+        _ = conv.AddMessage(MessageRole.User, "Prior Prompt", null, "testprovider", "model-1");
+        _ = conv.AddMessage(MessageRole.Assistant, "Prior Answer", null, "testprovider", "model-1");
+        _ = conv.AddOrUpdateProviderSession("testprovider", "sess-1", null, 0);
 
         _ = convRepo.GetByIdAsync(conv.Id, Arg.Any<CancellationToken>()).Returns(conv);
         _ = wsRepo.GetByIdAsync(ws.Id, Arg.Any<CancellationToken>()).Returns(ws);
@@ -206,16 +203,21 @@ public sealed class ExecutionOrchestratorTests
         var provider = Substitute.For<IProvider>();
         _ = provider.Id.Returns("testprovider");
         _ = providerMgr.GetProvider("testprovider").Returns(provider);
+        _ = provider.ExecuteAsync(Arg.Any<ProviderExecutionContext>()).Returns(Task.CompletedTask);
 
-        ProviderExecutionContext? capturedContext = null;
-        _ = provider.ExecuteAsync(Arg.Do<ProviderExecutionContext>(ctx => capturedContext = ctx))
-            .Returns(Task.CompletedTask);
+        await orchestrator.ExecuteAsync(conv.Id, "Current Prompt");
 
-        await orchestrator.ExecuteAsync(conv.Id, "New turn 2");
+        // Should execute with clean "Current Prompt" without prepending Context Handoff
+        await provider.Received(1).ExecuteAsync(Arg.Is<ProviderExecutionContext>(c =>
+            c.Prompt == "Current Prompt" && !c.Prompt.Contains("[AI Agent Hub — Conversation Context Handoff]")));
 
-        Assert.NotNull(capturedContext);
-        Assert.DoesNotContain("[AI Agent Hub — Conversation Context Handoff]", capturedContext!.Prompt);
-        Assert.Equal("New turn 2", capturedContext.Prompt);
+        promptLogger.Received(1).LogPromptExecution(
+            conv.Id,
+            "testprovider",
+            "model-1",
+            "Current Prompt",
+            false,
+            Arg.Any<int>());
     }
 
     [Fact]
@@ -227,36 +229,43 @@ public sealed class ExecutionOrchestratorTests
         var broadcaster = Substitute.For<IAgentRealtimeBroadcaster>();
         var snapshotSvc = Substitute.For<ISnapshotService>();
         var permRepo = Substitute.For<IPermissionRequestRepository>();
+        var promptLogger = Substitute.For<IPromptLogger>();
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions());
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions(), promptLogger);
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
-        var conv = Conversation.Create(ws.Id, "Conv Title", "testprovider", "model-1");
+        var conv = Conversation.Create(ws.Id, "Conv", "targetprovider", "model-2");
 
-        // Prior unshared turn was from a FOREIGN provider ("claude")
-        _ = conv.AddMessage(MessageRole.User, "Hello turn 1", null, "claude", "claude-3-7-sonnet");
-        _ = conv.AddMessage(MessageRole.Assistant, "Hi from claude", null, "claude", "claude-3-7-sonnet");
+        // Prior messages are from another provider ("sourceprovider")
+        _ = conv.AddMessage(MessageRole.User, "Source Prompt", null, "sourceprovider", "model-1");
+        _ = conv.AddMessage(MessageRole.Assistant, "Source Answer", null, "sourceprovider", "model-1");
+        _ = conv.AddOrUpdateProviderSession("targetprovider", "sess-target", null, 0);
 
         _ = convRepo.GetByIdAsync(conv.Id, Arg.Any<CancellationToken>()).Returns(conv);
         _ = wsRepo.GetByIdAsync(ws.Id, Arg.Any<CancellationToken>()).Returns(ws);
 
-        var provider = Substitute.For<IProvider>();
-        _ = provider.Id.Returns("testprovider");
-        _ = providerMgr.GetProvider("testprovider").Returns(provider);
+        var targetProvider = Substitute.For<IProvider>();
+        _ = targetProvider.Id.Returns("targetprovider");
+        _ = providerMgr.GetProvider("targetprovider").Returns(targetProvider);
+        _ = targetProvider.ExecuteAsync(Arg.Any<ProviderExecutionContext>()).Returns(Task.CompletedTask);
 
-        ProviderExecutionContext? capturedContext = null;
-        _ = provider.ExecuteAsync(Arg.Do<ProviderExecutionContext>(ctx => capturedContext = ctx))
-            .Returns(Task.CompletedTask);
+        await orchestrator.ExecuteAsync(conv.Id, "Target Prompt");
 
-        await orchestrator.ExecuteAsync(conv.Id, "New turn 2");
+        // Should inject Context Handoff preamble because unshared messages are from "sourceprovider"
+        await targetProvider.Received(1).ExecuteAsync(Arg.Is<ProviderExecutionContext>(c =>
+            c.Prompt.Contains("[AI Agent Hub — Conversation Context Handoff]") &&
+            c.Prompt.Contains("The user switched to you from another AI provider in this ongoing conversation") &&
+            c.Prompt.Contains("Target Prompt")));
 
-        Assert.NotNull(capturedContext);
-        Assert.Contains("[AI Agent Hub — Conversation Context Handoff]", capturedContext!.Prompt);
-        Assert.Contains("Hello turn 1", capturedContext.Prompt);
-        Assert.Contains("Hi from claude", capturedContext.Prompt);
-        Assert.Contains("New turn 2", capturedContext.Prompt);
+        promptLogger.Received(1).LogPromptExecution(
+            conv.Id,
+            "targetprovider",
+            "model-2",
+            Arg.Is<string>(p => p.Contains("[AI Agent Hub — Conversation Context Handoff]")),
+            true,
+            Arg.Is<int>(count => count >= 2));
     }
 
     [Fact]
@@ -271,7 +280,7 @@ public sealed class ExecutionOrchestratorTests
 
         var permService = new PermissionService(permRepo, broadcaster);
         var tracker = new ActiveExecutionTracker();
-        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions());
+        var orchestrator = new ExecutionOrchestrator(convRepo, wsRepo, providerMgr, snapshotSvc, broadcaster, permService, tracker, new AIAgentHub.Domain.Configuration.CliExecutionOptions(), Substitute.For<IPromptLogger>());
 
         var ws = Workspace.Create("WS", Path.GetTempPath());
         var conv = Conversation.Create(ws.Id, "Conv", "testprovider", "model-1");
@@ -281,7 +290,7 @@ public sealed class ExecutionOrchestratorTests
         _ = conv.AddMessage(MessageRole.Assistant, "2", null, "testprovider", "model-1");
         _ = conv.AddMessage(MessageRole.User, "3", null, "testprovider", "model-1");
         var msg4 = conv.AddMessage(MessageRole.Assistant, "4", null, "testprovider", "model-1");
-        _ = conv.AddOrUpdateProviderSession("testprovider", "initial-session", msg4.Id, 4);
+        var session = conv.AddOrUpdateProviderSession("testprovider", "old-sess", msg4.Id, 4);
 
         _ = convRepo.GetByIdAsync(conv.Id, Arg.Any<CancellationToken>()).Returns(conv);
         _ = wsRepo.GetByIdAsync(ws.Id, Arg.Any<CancellationToken>()).Returns(ws);
@@ -290,21 +299,22 @@ public sealed class ExecutionOrchestratorTests
         _ = provider.Id.Returns("testprovider");
         _ = providerMgr.GetProvider("testprovider").Returns(provider);
 
-        // During execution, provider discovers a new session ID
-        _ = provider.ExecuteAsync(Arg.Any<ProviderExecutionContext>()).Returns(async callInfo =>
+        _ = provider.ExecuteAsync(Arg.Any<ProviderExecutionContext>()).Returns(async x =>
         {
-            var ctx = callInfo.Arg<ProviderExecutionContext>();
+            var ctx = x.Arg<ProviderExecutionContext>();
             if (ctx.OnSessionCreated != null)
             {
-                await ctx.OnSessionCreated("discovered-new-session");
+                await ctx.OnSessionCreated("new-dynamic-session-id");
             }
         });
 
-        await orchestrator.ExecuteAsync(conv.Id, "5");
+        await orchestrator.ExecuteAsync(conv.Id, "Prompt");
 
-        var session = conv.ProviderSessions.First(s => s.ProviderId == "testprovider");
-        Assert.Equal("discovered-new-session", session.ProviderSessionId);
-        // Ensure LastSharedSequenceIndex was NOT reset to 0
-        Assert.True(session.LastSharedSequenceIndex >= 4);
+        // Ensure session ID is updated, but sequence index is NOT reset to 0
+        Assert.Equal("new-dynamic-session-id", conv.ProviderSessionId);
+        var updatedSession = conv.ProviderSessions.First(s => s.ProviderId == "testprovider");
+        Assert.Equal("new-dynamic-session-id", updatedSession.ProviderSessionId);
+        // It advanced to assistantMsg sequence index, certainly not 0!
+        Assert.True(updatedSession.LastSharedSequenceIndex >= 4);
     }
 }

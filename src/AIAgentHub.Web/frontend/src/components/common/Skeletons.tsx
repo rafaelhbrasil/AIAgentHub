@@ -23,11 +23,11 @@ export const DashboardSkeletons: React.FC = () => {
       <div className="skeleton-card" style={{ marginBottom: '24px' }}>
         <div className="skeleton skeleton-line skeleton-line-long"></div>
         <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {Array(5)
+          {new Array(5)
             .fill('')
             .map((_, i) => (
               <div
-                key={i}
+                key={`skeleton-row-${i}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -60,10 +60,10 @@ export const ProviderSkeletons: React.FC = () => {
         </button>
       </div>
       <div className="grid-cols-3">
-        {Array(4)
+        {new Array(4)
           .fill('')
           .map((_, i) => (
-            <div key={i} className="skeleton-card">
+            <div key={`provider-skeleton-${i}`} className="skeleton-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="skeleton skeleton-line skeleton-line-medium"></div>
                 <div className="skeleton skeleton-badge"></div>

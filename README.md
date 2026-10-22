@@ -129,6 +129,7 @@ Common development, testing, and deployment commands can be run directly from th
 | `npm run test:all` | Run the complete test suite (Frontend + Unit + Integration) |
 | `npm run deploy` | Publish self-contained executable bundle using `FolderProfile` |
 | `npm run deploy:run` | Publish and immediately start the application on `http://localhost:5001` |
+| `npm run deploy:stop` | Stop the running backend (`AIAgentHub.Web`) and the frontend Vite dev server (port `5173`) |
 
 ---
 

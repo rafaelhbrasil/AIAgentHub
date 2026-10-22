@@ -130,9 +130,16 @@ Never the opposite.
 All CLI execution (live prompt streaming via `ExecuteAsync` and auxiliary CLI command executions such as `--version`, model listings, and auth status checks via `RunCommandAsync`) is handled exclusively through `IProcessExecutor`. The dependency injection container resolves the appropriate executor (`HeadlessProcessExecutor` or `HeadedProcessExecutor`) based on configuration (`AgentHub:CliExecution:Headless`), ensuring provider adapters remain decoupled from process execution modes.
 
 #### Execution Timeout & Keepalives
-- **Configurable Timeout**: `AgentHub:CliExecution:TimeoutMinutes` (default: `10` minutes) sets the maximum execution duration for an individual prompt turn. Standard timeout environment variables (`API_TIMEOUT_MS`, `REQUEST_TIMEOUT_MS`, `TIMEOUT`, `CLI_TIMEOUT`, `ANTIGRAVITY_TIMEOUT_MS`, `ANTHROPIC_TIMEOUT_MS`, `OPENAI_TIMEOUT_MS`) are injected into child processes, and provider adapters pass CLI-specific timeout flags (such as `--print-timeout "<N>m"` for Antigravity CLI).
+- **Configurable Timeout**: `AgentHub:CliExecution:TimeoutMinutes` (default: `10` minutes) sets the maximum execution duration for an individual prompt turn. Standard timeout environment variables (`API_TIMEOUT_MS`, `REQUEST_TIMEOUT_MS`, `TIMEOUT`, `CLI_TIMEOUT`, `ANTIGRAVITY_TIMEOUT_MS`, `ANTHROPIC_TIMEOUT_MS`, `OPENAI_TIMEOUT_MS`) are injected into child processes. Process execution timeout is managed directly by `IProcessExecutor` via cancellation tokens; provider adapters omit blocking CLI-specific wait flags (such as Antigravity CLI's `--print-timeout`) to allow background daemon tasks (e.g., dev web servers) to continue running after prompt turn completion without freezing the CLI.
+- **Headed Process Decoupling**: In headed execution (`HeadedProcessExecutor`), CLI commands are launched with process-level redirection (`cmd.exe /c ... > log 2>&1` on Windows, or background detachment with `tail --pid` on Linux) while the terminal tails the log in real time. The runner monitors the primary CLI process handle (`WaitForExit()` or `tail --pid="$CLI_PID"`) rather than blocking on an anonymous OS pipeline (`| ForEach-Object`), ensuring that background child processes inheriting output handles do not deadlock the desktop terminal window upon CLI completion.
+- **Cross-Platform Linux & WSL Execution**: Process executors run natively on Windows, Linux, and macOS. `HeadlessProcessExecutor` uses standard .NET asynchronous stream redirection across all platforms. `HeadedProcessExecutor` detects the operating system dynamically: on Windows it generates a PowerShell runner (`.ps1`); on Linux and WSL it generates a POSIX bash script (`.sh`) using `tail --pid` handle decoupling, launching it via `wt.exe` (on WSL) or Linux desktop terminal emulators (`x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `xterm`). In WSL environments (`WSL_DISTRO_NAME`), executable discovery searches both native Linux binaries and Windows-mounted CLI executables (`.exe`, `.cmd`, `.bat`).
 - **Keepalive Heartbeat**: Periodic `conversation.heartbeat` SignalR events (every `HeartbeatIntervalSeconds`, default: 60s) provide live elapsed time and friendly progress feedback (`"Still working..."`, `"Analyzing codebase..."`) to the user interface during long thinking phases.
 - **Bounded Auto-Resumption**: If a provider turn times out and `AutoResumeOnTimeout` is enabled, `ExecutionOrchestrator` automatically triggers a continuation turn (`"Continue from where you left off."`) in the same session, bounded by `MaxAutoResumes` (default: 2) to prevent infinite loops.
+- **Child Process Environment Isolation**: Because AgentHub runs as an ASP.NET Core server, environment variables like `ASPNETCORE_URLS` and `DOTNET_LAUNCH_PROFILE` can leak into child terminal sessions and CLI subprocesses. Process executors explicitly strip these variables from child process start info and runner scripts to prevent guest workspace web applications from colliding with AgentHub's host ports (5432/5433).
+- **Detached Background Execution Intent Gating**: When AI coding agents launch long-running background tasks (e.g. web servers, APIs, daemons), certain agent CLIs (notably GitHub Copilot CLI, OpenCode, and OpenAI Codex CLI) execute shell tool commands using internal synchronous process waits, custom multi-second sleep/curl loops, or risk context compaction forgetting. If a persistent process runs in the foreground or loops in verification, execution can deadlock or exceed runner timeouts. To prevent this without wasting input tokens on every turn, AgentHub implements intent/keyword gating:
+  - Configurable trigger words are defined globally in `AgentHub:CliExecution:DetachedExecutionTriggerWords` (default: `run`, `start`, `launch`, `serve`, `server`, `host`, `daemon`, `listen`, `up`, `project`, `calc`, `web`, `execute`) and can be extended or overridden per provider in `Providers:<provider>:DetachedExecutionTriggerWords`.
+  - When the incoming prompt matches any configured trigger word at word boundaries, the provider adapter prepends a targeted instruction instructing the CLI agent to launch background services detached (`Start-Process -FilePath 'dotnet' -ArgumentList 'run' -WindowStyle Hidden`) and return immediately without running sleep, wait loops, or post-startup curl/ping checks so the turn completes promptly.
+  - Prompts that do not match execution keywords (e.g. code reviews, refactorings, explanations) incur zero token overhead.
 
 ---
 
@@ -143,11 +150,11 @@ Each AI provider is implemented as an adapter inheriting from `CliProviderBase`.
 When building CLI arguments, if a conversation is set to "Default Model" (or if `ModelId` is empty, `"default"`, `"auto"`, etc.), provider adapters omit the `--model` CLI argument completely to let the underlying CLI resolve to its own configured or upstream default model.
 
 Provider-specific CLI argument formatting:
-- **Antigravity CLI**: `--output-format text --add-dir "<workspace>" --mode accept-edits -p "<prompt>"` with optional `--model`, `--effort`, `--conversation`, and `--print-timeout "<TimeoutMinutes>m"`.
+- **Antigravity CLI**: `--output-format text --add-dir "<workspace>" --mode accept-edits -p "<prompt>"` with optional `--model`, `--effort`, and `--conversation` (omitting `--print-timeout` so `agy` defaults to `0s` and exits immediately upon turn completion without blocking on background tasks).
 - **Claude Code**: `--output-format text --permission-mode acceptEdits -p "<prompt>"` with optional `--model`, `--effort`, `--session-id` (initial message) and `--resume` (subsequent messages).
-- **OpenAI Codex CLI**: `exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<prompt>"` (or `exec resume ... <session-id> "<prompt>"` on subsequent turns), with optional `--model` and `-c model_reasoning_effort=<effort>`.
-- **OpenCode**: `run --dir "<workspace>" --auto "<prompt>"` with optional `--model`, `--variant`, `--session`.
-- **GitHub Copilot**: `--output-format text --silent --allow-all-tools --add-dir "<workspace>"` with optional `--model`, `--session-id` (initial message) and `--resume` (subsequent messages).
+- **OpenAI Codex CLI**: `exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<prompt>"` (or `exec resume ... <session-id> "<prompt>"` on subsequent turns), with optional `--model` and `-c model_reasoning_effort=<effort>`. Automatically gates and injects detached background process execution instructions when prompt intent matches configured `DetachedExecutionTriggerWords` to avoid verification wait loops and runner timeouts.
+- **OpenCode**: `run --dir "<workspace>" --agent agenthub --auto "<prompt>"` with optional `--model`, `--variant`, `--session`. Automatically provisions the `agenthub` agent configuration and injects detached background process execution instructions when prompt intent matches configured `DetachedExecutionTriggerWords` to avoid tool execution aborts or context-compaction amnesia.
+- **GitHub Copilot**: `--output-format text --silent --allow-all-tools --add-dir "<workspace>"` with optional `--model`, `--session-id` (initial message) and `--resume` (subsequent messages). Automatically gates and injects detached background process execution instructions when prompt intent matches configured `DetachedExecutionTriggerWords` to avoid synchronous shell wait deadlocks.
 
 ---
 
@@ -448,13 +455,48 @@ Features:
 
 ---
 
-## Unsupported Files
+### PDF & HTML (Version 0.3)
 
-If no renderer is available, the application should:
+Examples:
 
-- Offer file download.
-- Display basic file information.
-- Never fail the request.
+- .pdf
+- .html
+- .htm
+
+Features:
+
+- Native sandboxed preview
+- PDF embed / base64 object viewer
+
+---
+
+### Structured Data (Version 0.3)
+
+Examples:
+
+- .csv
+- .tsv
+
+Features:
+
+- Responsive tabular grid presentation
+- Column headers and cell formatting
+
+---
+
+### Config & Logs (Version 0.3)
+
+Examples:
+
+- .log
+- .ini
+- .toml
+- .env
+
+Features:
+
+- Key-value highlighting
+- Log stream timestamp formatting
 
 ---
 
@@ -471,14 +513,48 @@ Diff rendering is independent from preview rendering but shares the same renderi
 
 ---
 
+# Git Integration Architecture (Version 0.3)
+
+AI Agent Hub integrates native Git repository operations into the workspace environment without requiring third-party library dependencies (such as libgit2 binaries):
+
+- **Service Abstraction**: `IGitService` in the Application layer defines repository status, branch management, commit, push, pull, fetch, stash, history, commit details, commit diff, and clone operations.
+- **Process-Based Execution**: `GitCliService` in the Infrastructure layer uses the host `git` command-line executable via `IProcessExecutor.RunCommandAsync`.
+- **Workspace Isolation**: Git commands execute strictly within `workspace.Path`.
+- **Optional Git Host**: If `git` is absent from the host machine, the service returns `isGitInstalled: false`, and the UI indicates that Git is optional without throwing exceptions.
+- **Repository Cloning**: `POST /api/v1/workspaces/clone` clones a remote Git repository into a target path and automatically registers a new workspace with `Origin = WorkspaceOrigin.Git`.
+- **Git Workbench & TortoiseGit Log Model**:
+  - **Desktop Studio Mode Toggle**: Studio Header provides a top-level segmented switch between `[ 💬 Chat Studio ]` and `[ 🌿 Git Workbench ]`, dedicating the full 70% central desktop viewport to version control without drawer clutter.
+  - **Log & Graph Explorer (Top Pane)**:
+    - **Row 0 (Live Working Tree)**: Interactive head row representing uncommitted changes (staged, modified, untracked). Selecting it directs the bottom pane to the staging and commit form.
+    - **Rows 1..N (Commit History)**: Chronological commit table with branch/tag pills, short hash, commit message, author, and timestamp.
+    - **Pure SVG Lane Allocation Algorithm**: A lightweight, zero-dependency lane calculation algorithm renders branch lanes, commit nodes (`●`), and merge/fork bezier curves (`<path>`) aligning with each table row, providing high-fidelity visual history without heavy charting dependencies.
+  - **Context-Sensitive Inspector (Bottom Pane)**:
+    - *When Working Tree is selected*: Staged / Unstaged lists, file staging/unstaging controls, commit message input, and Commit/Stash buttons.
+    - *When a Historical Commit is selected*: Commit metadata card, full multi-line commit message, and changed files list with additions/deletions.
+  - **Read-Only Diff Viewer Reuse**: Reuses `DiffViewerModal` and its side-by-side / unified renderers with a `readOnly={true}` flag, disabling editing and acceptance controls to inspect file diffs safely.
+
+---
+
+# Studio File Explorer & Embedded Code Editor (Version 0.3)
+
+Version 0.3 transforms the workspace studio into an integrated development environment:
+
+- **Filesystem Management**: Extends `IFilesystemService` with safe file creation, renaming, moving, deletion, and content reading/writing. Strict workspace containment validation is enforced against every path argument to eliminate path traversal attacks.
+- **Embedded Lightweight Editor**: An in-browser editor allowing developers to inspect and edit code without external IDEs.
+  - Client-side syntax highlighting for popular programming languages.
+  - Text search and replace (`Ctrl+F`).
+  - Quick file navigation (`Ctrl+P`).
+  - Read-only viewing mode toggle.
+  - Inline diff comparison against saved disk state.
+
+---
+
 ## Extensibility
 
 The rendering system is designed to be extensible.
 
 Future versions may introduce additional renderers, including:
 
-- PDF
-- CSV
 - Microsoft Office documents
 - Audio
 - Video
@@ -521,6 +597,14 @@ Security is enforced at multiple layers.
 - HTTPS
 
 No sensitive action bypasses authorization.
+
+## Single-User Account Management (Version 0.3)
+
+In Version 0.3, the authenticated administrator can update their username and password directly from the server settings interface:
+- Current password verification is strictly required for both username and password changes.
+- Cryptographic salts and hashes are regenerated using Argon2id/PBKDF2.
+- Session cookie claims are re-issued immediately to maintain the active session without unexpected logouts.
+- Endpoints are rate-limited via `AuthLimiter`.
 
 ---
 

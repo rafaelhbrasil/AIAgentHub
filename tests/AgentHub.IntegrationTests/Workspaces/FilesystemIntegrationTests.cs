@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AgentHub.IntegrationTests.Web;
 using AIAgentHub.Application.Filesystem;
-using Xunit;
 
 namespace AgentHub.IntegrationTests.Workspaces;
 
@@ -50,7 +49,7 @@ public sealed class FilesystemIntegrationTests : IClassFixture<CustomWebApplicat
         var client = await SetupAndAuthenticateClientAsync();
 
         var tempBase = Path.Combine(Path.GetTempPath(), "AgentHubFsTest_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempBase);
+        _ = Directory.CreateDirectory(tempBase);
         try
         {
             // 1. Browse base directory

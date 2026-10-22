@@ -22,7 +22,7 @@ public sealed class CliProviderDefaultModelTests
             prompt,
             modelId,
             null,
-            Array.Empty<string>(),
+            [],
             _ => Task.CompletedTask,
             (_, _) => Task.FromResult(true),
             CancellationToken.None
@@ -36,20 +36,14 @@ public sealed class CliProviderDefaultModelTests
     [InlineData("default")]
     [InlineData("DEFAULT")]
     [InlineData("Default")]
-    public void IsDefaultModel_IdentifiesDefaultVariants(string? modelId)
-    {
-        Assert.True(CliProviderBase.IsDefaultModel(modelId));
-    }
+    public void IsDefaultModel_IdentifiesDefaultVariants(string? modelId) => Assert.True(CliProviderBase.IsDefaultModel(modelId));
 
     [Theory]
     [InlineData("gemini-3.7-flash")]
     [InlineData("claude-3-7-sonnet")]
     [InlineData("o3-mini")]
     [InlineData("deepseek-r1")]
-    public void IsDefaultModel_ReturnsFalseForSpecificModels(string modelId)
-    {
-        Assert.False(CliProviderBase.IsDefaultModel(modelId));
-    }
+    public void IsDefaultModel_ReturnsFalseForSpecificModels(string modelId) => Assert.False(CliProviderBase.IsDefaultModel(modelId));
 
     [Theory]
     [InlineData(null)]

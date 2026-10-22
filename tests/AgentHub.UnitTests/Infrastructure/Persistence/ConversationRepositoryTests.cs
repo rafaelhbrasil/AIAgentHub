@@ -33,10 +33,10 @@ public sealed class ConversationRepositoryTests
             var repo = new ConversationRepository(db);
             var result = await repo.GetByWorkspaceIdAsync(ws.Id);
 
-            Assert.Single(result);
+            _ = Assert.Single(result);
             Assert.Equal(conv.Id, result[0].Id);
             Assert.Null(result[0].ModelId);
-            Assert.Single(result[0].Messages);
+            _ = Assert.Single(result[0].Messages);
         }
         finally
         {

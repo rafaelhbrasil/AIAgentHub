@@ -9,6 +9,8 @@ namespace AIAgentHub.Web.Controllers;
 [Route("api/v1/workspaces")]
 public sealed class WorkspacesController(IWorkspaceService workspaceService, ILogger<WorkspacesController> logger) : ApiControllerBase
 {
+    private const string WorkspaceNotFoundCode = "workspace_not_found";
+
     private readonly IWorkspaceService _workspaceService = workspaceService;
     private readonly ILogger<WorkspacesController> _logger = logger;
 
@@ -23,7 +25,7 @@ public sealed class WorkspacesController(IWorkspaceService workspaceService, ILo
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var ws = await _workspaceService.GetByIdAsync(id, cancellationToken);
-        return ws == null ? NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.") : Ok(ws);
+        return ws == null ? NotFoundResponse(WorkspaceNotFoundCode, $"Workspace {id} was not found.") : Ok(ws);
     }
 
     [HttpGet("{id:guid}/download")]
@@ -32,7 +34,7 @@ public sealed class WorkspacesController(IWorkspaceService workspaceService, ILo
         var ws = await _workspaceService.GetByIdAsync(id, cancellationToken);
         if (ws == null)
         {
-            return NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.");
+            return NotFoundResponse(WorkspaceNotFoundCode, $"Workspace {id} was not found.");
         }
 
         if (!filesystemService.DirectoryExists(ws.Path))
@@ -75,6 +77,20 @@ public sealed class WorkspacesController(IWorkspaceService workspaceService, ILo
         }
     }
 
+    [HttpPost("clone")]
+    public async Task<IActionResult> Clone([FromBody] CloneWorkspaceRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var cloned = await _workspaceService.CloneAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = cloned.Id }, cloned);
+        }
+        catch (Exception ex)
+        {
+            return BadRequestResponse("workspace_clone_failed", ex.Message);
+        }
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWorkspaceRequest request, CancellationToken cancellationToken)
     {
@@ -85,24 +101,24 @@ public sealed class WorkspacesController(IWorkspaceService workspaceService, ILo
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.");
+            return NotFoundResponse(WorkspaceNotFoundCode, $"Workspace {id} was not found.");
         }
     }
 
-    public sealed record SetWorkspaceFavoriteRequest(bool IsFavorite);
-    public sealed record SetWorkspaceArchivedRequest(bool IsArchived);
+    public sealed record SetWorkspaceFavoriteRequest(bool? IsFavorite);
+    public sealed record SetWorkspaceArchivedRequest(bool? IsArchived);
 
     [HttpPut("{id:guid}/favorite")]
     public async Task<IActionResult> SetFavorite(Guid id, [FromBody] SetWorkspaceFavoriteRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var updated = await _workspaceService.SetFavoriteAsync(id, request.IsFavorite, cancellationToken);
+            var updated = await _workspaceService.SetFavoriteAsync(id, request.IsFavorite ?? false, cancellationToken);
             return Ok(updated);
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.");
+            return NotFoundResponse(WorkspaceNotFoundCode, $"Workspace {id} was not found.");
         }
     }
 
@@ -111,12 +127,12 @@ public sealed class WorkspacesController(IWorkspaceService workspaceService, ILo
     {
         try
         {
-            var updated = await _workspaceService.SetArchivedAsync(id, request.IsArchived, cancellationToken);
+            var updated = await _workspaceService.SetArchivedAsync(id, request.IsArchived ?? false, cancellationToken);
             return Ok(updated);
         }
         catch (KeyNotFoundException)
         {
-            return NotFoundResponse("workspace_not_found", $"Workspace {id} was not found.");
+            return NotFoundResponse(WorkspaceNotFoundCode, $"Workspace {id} was not found.");
         }
     }
 

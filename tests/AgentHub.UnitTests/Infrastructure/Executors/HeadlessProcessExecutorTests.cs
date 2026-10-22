@@ -5,7 +5,6 @@ using System.Text;
 using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Infrastructure.Executors;
-using AIAgentHub.Infrastructure.Providers;
 
 using NSubstitute;
 
@@ -47,7 +46,7 @@ public sealed class HeadlessProcessExecutorTests
             "list sdks prompt",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);
@@ -127,7 +126,7 @@ public sealed class HeadlessProcessExecutorTests
             "stderr test",
             null,
             null,
-            Array.Empty<string>(),
+            [],
             token =>
             {
                 _ = outputBuilder.Append(token);

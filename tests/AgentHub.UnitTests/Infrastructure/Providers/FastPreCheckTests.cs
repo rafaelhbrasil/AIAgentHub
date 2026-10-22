@@ -1,10 +1,10 @@
+using AIAgentHub.Application.Providers;
 using AIAgentHub.Domain.Configuration;
 using AIAgentHub.Domain.Providers;
 using AIAgentHub.Infrastructure.Executors;
 using AIAgentHub.Infrastructure.Providers;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using Xunit;
 
 namespace AgentHub.UnitTests.Infrastructure.Providers;
 
@@ -17,8 +17,8 @@ public class FastPreCheckTests
         var mockExecutor = Substitute.For<IProcessExecutor>();
         var mockLogger = Substitute.For<IPromptLogger>();
         var options = Options.Create(new CliExecutionOptions());
-
-        var provider = new TestableCliProvider(options, mockLogger, mockExecutor, "cmd");
+        var testBinary = OperatingSystem.IsWindows() ? "cmd" : "sh";
+        var provider = new TestableCliProvider(options, mockLogger, mockExecutor, testBinary);
 
         // Act
         var result = provider.IsInstalledFastCheck();
@@ -53,6 +53,6 @@ public class FastPreCheckTests
         public override string Id => "test";
         public override string ExecutableName => exeName;
         public override string? InstallCommand => null;
-        public override ProviderCapability Capabilities => ProviderCapability.None;
+        public override ProviderCapabilities Capabilities => ProviderCapabilities.None;
     }
 }

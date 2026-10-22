@@ -40,10 +40,7 @@ public sealed class Message : Entity
             };
     }
 
-    public void SetSequenceIndex(int index)
-    {
-        SequenceIndex = index;
-    }
+    public void SetSequenceIndex(int index) => SequenceIndex = index;
 
     public void SetOrigin(string? providerId, string? modelId)
     {

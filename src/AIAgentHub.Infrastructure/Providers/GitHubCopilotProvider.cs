@@ -22,8 +22,8 @@ public sealed class GitHubCopilotProvider(
     protected override string? DefaultInstallInstructions => "Install GitHub Copilot CLI via official GitHub distribution.";
     protected override string? DefaultAuthCommand => "login";
     protected override string? DefaultDocumentationUrl => "https://github.com/features/copilot/cli/";
-    public override ProviderCapability Capabilities =>
-        ProviderCapability.Streaming | ProviderCapability.ToolCalling | ProviderCapability.Skills | ProviderCapability.Mcp | ProviderCapability.FileEditing | ProviderCapability.Vision | ProviderCapability.ModelSelection;
+    public override ProviderCapabilities Capabilities =>
+        ProviderCapabilities.Streaming | ProviderCapabilities.ToolCalling | ProviderCapabilities.Skills | ProviderCapabilities.Mcp | ProviderCapabilities.FileEditing | ProviderCapabilities.Vision | ProviderCapabilities.ModelSelection;
 
     protected override async Task<TestCommandResult> RunTestCommandAsync(string exePath, CancellationToken cancellationToken)
     {
@@ -33,21 +33,28 @@ public sealed class GitHubCopilotProvider(
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
 
             var result = await RunCommandAsync(exePath, "-p \"ping\" --allow-all-tools", null, timeoutCts.Token, "GitHub Copilot — Auth Check");
-            var combined = (result.Output + " " + result.Error).Trim();
-            var lower = combined.ToLowerInvariant();
+            var combined = $"{result.Output} {result.Error}".Trim();
 
-            if (lower.Contains("no authentication information found") ||
-                lower.Contains("not logged in") ||
-                lower.Contains("unauthenticated") ||
-                lower.Contains("auth login") ||
-                lower.Contains("login required"))
+            var isUnauthenticated = combined.Contains("no authentication information found", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("auth login", StringComparison.OrdinalIgnoreCase) ||
+                   combined.Contains("login required", StringComparison.OrdinalIgnoreCase);
+
+            if (isUnauthenticated)
             {
-                return new TestCommandResult(false, string.IsNullOrWhiteSpace(combined) ? "GitHub Copilot is not authenticated. Please run 'copilot login'." : combined);
+                var failureMsg = string.IsNullOrWhiteSpace(combined)
+                    ? "GitHub Copilot is not authenticated. Please run 'copilot login'."
+                    : combined;
+                return new TestCommandResult(false, failureMsg);
             }
 
-            return result.ExitCode != 0 && (lower.Contains("error") || lower.Contains("unauthorized"))
-                ? new TestCommandResult(false, combined)
-                : new TestCommandResult(true, null);
+            if (result.ExitCode != 0 && (combined.Contains("error", StringComparison.OrdinalIgnoreCase) || combined.Contains("unauthorized", StringComparison.OrdinalIgnoreCase)))
+            {
+                return new TestCommandResult(false, combined);
+            }
+
+            return new TestCommandResult(true, null);
         }
         catch (Exception ex)
         {
@@ -71,7 +78,14 @@ public sealed class GitHubCopilotProvider(
 
     public override string BuildArguments(ProviderExecutionContext context)
     {
-        var escapedPrompt = context.Prompt.Replace("\"", "\\\"");
+        var prompt = context.Prompt;
+        var triggerWords = GetDetachedExecutionTriggerWords();
+        if (ShouldInjectDetachedExecutionInstruction(prompt, triggerWords))
+        {
+            prompt = $"{DetachedExecutionInstruction} {prompt}";
+        }
+
+        var escapedPrompt = prompt.Replace("\"", "\\\"");
         var escapedWorkspace = context.WorkspacePath.Replace("\"", "\\\"");
 
         var sessionArg = !string.IsNullOrWhiteSpace(context.ProviderSessionId)
@@ -121,22 +135,22 @@ public sealed class GitHubCopilotProvider(
     {
         if (string.IsNullOrWhiteSpace(output))
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
 
         try
         {
-            var match = Regex.Match(output, @"`model`:\s*AI model to use[^\r\n]*\r?\n((?:\s+-\s+""[^""]+""\r?\n)+)", RegexOptions.IgnoreCase);
+            var match = Regex.Match(output, @"`model`:\s*AI model to use[^\r\n]*\r?\n((?:\s+-\s+""[^""]+""\r?\n)+)", RegexOptions.IgnoreCase, RegexTimeout);
             if (!match.Success)
             {
-                return Array.Empty<ModelInfo>();
+                return [];
             }
 
             var rawList = match.Groups[1].Value;
-            var itemMatches = Regex.Matches(rawList, @"-\s+""([^""]+)""");
+            var itemMatches = Regex.Matches(rawList, @"-\s+""([^""]+)""", RegexOptions.None, RegexTimeout);
             if (itemMatches.Count == 0)
             {
-                return Array.Empty<ModelInfo>();
+                return [];
             }
 
             var models = new List<ModelInfo>
@@ -176,14 +190,13 @@ public sealed class GitHubCopilotProvider(
         }
         catch
         {
-            return Array.Empty<ModelInfo>();
+            return [];
         }
     }
 
     private static string FormatDisplayName(string id)
     {
         var clean = id.Replace("-", " ").Replace("_", " ");
-        if (clean.Length <= 1) return clean.ToUpperInvariant();
-        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(clean);
+        return clean.Length <= 1 ? clean.ToUpperInvariant() : System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(clean);
     }
 }

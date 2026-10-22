@@ -7,12 +7,14 @@ import { apiFetch } from '../../../services/apiClient';
 import { signalRService, StreamChunkPayload } from '../../../services/signalrService';
 import { useToast } from '../../../context/ToastContext';
 import { useModal } from '../../../context/ModalContext';
+import { GitStatusDto } from '../../../types/git';
 import { CreateConversationModal } from '../../modals/CreateConversationModal';
 import { SwitchProviderModal } from '../../modals/SwitchProviderModal';
 import { AbortMigrationModal } from '../../modals/AbortMigrationModal';
 import { FilePreviewModal } from '../../modals/FilePreviewModal';
 import { DiffViewerModal } from '../../modals/DiffViewerModal';
 import { PermissionModal } from '../../modals/PermissionModal';
+import { CodeEditorModal } from '../../modals/CodeEditorModal';
 
 export interface UseWorkspaceStudioProps {
   workspace: WorkspaceDto;
@@ -39,8 +41,10 @@ export const useWorkspaceStudio = ({
   const [heartbeatMessages, setHeartbeatMessages] = useState<string[]>([]);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isRefreshingTree, setIsRefreshingTree] = useState<boolean>(false);
-  const [mobileTab, setMobileTab] = useState<'chat' | 'sidebar'>('chat');
+  const [mobileTab, setMobileTab] = useState<'chat' | 'sidebar' | 'git'>('chat');
   const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
+  const [gitStatus, setGitStatus] = useState<GitStatusDto | null>(null);
+  const [isGitOpen, setIsGitOpen] = useState<boolean>(false);
 
   const onConversationChangedRef = useRef(onConversationChanged);
   useEffect(() => {
@@ -69,6 +73,17 @@ export const useWorkspaceStudio = ({
       }
     } finally {
       setIsRefreshingTree(false);
+    }
+  }, [workspace.id]);
+
+  const fetchGitStatus = useCallback(async () => {
+    try {
+      const res = await apiFetch<GitStatusDto>(`/api/v1/git/status?workspaceId=${workspace.id}`);
+      if (res.ok && res.data) {
+        setGitStatus(res.data);
+      }
+    } catch {
+      // Ignore
     }
   }, [workspace.id]);
 
@@ -117,12 +132,14 @@ export const useWorkspaceStudio = ({
 
   const fetchWorkspaceData = useCallback(async () => {
     try {
-      const [treeRes, convsRes] = await Promise.all([
+      const [treeRes, convsRes, gitRes] = await Promise.all([
         apiFetch<FileTreeNode>(`/api/v1/filesystem/tree?workspaceId=${workspace.id}`),
         apiFetch<ConversationDto[]>(`/api/v1/conversations?workspaceId=${workspace.id}`),
+        apiFetch<GitStatusDto>(`/api/v1/git/status?workspaceId=${workspace.id}`),
       ]);
 
       if (treeRes.ok && treeRes.data) setTreeData(treeRes.data);
+      if (gitRes.ok && gitRes.data) setGitStatus(gitRes.data);
       const loadedConvs = convsRes.ok && convsRes.data ? convsRes.data : [];
       const sortedConvs = [...loadedConvs].sort((a, b) => {
         const timeA = new Date(a.lastUserInteractionAtUtc || a.updatedAtUtc || a.createdAtUtc).getTime();
@@ -174,39 +191,43 @@ export const useWorkspaceStudio = ({
   // SignalR Event Listeners
   useEffect(() => {
     const handleStreamChunk = (payload: StreamChunkPayload) => {
-      if (
-        !activeConversationRef.current ||
-        !payload.conversationId ||
-        payload.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
-      ) {
-        setIsStreaming(true);
-        setHeartbeatMessages([]);
-        setStreamingContent((prev) => prev + payload.chunk);
+      const current = activeConversationRef.current;
+      const payloadConvId = (payload.conversationId || '').toLowerCase();
+      if (!current || !payloadConvId || payloadConvId !== current.id.toLowerCase()) {
+        return;
       }
+      setIsStreaming(true);
+      setHeartbeatMessages([]);
+      setStreamingContent((prev) => prev + payload.chunk);
     };
 
     const handleConversationEvent = (data: any) => {
-      if (data.eventName === 'conversation.started') {
-        if (
-          !activeConversationRef.current ||
-          !data.conversationId ||
-          data.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
-        ) {
-          setStreamingState(true, 'AI Assistant started execution...');
+      const current = activeConversationRef.current;
+      const eventConvId = (data.conversationId || data.ConversationId || '').toString().toLowerCase();
+
+      // If the event is for a different conversation, do not mutate this tab's active conversation state.
+      if (!current || !eventConvId || eventConvId !== current.id.toLowerCase()) {
+        if (data.eventName === 'conversation.started') {
+          setConversations((prev) =>
+            prev.map((c) => (c.id.toLowerCase() === eventConvId ? { ...c, isRunning: true } : c))
+          );
+        } else if (data.eventName === 'conversation.completed' || data.eventName === 'conversation.aborted') {
+          setConversations((prev) =>
+            prev.map((c) => (c.id.toLowerCase() === eventConvId ? { ...c, isRunning: false } : c))
+          );
         }
         return;
       }
 
+      if (data.eventName === 'conversation.started') {
+        setStreamingState(true, 'AI Assistant started execution...');
+        return;
+      }
+
       if (data.eventName === 'conversation.heartbeat') {
-        if (
-          !activeConversationRef.current ||
-          !data.conversationId ||
-          data.conversationId.toLowerCase() === activeConversationRef.current.id.toLowerCase()
-        ) {
-          setIsStreaming(true);
-          const msg = data.data?.message || data.data?.Message || 'Still thinking...';
-          setHeartbeatMessages((prev) => [...prev, msg]);
-        }
+        setIsStreaming(true);
+        const msg = data.data?.message || data.data?.Message || 'Still thinking...';
+        setHeartbeatMessages((prev) => [...prev, msg]);
         return;
       }
 
@@ -217,17 +238,18 @@ export const useWorkspaceStudio = ({
         } else {
           showToast('AI response completed.', 'success');
         }
-        if (data.conversationId) {
-          selectConversationById(data.conversationId);
-          fetchFileChanges(data.conversationId);
-        } else if (activeConversationRef.current) {
-          fetchFileChanges(activeConversationRef.current.id);
-        }
+        selectConversationById(current.id);
+        fetchFileChanges(current.id);
         fetchFileTree();
       }
     };
 
     const handlePermissionRequested = (req: any) => {
+      const current = activeConversationRef.current;
+      const reqConvId = (req.conversationId || req.ConversationId || '').toString().toLowerCase();
+      if (!current || !reqConvId || reqConvId !== current.id.toLowerCase()) {
+        return;
+      }
       showModal(
         '⚠️ Permission Required for AI Action',
         <PermissionModal request={req} onClose={hideModal} />
@@ -235,16 +257,16 @@ export const useWorkspaceStudio = ({
     };
 
     const handleDiffCreated = (diff: any) => {
-      const convId = diff.conversationId || diff.ConversationId;
+      const current = activeConversationRef.current;
+      const convId = (diff.conversationId || diff.ConversationId || '').toString().toLowerCase();
+      if (!current || !convId || convId !== current.id.toLowerCase()) {
+        return;
+      }
       const path = diff.relativePath || diff.RelativePath;
       showToast(`File modified: ${path}`, 'info');
-      if (activeConversationRef.current && activeConversationRef.current.id === convId) {
-        selectConversationById(convId);
-      }
+      selectConversationById(current.id);
       fetchFileTree();
-      if (convId) {
-        fetchFileChanges(convId);
-      }
+      fetchFileChanges(current.id);
     };
 
     signalRService.onStreamChunk = handleStreamChunk;
@@ -258,6 +280,9 @@ export const useWorkspaceStudio = ({
     };
 
     return () => {
+      if (activeConversationRef.current) {
+        signalRService.leaveConversation(activeConversationRef.current.id);
+      }
       signalRService.onStreamChunk = undefined;
       signalRService.onConversationEvent = undefined;
       signalRService.onPermissionRequested = undefined;
@@ -420,6 +445,45 @@ export const useWorkspaceStudio = ({
     );
   };
 
+  const extractFilePaths = (node: FileTreeNode | null): string[] => {
+    if (!node) return [];
+    const results: string[] = [];
+    const traverse = (current: FileTreeNode) => {
+      if (!current.isDirectory && current.relativePath) {
+        results.push(current.relativePath);
+      }
+      if (current.children) {
+        for (const child of current.children) {
+          traverse(child);
+        }
+      }
+    };
+    traverse(node);
+    return results;
+  };
+
+  const handleOpenEditor = useCallback(
+    (path: string) => {
+      const filePaths = extractFilePaths(treeData);
+      showModal(
+        `Code Editor: ${path}`,
+        <CodeEditorModal
+          workspaceId={workspace.id}
+          initialPath={path}
+          workspaceFiles={filePaths}
+          onClose={hideModal}
+          onSaved={() => {
+            fetchFileTree();
+            fetchGitStatus();
+          }}
+        />,
+        undefined,
+        'full'
+      );
+    },
+    [workspace.id, treeData, showModal, hideModal, fetchFileTree, fetchGitStatus]
+  );
+
   const handlePreviewFile = async (relPath: string) => {
     const res = await apiFetch<FilePreviewDto>(
       `/api/v1/preview?workspaceId=${workspace.id}&path=${encodeURIComponent(relPath)}`
@@ -431,6 +495,7 @@ export const useWorkspaceStudio = ({
           relativePath={relPath}
           preview={res.data}
           onClose={hideModal}
+          onOpenEditor={handleOpenEditor}
         />,
         undefined,
         'xl'
@@ -669,8 +734,8 @@ export const useWorkspaceStudio = ({
                     border: '1px solid var(--border-color)',
                   }}
                 >
-                  {skippedFiles.map((file, idx) => (
-                    <div key={idx} style={{ color: '#fca5a5', padding: '2px 0' }}>
+                  {skippedFiles.map((file) => (
+                    <div key={file} style={{ color: '#fca5a5', padding: '2px 0' }}>
                       ⚠️ {file}
                     </div>
                   ))}
@@ -694,7 +759,7 @@ export const useWorkspaceStudio = ({
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
+      link.remove();
       showToast('Project ZIP downloaded successfully.', 'success');
     } catch (err: any) {
       showToast(err.message || 'Error downloading project ZIP.', 'error');
@@ -734,5 +799,10 @@ export const useWorkspaceStudio = ({
     handleAbort,
     handleSendPrompt,
     handleDownloadZip,
+    gitStatus,
+    isGitOpen,
+    setIsGitOpen,
+    fetchGitStatus,
+    handleOpenEditor,
   };
 };

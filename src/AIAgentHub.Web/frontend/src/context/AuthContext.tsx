@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch, setUnauthorizedHandler } from '../services/apiClient';
 import { SetupStatusResponse, AuthSessionResponse } from '../types/api';
 import { getSafeReturnUrl } from '../utils/urlRouting';
@@ -15,6 +15,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setIsSetupCompleted: (val: boolean) => void;
   setIsAuthenticated: (val: boolean) => void;
+  setUsername: (val: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    let errorMsg = 'Login failed.';
+    let errorMsg: string;
     if (res.status === 401) {
       errorMsg = res.data?.message || 'Invalid username or password.';
     } else if (res.status === 500) {
@@ -121,22 +122,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuthAndSetup();
   }, [checkAuthAndSetup]);
 
+  const contextValue = useMemo(
+    () => ({
+      isSetupCompleted,
+      canResetWithoutCode,
+      isRecoveryModeEnabled,
+      isAuthenticated,
+      username,
+      isLoading,
+      checkAuthAndSetup,
+      login,
+      logout,
+      setIsSetupCompleted,
+      setIsAuthenticated,
+      setUsername,
+    }),
+    [
+      isSetupCompleted,
+      canResetWithoutCode,
+      isRecoveryModeEnabled,
+      isAuthenticated,
+      username,
+      isLoading,
+      checkAuthAndSetup,
+      login,
+      logout,
+    ]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        isSetupCompleted,
-        canResetWithoutCode,
-        isRecoveryModeEnabled,
-        isAuthenticated,
-        username,
-        isLoading,
-        checkAuthAndSetup,
-        login,
-        logout,
-        setIsSetupCompleted,
-        setIsAuthenticated,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

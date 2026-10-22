@@ -137,11 +137,13 @@ export const ChangesOverviewBar: React.FC<ChangesOverviewBarProps> = ({
             ) : (
               <>
                 {fileChanges.slice(0, 8).map((file) => (
-                  <div
+                  <button
+                    type="button"
                     key={file.id}
                     className="changes-file-item"
                     onClick={() => onSelectFile(file.id)}
                     title={`Click to view diff for ${file.relativePath}`}
+                    style={{ background: 'transparent', border: 'none', textAlign: 'left', font: 'inherit', width: '100%' }}
                   >
                     <div className="changes-file-badge">
                       {getChangeBadge(file.changeType)}
@@ -157,7 +159,7 @@ export const ChangesOverviewBar: React.FC<ChangesOverviewBarProps> = ({
                     <div className="changes-file-arrow">
                       &rsaquo;
                     </div>
-                  </div>
+                  </button>
                 ))}
 
                 {count > 8 && (

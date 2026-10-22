@@ -1,19 +1,15 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 
 namespace AIAgentHub.Web.Startup;
 
 public static class StartupLifecycleHelper
 {
+    private const string LocalhostAuthority = "://localhost:";
+
     public static string NormalizeUrl(string rawUrl)
     {
         if (string.IsNullOrWhiteSpace(rawUrl))
@@ -39,10 +35,10 @@ public static class StartupLifecycleHelper
 
         // Fallback for non-standard URI strings like http://+:5000 or https://*:5001
         var normalized = trimmed
-            .Replace("://0.0.0.0:", "://localhost:")
-            .Replace("://[::]:", "://localhost:")
-            .Replace("://+:", "://localhost:")
-            .Replace("://*:", "://localhost:");
+            .Replace("://0.0.0.0:", LocalhostAuthority)
+            .Replace("://[::]:", LocalhostAuthority)
+            .Replace("://+:", LocalhostAuthority)
+            .Replace("://*:", LocalhostAuthority);
 
         return normalized;
     }
@@ -83,34 +79,34 @@ public static class StartupLifecycleHelper
     {
         var urlList = urls.ToList();
         var sb = new StringBuilder();
-        sb.AppendLine("==============================================================");
-        sb.AppendLine("  AI Agent Hub is running!");
-        
+        _ = sb.AppendLine("==============================================================");
+        _ = sb.AppendLine("  AI Agent Hub is running!");
+
         var primary = SelectPrimaryBrowserUrl(urlList);
         if (primary != null)
         {
-            sb.AppendLine($"  -> Local:       {primary}");
+            _ = sb.AppendLine($"  -> Local:       {primary}");
         }
 
         foreach (var url in urlList)
         {
             if (!string.Equals(url, primary, StringComparison.OrdinalIgnoreCase))
             {
-                sb.AppendLine($"  -> Fallback:    {url}");
+                _ = sb.AppendLine($"  -> Fallback:    {url}");
             }
         }
 
         if (!string.IsNullOrWhiteSpace(safeClientIp))
         {
-            sb.AppendLine($"  -> Safe Client: {safeClientIp}");
+            _ = sb.AppendLine($"  -> Safe Client: {safeClientIp}");
         }
 
         if (isRecoveryMode)
         {
-            sb.AppendLine("  -> Mode:        Emergency Recovery Mode (--recovery)");
+            _ = sb.AppendLine("  -> Mode:        Emergency Recovery Mode (--recovery)");
         }
 
-        sb.AppendLine("==============================================================");
+        _ = sb.AppendLine("==============================================================");
         return sb.ToString();
     }
 
@@ -143,12 +139,7 @@ public static class StartupLifecycleHelper
         }
 
         var configValue = configuration.GetValue<bool?>("AgentHub:OpenBrowserAtStartup");
-        if (configValue.HasValue)
-        {
-            return configValue.Value;
-        }
-
-        return true;
+        return configValue ?? true;
     }
 
     public static void LaunchBrowser(string url)
@@ -196,7 +187,7 @@ public static class StartupLifecycleHelper
             : (configuration["urls"]?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? ["https://0.0.0.0:5432", "http://0.0.0.0:5433"]);
 
         var normalizedUrls = ResolveListeningUrls(rawUrls);
-        var recoveryOptions = services.GetService(typeof(AIAgentHub.Application.Security.RecoveryOptions)) as AIAgentHub.Application.Security.RecoveryOptions;
+        var recoveryOptions = services.GetService(typeof(Application.Security.RecoveryOptions)) as Application.Security.RecoveryOptions;
         var banner = FormatStartupBanner(normalizedUrls, recoveryOptions?.SafeClientIp, recoveryOptions?.IsRecoveryModeEnabled ?? false);
         writer.WriteLine(banner);
 
