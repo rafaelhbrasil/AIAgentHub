@@ -67,11 +67,11 @@ Enhanced preview support for additional file types:
 
 Version 0.3 adds the ability for the authenticated administrator to update their account credentials directly from the settings interface without wiping or resetting database records:
 
-- **Update Login Username**: Change the administrator username (`Current Password` required for authorization). Updates the persistent identity without affecting workspaces, conversations, or settings.
+- **Update Login Username**: Change the administrator username without entering a password. The username field is pre-filled with the current username. Updates the persistent identity without affecting workspaces, conversations, or settings.
 - **Update Password**: Change the administrator password (`Current Password`, `New Password`, and `Confirm New Password` required).
 - **Single-User Scope**: Maintains the single-user architecture (strictly one administrator account in the system; multi-user RBAC remains deferred to Version 0.6).
 - **Security Constraints**:
-  - Current password verification is strictly enforced before any credential modification is persisted.
+  - Current password verification is enforced before any **password** modification is persisted. Username updates are authorized solely by the active authenticated administrator session.
   - Endpoints are protected by rate limiting (`AuthLimiter`) and require an active authenticated administrator session.
   - Updating credentials immediately re-issues or updates the authenticated session cookie to ensure continuous access without unexpected logouts.
   - Recovery code reset via the 16-character token remains available as an emergency fallback on login.

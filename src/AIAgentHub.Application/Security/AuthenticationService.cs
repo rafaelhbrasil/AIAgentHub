@@ -57,13 +57,19 @@ public sealed class AuthenticationService(IUserAccountRepository userRepository,
         return admin?.Username;
     }
 
-    public async Task<UpdateAccountResult> UpdateUsernameAsync(string currentPassword, string newUsername, CancellationToken cancellationToken = default)
+    public async Task<bool> VerifyCurrentPasswordAsync(string password, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(currentPassword))
+        if (string.IsNullOrWhiteSpace(password))
         {
-            return new UpdateAccountResult(false, "Current password is required.");
+            return false;
         }
 
+        var admin = await _userRepository.GetAdminAsync(cancellationToken);
+        return admin != null && _passwordHasher.VerifyPassword(password, admin.PasswordHash, admin.PasswordSalt);
+    }
+
+    public async Task<UpdateAccountResult> UpdateUsernameAsync(string newUsername, CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(newUsername) || newUsername.Trim().Length < 3)
         {
             return new UpdateAccountResult(false, "New username must be at least 3 characters long.");
@@ -73,11 +79,6 @@ public sealed class AuthenticationService(IUserAccountRepository userRepository,
         if (admin == null)
         {
             return new UpdateAccountResult(false, "Administrator account not found.");
-        }
-
-        if (!_passwordHasher.VerifyPassword(currentPassword, admin.PasswordHash, admin.PasswordSalt))
-        {
-            return new UpdateAccountResult(false, "Current password is incorrect.");
         }
 
         admin.UpdateUsername(newUsername.Trim());

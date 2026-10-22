@@ -107,7 +107,7 @@ public sealed class AuthenticationServiceTests
     }
 
     [Fact]
-    public async Task UpdateUsernameAsync_WithValidPassword_UpdatesUsername()
+    public async Task UpdateUsernameAsync_UpdatesUsernameWithoutPassword()
     {
         var userRepo = new FakeUserRepo
         {
@@ -116,13 +116,13 @@ public sealed class AuthenticationServiceTests
         var hasher = new FakeHasher();
         var authService = new AuthenticationService(userRepo, hasher);
 
-        var result = await authService.UpdateUsernameAsync("CorrectPassword123!", "new_admin");
+        var result = await authService.UpdateUsernameAsync("new_admin");
         Assert.True(result.Success);
         Assert.Equal("new_admin", userRepo.Admin.Username);
     }
 
     [Fact]
-    public async Task UpdateUsernameAsync_WithIncorrectPassword_Fails()
+    public async Task VerifyCurrentPasswordAsync_WithCorrectPassword_ReturnsTrue()
     {
         var userRepo = new FakeUserRepo
         {
@@ -131,10 +131,20 @@ public sealed class AuthenticationServiceTests
         var hasher = new FakeHasher();
         var authService = new AuthenticationService(userRepo, hasher);
 
-        var result = await authService.UpdateUsernameAsync("wrong_pass", "new_admin");
-        Assert.False(result.Success);
-        Assert.Contains("incorrect", result.Error);
-        Assert.Equal("admin", userRepo.Admin.Username);
+        Assert.True(await authService.VerifyCurrentPasswordAsync("CorrectPassword123!"));
+    }
+
+    [Fact]
+    public async Task VerifyCurrentPasswordAsync_WithWrongPassword_ReturnsFalse()
+    {
+        var userRepo = new FakeUserRepo
+        {
+            Admin = UserAccount.Create("admin", "correct_hash", "salt", "rec_hash")
+        };
+        var hasher = new FakeHasher();
+        var authService = new AuthenticationService(userRepo, hasher);
+
+        Assert.False(await authService.VerifyCurrentPasswordAsync("wrong_pass"));
     }
 
     [Fact]

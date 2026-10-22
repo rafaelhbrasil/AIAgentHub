@@ -85,12 +85,14 @@ describe('SettingsView UI Component', () => {
 
       expect(html).toContain('Single-User Account Management');
       expect(html).toContain('Change Username');
-      expect(html).toContain('accCurrentPassUser');
+      expect(html).not.toContain('accCurrentPassUser');
       expect(html).toContain('accNewUsername');
       expect(html).toContain('Change Password');
       expect(html).toContain('accCurrentPass');
       expect(html).toContain('accNewPass');
       expect(html).toContain('accConfirmPass');
+      expect(html).toContain('Danger Zone');
+      expect(html).toContain('dangerZoneResetBtn');
     });
 
     it('renders logs and diagnostics tab', () => {
@@ -212,7 +214,7 @@ describe('SettingsView UI Component', () => {
       expect(container.textContent).toContain('Logs & Diagnostics');
     });
 
-    it('validates and submits Change Username form', async () => {
+    it('validates and submits Change Username form without a password', async () => {
       const apiFetchSpy = vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (_url: string, opts?: any) => {
         if (opts?.method === 'PUT') {
           return { ok: true, status: 200, data: { success: true, username: 'newadmin' } } as any;
@@ -231,22 +233,18 @@ describe('SettingsView UI Component', () => {
         );
       });
 
-      const currentPassUser = container.querySelector('#accCurrentPassUser') as HTMLInputElement;
+      // No current password field on the username form anymore.
+      expect(container.querySelector('#accCurrentPassUser')).toBeNull();
+
       const newUsername = container.querySelector('#accNewUsername') as HTMLInputElement;
       const changeUserBtn = container.querySelector('#updateUsernameBtn') as HTMLButtonElement;
       expect(changeUserBtn).not.toBeNull();
+
+      // Username input is pre-filled with the current username; unchanged value keeps the button disabled.
+      expect(newUsername.value).toBe('admin');
       expect(changeUserBtn.disabled).toBe(true);
 
-      // Fill current password
-      await act(async () => {
-        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-        nativeSetter?.call(currentPassUser, 'secretPass123');
-        currentPassUser.dispatchEvent(new Event('input', { bubbles: true }));
-        currentPassUser.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-      expect(changeUserBtn.disabled).toBe(true);
-
-      // Fill new username
+      // Change username to enable the button
       await act(async () => {
         const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
         nativeSetter?.call(newUsername, 'newadmin');
@@ -255,7 +253,7 @@ describe('SettingsView UI Component', () => {
       });
       expect(changeUserBtn.disabled).toBe(false);
 
-      // Submit
+      // Submit — payload carries only the new username, no password.
       await act(async () => {
         changeUserBtn.click();
       });
@@ -263,18 +261,21 @@ describe('SettingsView UI Component', () => {
       expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/auth/account/username', {
         method: 'PUT',
         body: {
-          currentPassword: 'secretPass123',
           newUsername: 'newadmin',
         },
       });
 
-      // Test error response
+      // After success the input re-syncs to the new username and the button is disabled again.
+      expect((container.querySelector('#accNewUsername') as HTMLInputElement).value).toBe('newadmin');
+      expect((container.querySelector('#updateUsernameBtn') as HTMLButtonElement).disabled).toBe(true);
+
+      // Error path: failed update must not crash the form.
       apiFetchSpy.mockImplementation(async (_url: string, opts?: any) => {
         if (opts?.method === 'PUT') {
           return {
             ok: false,
             status: 400,
-            error: 'Invalid password',
+            error: 'Failed to update username.',
           } as any;
         }
         return { ok: true, status: 200, data: { isSetupComplete: true } } as any;
@@ -282,11 +283,13 @@ describe('SettingsView UI Component', () => {
 
       await act(async () => {
         const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-        nativeSetter?.call(currentPassUser, 'wrongPass');
         nativeSetter?.call(newUsername, 'otheradmin');
-        currentPassUser.dispatchEvent(new Event('change', { bubbles: true }));
+        newUsername.dispatchEvent(new Event('input', { bubbles: true }));
         newUsername.dispatchEvent(new Event('change', { bubbles: true }));
-        changeUserBtn.click();
+      });
+      expect((container.querySelector('#updateUsernameBtn') as HTMLButtonElement).disabled).toBe(false);
+      await act(async () => {
+        (container.querySelector('#updateUsernameBtn') as HTMLButtonElement).click();
       });
     });
 
@@ -369,6 +372,70 @@ describe('SettingsView UI Component', () => {
         newPass.dispatchEvent(new Event('change', { bubbles: true }));
         confirmPass.dispatchEvent(new Event('change', { bubbles: true }));
         changePassBtn.click();
+      });
+    });
+
+    it('requires password confirmation in Danger Zone and posts reset-with-password', async () => {
+      const apiFetchSpy = vi.spyOn(apiClient, 'apiFetch').mockImplementation(async (_url: string, opts?: any) => {
+        if (opts?.method === 'POST' && _url === '/api/v1/auth/reset-with-password') {
+          return { ok: true, status: 200, data: { success: true } } as any;
+        }
+        return { ok: true, status: 200, data: { isSetupComplete: true, isAuthenticated: false } } as any;
+      });
+
+      root = createRoot(container);
+      await act(async () => {
+        root?.render(
+          <ToastProvider>
+            <AuthProvider>
+              <SettingsView initialSettings={mockSettings} initialNics={mockNics} initialSubTab="account" />
+            </AuthProvider>
+          </ToastProvider>
+        );
+      });
+
+      const resetBtn = container.querySelector('#dangerZoneResetBtn') as HTMLButtonElement;
+      expect(resetBtn).not.toBeNull();
+
+      // No confirmation UI until the danger button is pressed.
+      expect(container.querySelector('#dangerZoneConfirmBtn')).toBeNull();
+
+      await act(async () => {
+        resetBtn.click();
+      });
+
+      // Confirmation dialog spells out lost vs preserved data.
+      const text = container.textContent || '';
+      expect(text).toContain('Everything in the app will be lost');
+      expect(text).toContain('Git repositories');
+      expect(text).toContain('Provider installations');
+      expect(text).toContain('NOT be deleted');
+
+      const passwordInput = container.querySelector('#dangerZonePassword') as HTMLInputElement;
+      const confirmBtn = container.querySelector('#dangerZoneConfirmBtn') as HTMLButtonElement;
+      const cancelBtn = container.querySelector('#dangerZoneCancelBtn') as HTMLButtonElement;
+      expect(passwordInput).not.toBeNull();
+      expect(confirmBtn).not.toBeNull();
+      expect(cancelBtn).not.toBeNull();
+
+      // Password required before confirming.
+      expect(confirmBtn.disabled).toBe(true);
+
+      await act(async () => {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        nativeSetter?.call(passwordInput, '123456');
+        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+        passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(confirmBtn.disabled).toBe(false);
+
+      await act(async () => {
+        confirmBtn.click();
+      });
+
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/v1/auth/reset-with-password', {
+        method: 'POST',
+        body: { password: '123456' },
       });
     });
 

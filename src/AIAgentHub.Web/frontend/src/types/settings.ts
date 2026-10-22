@@ -61,7 +61,6 @@ export interface PermissionRequestDto {
 }
 
 export interface UpdateUsernameRequest {
-  currentPassword: string;
   newUsername: string;
 }
 

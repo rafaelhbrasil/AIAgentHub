@@ -74,7 +74,6 @@ describe('v0.3 Types and Validation', () => {
 
     it('validates UpdateUsernameRequest and UpdatePasswordRequest payloads', () => {
       const userReq: UpdateUsernameRequest = {
-        currentPassword: 'Password123!',
         newUsername: 'new_admin',
       };
       expect(userReq.newUsername).toBe('new_admin');

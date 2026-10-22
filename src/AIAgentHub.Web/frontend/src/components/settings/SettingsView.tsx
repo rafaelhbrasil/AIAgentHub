@@ -17,7 +17,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   initialSubTab = 'network',
 }) => {
   const { showToast } = useToast();
-  const { username, setUsername } = useAuth();
+  const { username, setUsername, setIsSetupCompleted, setIsAuthenticated, checkAuthAndSetup } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'network' | 'logs' | 'account'>(initialSubTab);
   const [settings, setSettings] = useState<ServerSettingsDto | null>(initialSettings ?? null);
   const [nics, setNics] = useState<NetworkInterfaceDto[]>(initialNics ?? []);
@@ -25,14 +25,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // Account management state
-  const [currentPasswordForUsername, setCurrentPasswordForUsername] = useState<string>('');
-  const [newUsernameInput, setNewUsernameInput] = useState<string>('');
+  const [newUsernameInput, setNewUsernameInput] = useState<string>(username);
   const [isUpdatingUsername, setIsUpdatingUsername] = useState<boolean>(false);
 
   const [currentPasswordForPass, setCurrentPasswordForPass] = useState<string>('');
   const [newPasswordInput, setNewPasswordInput] = useState<string>('');
   const [confirmPasswordInput, setConfirmPasswordInput] = useState<string>('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState<boolean>(false);
+
+  // Danger Zone full reset state
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
+  const [resetPassword, setResetPassword] = useState<string>('');
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+
+  // Keep the username input pre-filled with the current username.
+  useEffect(() => {
+    setNewUsernameInput(username);
+  }, [username]);
 
   useEffect(() => {
     if (initialSettings) return;
@@ -83,12 +92,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleUpdateUsername = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPasswordForUsername) {
-      showToast('Current password is required to change username.', 'warning');
-      return;
-    }
     if (!newUsernameInput.trim()) {
       showToast('Please enter a new username.', 'warning');
+      return;
+    }
+    if (newUsernameInput.trim() === username) {
+      showToast('Username is unchanged.', 'warning');
       return;
     }
     setIsUpdatingUsername(true);
@@ -96,7 +105,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const res = await apiFetch<{ success: boolean; username: string }>('/api/v1/auth/account/username', {
         method: 'PUT',
         body: {
-          currentPassword: currentPasswordForUsername,
           newUsername: newUsernameInput.trim(),
         },
       });
@@ -104,13 +112,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (res.ok && res.data?.success) {
         showToast(`Username updated successfully to '${res.data.username}'.`, 'success');
         setUsername(res.data.username);
-        setCurrentPasswordForUsername('');
-        setNewUsernameInput('');
       } else {
-        showToast((res.data as any)?.message || res.error || 'Failed to update username. Verify current password.', 'error');
+        showToast((res.data as any)?.message || res.error || 'Failed to update username.', 'error');
       }
     } finally {
       setIsUpdatingUsername(false);
+    }
+  };
+
+  const handleFullReset = async () => {
+    if (!resetPassword) {
+      showToast('Password is required to reset the system.', 'warning');
+      return;
+    }
+    setIsResetting(true);
+    try {
+      const res = await apiFetch<{ success: boolean; message?: string }>('/api/v1/auth/reset-with-password', {
+        method: 'POST',
+        body: { password: resetPassword },
+      });
+
+      if (res.ok && res.data?.success) {
+        showToast('System reset. All application data has been erased.', 'success');
+        setIsSetupCompleted(false);
+        setIsAuthenticated(false);
+        await checkAuthAndSetup();
+      } else {
+        showToast((res.data as any)?.message || res.error || 'Failed to reset the system.', 'error');
+      }
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -296,22 +327,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <form onSubmit={handleUpdateUsername} style={{ marginBottom: '28px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ fontSize: '1rem', marginBottom: '8px', color: 'var(--text-heading)' }}>Change Username</h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-              Updating your username will refresh your authenticated session immediately.
+              The username field is pre-filled with your current username. Updating it refreshes your authenticated session immediately — no password needed.
             </p>
-            <div className="form-group" style={{ marginBottom: '12px' }}>
-              <label className="form-label" htmlFor="accCurrentPassUser">Current Password</label>
-              <input
-                type="password"
-                id="accCurrentPassUser"
-                name="current-password"
-                autoComplete="current-password"
-                className="form-control"
-                placeholder="Enter current password"
-                value={currentPasswordForUsername}
-                onChange={(e) => setCurrentPasswordForUsername(e.target.value)}
-                required
-              />
-            </div>
             <div className="form-group" style={{ marginBottom: '12px' }}>
               <label className="form-label" htmlFor="accNewUsername">New Username</label>
               <input
@@ -330,7 +347,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               type="submit"
               className="btn btn-primary compact-btn"
               id="updateUsernameBtn"
-              disabled={isUpdatingUsername || !currentPasswordForUsername || !newUsernameInput}
+              disabled={isUpdatingUsername || !newUsernameInput.trim() || newUsernameInput.trim() === username}
             >
               {isUpdatingUsername ? 'Updating Username...' : 'Update Username'}
             </button>
@@ -393,6 +410,93 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {isUpdatingPassword ? 'Updating Password...' : 'Update Password'}
             </button>
           </form>
+        </div>
+      )}
+
+      {activeSubTab === 'account' && (
+        <div
+          className="card glass"
+          style={{ maxWidth: '800px', marginTop: '16px', border: '1px solid rgba(239, 68, 68, 0.45)' }}
+        >
+          <div className="card-title" style={{ color: '#f87171' }}>Danger Zone</div>
+          <p className="card-subtitle">
+            Full system reset — irreversible. Requires your current password and an explicit confirmation.
+          </p>
+
+          {!isResetConfirmOpen ? (
+            <button
+              type="button"
+              className="btn btn-danger"
+              id="dangerZoneResetBtn"
+              onClick={() => setIsResetConfirmOpen(true)}
+            >
+              Reset Entire Application&hellip;
+            </button>
+          ) : (
+            <div
+              style={{
+                border: '1px solid rgba(239, 68, 68, 0.5)',
+                borderRadius: '8px',
+                padding: '16px',
+                background: 'rgba(239, 68, 68, 0.06)',
+              }}
+            >
+              <h4 style={{ color: '#f87171', margin: '0 0 8px 0', fontSize: '0.98rem' }}>
+                Everything in the app will be lost
+              </h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.55, margin: '0 0 10px 0' }}>
+                Confirming permanently erases <strong>all application data</strong>: workspaces, conversations,
+                messages, providers, and settings. You will be logged out and returned to the first-run setup.
+                This operation cannot be undone.
+              </p>
+              <p style={{ fontSize: '0.85rem', color: '#fca5a5', margin: '0 0 6px 0', fontWeight: 600 }}>
+                The following will NOT be deleted (data saved to disk):
+              </p>
+              <ul style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 14px 0', paddingLeft: '20px' }}>
+                <li>Files saved to disk inside workspace folders</li>
+                <li>Git repositories</li>
+                <li>Provider installations and configuration (Claude, Antigravity, and other CLIs are not uninstalled)</li>
+              </ul>
+
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label className="form-label" htmlFor="dangerZonePassword">Current Password</label>
+                <input
+                  type="password"
+                  id="dangerZonePassword"
+                  name="current-password"
+                  autoComplete="current-password"
+                  className="form-control"
+                  placeholder="Enter your current password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  id="dangerZoneCancelBtn"
+                  onClick={() => {
+                    setIsResetConfirmOpen(false);
+                    setResetPassword('');
+                  }}
+                  disabled={isResetting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  id="dangerZoneConfirmBtn"
+                  onClick={handleFullReset}
+                  disabled={isResetting || !resetPassword}
+                >
+                  {isResetting ? 'Resetting...' : 'Confirm Full Reset'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

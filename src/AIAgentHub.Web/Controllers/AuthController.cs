@@ -140,14 +140,14 @@ public sealed class AuthController(
         });
     }
 
-    public sealed record UpdateUsernameRequest(string CurrentPassword, string NewUsername);
+    public sealed record UpdateUsernameRequest(string NewUsername);
 
     [HttpPut("account/username")]
     [Authorize]
     [EnableRateLimiting("AuthLimiter")]
     public async Task<IActionResult> UpdateUsername([FromBody] UpdateUsernameRequest request, CancellationToken cancellationToken)
     {
-        var result = await _authService.UpdateUsernameAsync(request.CurrentPassword, request.NewUsername, cancellationToken);
+        var result = await _authService.UpdateUsernameAsync(request.NewUsername, cancellationToken);
         if (!result.Success)
         {
             return BadRequest(new { code = "update_username_failed", message = result.Error });
@@ -177,6 +177,30 @@ public sealed class AuthController(
         }
 
         return Ok(new { success = true, message = "Password updated successfully." });
+    }
+
+    public sealed record ResetWithPasswordRequest(string Password);
+
+    [HttpPost("reset-with-password")]
+    [Authorize]
+    [EnableRateLimiting("AuthLimiter")]
+    public async Task<IActionResult> ResetWithPassword([FromBody] ResetWithPasswordRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { code = "password_required", message = "Password is required." });
+        }
+
+        var isValid = await _authService.VerifyCurrentPasswordAsync(request.Password, cancellationToken);
+        if (!isValid)
+        {
+            return BadRequest(new { code = "invalid_password", message = "Password is incorrect." });
+        }
+
+        _ = await _setupService.WipeAllDataAsync(cancellationToken);
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        return Ok(new { success = true, message = "Database wiped and system reset to Setup Mode." });
     }
 
     public sealed record RecoverRequest(string RecoveryCode);
