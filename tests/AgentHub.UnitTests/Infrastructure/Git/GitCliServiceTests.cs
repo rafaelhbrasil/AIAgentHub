@@ -161,6 +161,29 @@ public sealed class GitCliServiceTests
     }
 
     [Fact]
+    public async Task GetHistoryAsync_RequestsFullParentHashes()
+    {
+        // Regression: abbreviated parents (%p) never matched full Hash values (%H)
+        // in the frontend commit graph lane matcher, producing one lane per commit.
+        string? capturedArgs = null;
+        var fakeExecutor = new FakeProcessExecutor
+        {
+            OnRunCommand = (exe, args, dir) =>
+            {
+                capturedArgs = args;
+                return new ProcessCommandResult(0, string.Empty, "");
+            }
+        };
+
+        var service = new GitCliService(fakeExecutor);
+        _ = await service.GetHistoryAsync("C:\\dummy");
+
+        Assert.NotNull(capturedArgs);
+        Assert.Contains("%P", capturedArgs, StringComparison.Ordinal);
+        Assert.DoesNotContain("%p", capturedArgs, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task GetHistoryAsync_ParsesParentsAndRefs()
     {
         var fakeExecutor = new FakeProcessExecutor

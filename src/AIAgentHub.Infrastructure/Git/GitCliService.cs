@@ -288,7 +288,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
     {
         List<GitCommitDto> commits = [];
         var safeCount = Math.Clamp(maxCount, 1, 200);
-        var format = "%H|||%h|||%an|||%ae|||%aI|||%s|||%p|||%d";
+        var format = "%H|||%h|||%an|||%ae|||%aI|||%s|||%P|||%d";
         var res = await RunGitAsync($"log -n {safeCount} --pretty=format:\"{format}\"", workspacePath, cancellationToken);
         if (res.ExitCode != 0) return commits;
 
@@ -327,7 +327,7 @@ public sealed class GitCliService(IProcessExecutor processExecutor) : IGitServic
         }
 
         // 1. Get commit metadata & full body
-        var format = "%H|||%h|||%an|||%ae|||%aI|||%B|||%p|||%d";
+        var format = "%H|||%h|||%an|||%ae|||%aI|||%B|||%P|||%d";
         var metaRes = await RunGitAsync($"show -s --format=\"{format}\" {cleanHash}", workspacePath, cancellationToken);
         if (metaRes.ExitCode != 0 || string.IsNullOrWhiteSpace(metaRes.Output))
         {
