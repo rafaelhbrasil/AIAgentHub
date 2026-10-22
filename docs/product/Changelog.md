@@ -53,6 +53,16 @@ Security-related improvements.
 
 ---
 
+# [0.3.1] - 2026-10-22
+
+Patch release fixing a database-reset bug that prevented the application from restarting after a full system reset.
+
+## Fixed
+
+- **Danger Zone Reset Startup Crash**: The full system reset (Settings → Account → Danger Zone) and the logged-out account recovery wipe recreated the database with `EnsureCreated`, which bypasses the EF migration history. The next application startup replayed all migrations against the existing schema and crashed with `table "FileSnapshots" already exists`. Wiped databases are now rebuilt through the migration pipeline, so a reset application restarts cleanly into first-run setup.
+
+---
+
 # [0.3.0] - Workspace Developer Tools & Git
 
 ## Added

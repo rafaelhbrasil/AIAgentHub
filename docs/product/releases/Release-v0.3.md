@@ -76,3 +76,9 @@ Version 0.3 adds the ability for the authenticated administrator to update their
   - Updating credentials immediately re-issues or updates the authenticated session cookie to ensure continuous access without unexpected logouts.
   - Recovery code reset via the 16-character token remains available as an emergency fallback on login.
 
+---
+
+# Hotfix 0.3.1 — Reset Migration Consistency
+
+- **Fix**: Full system reset (Settings → Account → Danger Zone) and the logged-out account recovery wipe now rebuild the database through the EF migration pipeline (`MigrateAsync`) instead of `EnsureCreated`. Previously the wiped database carried no migration history, and the next application startup crashed with `table "FileSnapshots" already exists`. Reset now behaves as specified: database wiped, administrator signed out, next start enters first-run setup.
+

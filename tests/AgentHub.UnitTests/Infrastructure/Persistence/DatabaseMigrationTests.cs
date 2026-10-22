@@ -64,6 +64,55 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
+    public async Task DatabaseReset_ShouldLeaveDatabaseInMigratedState()
+    {
+        var tempDb = Path.Combine(Path.GetTempPath(), $"MigrationResetTest_{Guid.NewGuid():N}.db");
+        var options = new DbContextOptionsBuilder<AgentHubDbContext>()
+            .UseSqlite($"Data Source={tempDb}")
+            .Options;
+
+        try
+        {
+            // 1. Simulate a normally migrated (production) database
+            using (var db = new AgentHubDbContext(options))
+            {
+                await db.Database.MigrateAsync();
+            }
+
+            // 2. Wipe via the Danger Zone / recovery reset path
+            using (var db = new AgentHubDbContext(options))
+            {
+                var resetter = new DatabaseResetter(db, new ServerSettingsRepository(db));
+                await resetter.WipeAllDataAsync();
+            }
+
+            // 3. The wiped database must remain migration-consistent:
+            //    the next application startup runs the initializer, which must NOT
+            //    replay migrations against pre-existing tables, and the migration
+            //    history must be present so subsequent startups are no-ops.
+            using (var db = new AgentHubDbContext(options))
+            {
+                var initializer = new DatabaseInitializer(db, new ServerSettingsRepository(db));
+                await initializer.InitializeAsync();
+
+                var history = await db.Database
+                    .SqlQueryRaw<string>("SELECT MigrationId FROM __EFMigrationsHistory")
+                    .ToListAsync();
+
+                Assert.Contains("20260810172914_InitialCreate", history);
+                Assert.Contains("20260828160023_v0_2_0_AddVersion02MultiProviderTracking", history);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempDb))
+            {
+                try { File.Delete(tempDb); } catch { }
+            }
+        }
+    }
+
+    [Fact]
     public async Task DatabaseMigrations_UpgradingFrom_v0_1_To_v0_2_ShouldSucceedAndPreserveLegacyData()
     {
         var tempDb = Path.Combine(Path.GetTempPath(), $"MigrationUpgradeTest_{Guid.NewGuid():N}.db");
