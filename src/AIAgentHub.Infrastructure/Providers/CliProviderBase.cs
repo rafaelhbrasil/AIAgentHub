@@ -105,7 +105,7 @@ public abstract class CliProviderBase(
         }
 
         var pattern = $@"\b(?:{string.Join("|", words)})\b";
-        return Regex.IsMatch(prompt, pattern, RegexOptions.IgnoreCase);
+        return Regex.IsMatch(prompt, pattern, RegexOptions.IgnoreCase, RegexTimeout);
     }
 
     public virtual bool IsInstalledFastCheck() => !string.IsNullOrEmpty(FindExecutable(ExecutableName));
@@ -421,7 +421,7 @@ public abstract class CliProviderBase(
         // Start official native terminal authentication process
         var psi = new ProcessStartInfo
         {
-            FileName = "powershell.exe",
+            FileName = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"),
             Arguments = $"-NoExit -Command \"Write-Host 'Authenticating {DisplayName}...'; & '{exePath}' {AuthCommand}\"",
             UseShellExecute = true
         };

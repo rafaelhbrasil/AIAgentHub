@@ -156,11 +156,11 @@ public static class StartupLifecycleHelper
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                _ = Process.Start("open", url);
+                _ = Process.Start("/usr/bin/open", url);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                _ = Process.Start("xdg-open", url);
+                _ = Process.Start("/usr/bin/xdg-open", url);
             }
         }
         catch
@@ -184,7 +184,7 @@ public static class StartupLifecycleHelper
 
         IEnumerable<string> rawUrls = boundAddresses != null && boundAddresses.Count > 0
             ? boundAddresses
-            : (configuration["urls"]?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? ["https://0.0.0.0:5432", "http://0.0.0.0:5433"]);
+            : (configuration["urls"]?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? ["https://0.0.0.0:5432", "http://0.0.0.0:5433"]); // NOSONAR - intentional HTTP dev binding fallback (port 5433 by design)
 
         var normalizedUrls = ResolveListeningUrls(rawUrls);
         var recoveryOptions = services.GetService(typeof(Application.Security.RecoveryOptions)) as Application.Security.RecoveryOptions;

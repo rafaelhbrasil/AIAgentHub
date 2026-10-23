@@ -9,7 +9,7 @@ process.env.LANG = 'en_US.UTF-8';
 process.env.MSBUILDDISABLENODEREUSE = '1';
 
 const args = process.argv.slice(2);
-const result = spawnSync('dotnet', args, {
+const result = spawnSync('dotnet', args, { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
   stdio: 'inherit',
   env: process.env,
 });

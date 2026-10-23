@@ -208,56 +208,61 @@ const CODE_SIGNATURES: CodeSignature[] = [
   {
     lang: 'csharp',
     patterns: [
-      /^\s*using\s+[\w.]+\s*;/m,
-      /^\s*namespace\s+[\w.]+/m,
-      /^\s*(?:public|private|protected|internal|sealed|abstract|static|async)\s+(?:class|interface|struct|record|enum|void|Task|IActionResult|[\w<>]+)\s+\w+/m,
-      /^\s*\[(?:HttpGet|HttpPost|HttpPut|HttpDelete|Route|Authorize|Fact|Theory|InlineData|Required|ApiController)[^]]*\]/m,
+      /^[ \t]*using[ \t]+[\w.]+[ \t]*;/m,
+      /^[ \t]*namespace[ \t]+[\w.]+/m,
+      /^[ \t]*(?:public|private|protected|internal|sealed|abstract|static|async)[ \t]+\w+[ \t]+\w+/m,
+      /^[ \t]*\[(?:HttpGet|HttpPost|HttpPut|HttpDelete|Route|Authorize|Fact|Theory|InlineData|Required|ApiController)[^\]]*\]/m,
     ],
   },
   {
     lang: 'typescript',
     patterns: [
-      /^\s*import\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"][^'"]+['"]/m,
-      /^\s*export\s+(?:default|const|let|function|class|interface|type|enum)\s+/m,
-      /^\s*const\s+[\w$\s{},:]+\s*=\s*(?:\([^)]*\)|[\w$]+)\s*=>/m,
-      /^\s*(?:interface|type)\s+\w+\s*(?:=\s*|\{)/m,
+      /^[ \t]*import[ \t]+(?:\{[^}]*\}|[\w$*]+)/m,
+      /^[ \t]*export[ \t]+(?:default|const|let|function|class|interface|type|enum)[ \t]+/m,
+      /^[ \t]*const[ \t]+[\w$]+[ \t]*=[ \t]*(?:\([^)]*\)|[\w$]+)[ \t]*=>/m,
+      /^[ \t]*(?:interface|type)[ \t]+\w+[ \t]*(?:=[ \t]*|\{)/m,
     ],
   },
   {
     lang: 'javascript',
     patterns: [
-      /^\s*const\s+[\w$]+\s*=\s*require\(['"][^'"]+['"]\)/m,
-      /^\s*module\.exports\s*=/m,
-      /^\s*function\s+\w+\s*\(/m,
+      /^[ \t]*const[ \t]+[\w$]+[ \t]*=[ \t]*require\(['"][^'"]+['"]\)/m,
+      /^[ \t]*module\.exports[ \t]*=/m,
+      /^[ \t]*function[ \t]+\w+[ \t]*\(/m,
     ],
   },
   {
     lang: 'python',
     patterns: [
-      /^\s*def\s+\w+\s*\([^)]*\)\s*:/m,
-      /^\s*class\s+\w+(?:\([^)]*\))?\s*:/m,
-      /^\s*from\s+[\w.]+\s+import\s+/m,
-      /^\s*import\s+[\w.]+\s*(?:as\s+\w+)?$/m,
+      /^[ \t]*def[ \t]+\w+[ \t]*\([^)]*\)[ \t]*:/m,
+      /^[ \t]*class[ \t]+\w+(?:\([^)]*\))?[ \t]*:/m,
+      /^[ \t]*from[ \t]+[\w.]+[ \t]+import[ \t]+/m,
+      /^[ \t]*import[ \t]+[\w.]+(?:[ \t]+as[ \t]+\w+)?[ \t]*$/m,
     ],
   },
   {
     lang: 'json',
     patterns: [
-      /^\s*\{\s*"[\w$-]+"\s*:/m,
-      /^\s*\[\s*\{\s*"[\w$-]+"\s*:/m,
+      /^[ \t]*\{[ \t]*"[\w$-]+"[ \t]*:/m,
+      /^[ \t]*\[[ \t]*\{[ \t]*"[\w$-]+"[ \t]*:/m,
     ],
   },
   {
     lang: 'html',
     patterns: [
-      /^\s*<!DOCTYPE\s+html>/im,
-      /^\s*<(?:html|head|body|div|template|script|style)\b[^>]*>/im,
+      /^[ \t]*<!DOCTYPE[ \t]+html>/im,
+      /^[ \t]*<(?:html|head|body|div|template|script|style)\b[^>]*>/im,
     ],
   },
   {
     lang: 'sql',
     patterns: [
-      /^\s*(?:SELECT\s+.*\sFROM|INSERT\s+INTO|UPDATE\s+.*\sSET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE)\b/im,
+      /^[ \t]*SELECT[ \t].*[ \t]FROM/im,
+      /^[ \t]*INSERT[ \t]+INTO\b/im,
+      /^[ \t]*UPDATE[ \t].*[ \t]SET\b/im,
+      /^[ \t]*DELETE[ \t]+FROM\b/im,
+      /^[ \t]*CREATE[ \t]+TABLE\b/im,
+      /^[ \t]*ALTER[ \t]+TABLE\b/im,
     ],
   },
 ];

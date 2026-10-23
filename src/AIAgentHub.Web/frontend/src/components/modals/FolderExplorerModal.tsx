@@ -3,7 +3,7 @@ import { apiFetch } from '../../services/apiClient';
 import { DriveDto, DirectoryBrowserResult, ForbiddenPathsResponse } from '../../types/workspace';
 import { ProviderDto } from '../../types/provider';
 import { useToast } from '../../context/ToastContext';
-import { isPathForbiddenForBrowsing, isPathForbiddenForWorkspace } from '../../utils/pathValidation';
+import { isPathForbiddenForBrowsing, isPathForbiddenForWorkspace, stripTrailingSeparators } from '../../utils/pathValidation';
 import { isProviderOperational } from '../../utils/providerSort';
 import { Spinner } from '../common/Spinner';
 
@@ -33,7 +33,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
     if (!trimmed || !currentPath) return;
 
     const separator = currentPath.includes('\\') ? '\\' : '/';
-    const targetPath = `${currentPath.replace(/[/\\]+$/, '')}${separator}${trimmed}`;
+    const targetPath = `${stripTrailingSeparators(currentPath)}${separator}${trimmed}`;
 
     try {
       const res = await apiFetch<{ path: string }>('/api/v1/filesystem/mkdir', {
@@ -56,7 +56,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
 
   const updateSuggestedName = (fullPath: string) => {
     if (!fullPath) return;
-    const clean = fullPath.replace(/[/\\]+$/, '');
+    const clean = stripTrailingSeparators(fullPath);
     const parts = clean.split(/[/\\]/);
     if (parts.length > 0) {
       setWsName(parts[parts.length - 1] || 'Workspace');
@@ -161,7 +161,7 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
     }
   };
 
-  const clean = currentPath.replace(/[/\\]+$/, '');
+  const clean = stripTrailingSeparators(currentPath);
   const pathParts = clean.split(/[/\\]/);
 
   return (
@@ -195,7 +195,6 @@ export const FolderExplorerModal: React.FC<FolderExplorerModalProps> = ({ onSucc
             ref={nativePickerRef}
             // @ts-expect-error webkitdirectory is standard for folder pickers
             webkitdirectory=""
-            directory=""
             style={{ display: 'none' }}
             onChange={(e) => {
               if (e.target.files && e.target.files.length > 0) {

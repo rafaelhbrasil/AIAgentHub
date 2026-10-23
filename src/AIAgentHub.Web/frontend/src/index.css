@@ -1781,6 +1781,15 @@ select option:not(:disabled),
   padding: 14px;
 }
 
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .modal-box {
   width: 100%;
   max-width: 740px;
@@ -1792,6 +1801,8 @@ select option:not(:disabled),
   color: var(--text-main);
   box-shadow: var(--shadow-card);
   transition: max-width 0.2s ease, width 0.2s ease;
+  position: relative;
+  z-index: 1;
 }
 
 .modal-box.modal-sm {

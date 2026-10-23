@@ -1,5 +1,18 @@
+/**
+ * Strips trailing path separators (/, \) in linear time.
+ * Replaces an equivalent `replace(/[/\\]+$/, '')` regex, which backtracks
+ * super-linearly on long separator runs (Sonar S8786).
+ */
+export function stripTrailingSeparators(value: string): string {
+  let end = value.length;
+  while (end > 0 && (value[end - 1] === '/' || value[end - 1] === '\\')) {
+    end--;
+  }
+  return value.slice(0, end);
+}
+
 export function normalizePath(path: string): string {
-  const clean = path.trim().replace(/\\/g, '/').replace(/\/+$/, '');
+  const clean = stripTrailingSeparators(path.trim().replace(/\\/g, '/'));
   return clean === '' ? '/' : clean;
 }
 

@@ -649,7 +649,7 @@ export const useWorkspaceStudio = ({
     // Append user message immediately to local state and bump recency
     const now = new Date().toISOString();
     const userMsg = {
-      id: Math.random().toString(),
+      id: crypto.randomUUID(),
       conversationId: activeConversation.id,
       role: MessageRole.User,
       content: prompt,

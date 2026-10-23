@@ -42,10 +42,8 @@ export const Modal: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="modalTitle"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) hideModal();
-      }}
     >
+      <button type="button" className="modal-backdrop" aria-label="Close modal" onClick={hideModal} />
       <div className={`modal-box glass ${sizeClass}`} id="modalBox">
         <div className="modal-header">
           <h3 id="modalTitle">{modal.title}</h3>

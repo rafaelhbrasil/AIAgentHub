@@ -99,7 +99,7 @@ if (fs.existsSync(targetPublishDir)) {
       if (process.platform === 'win32') {
         execSync(String.raw`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name = 'AIAgentHub.Web.exe'\" | Where-Object { \$_.ExecutablePath -like '*publish*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }"`, { stdio: 'ignore' });
       } else {
-        execSync('pkill -f AIAgentHub.Web', { stdio: 'ignore' });
+        execSync('/usr/bin/pkill -f AIAgentHub.Web', { stdio: 'ignore' });
       }
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
       fs.rmSync(targetPublishDir, { recursive: true, force: true });
@@ -118,7 +118,7 @@ const publishArgs = [
   `/p:PublishDir=${targetPublishDir}${path.sep}`,
 ];
 
-const publishResult = spawnSync('dotnet', publishArgs, {
+const publishResult = spawnSync('dotnet', publishArgs, { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
   stdio: 'inherit',
   cwd: rootDir,
 });

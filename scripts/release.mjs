@@ -122,7 +122,7 @@ const targetPublishDir = path.isAbsolute(publishUrl)
 if (!targetVersion) {
   // Try exact Git tag on HEAD first
   try {
-    const gitTagResult = spawnSync('git', ['describe', '--tags', '--exact-match', 'HEAD'], {
+    const gitTagResult = spawnSync('git', ['describe', '--tags', '--exact-match', 'HEAD'], { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
       cwd: rootDir,
       encoding: 'utf-8',
     });
@@ -152,14 +152,14 @@ if (!semverRegex.test(targetVersion)) {
 // Validate Git tag vs HEAD state to guarantee reproducibility
 try {
   const tagName = `v${targetVersion}`;
-  const tagResolve = spawnSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tagName}^{commit}`], {
+  const tagResolve = spawnSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tagName}^{commit}`], { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
     cwd: rootDir,
     encoding: 'utf-8',
   });
 
   if (tagResolve.status === 0 && tagResolve.stdout?.trim()) {
     const tagCommit = tagResolve.stdout.trim();
-    const headResolve = spawnSync('git', ['rev-parse', 'HEAD'], {
+    const headResolve = spawnSync('git', ['rev-parse', 'HEAD'], { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
       cwd: rootDir,
       encoding: 'utf-8',
     });
@@ -242,7 +242,7 @@ if (!skipTests) {
   console.log('\n🧪 Running test suites...');
   
   console.log('  ▶️ Frontend tests (vitest)...');
-  const feTest = spawnSync('npm', ['test', '-w', 'aiagenthub-frontend'], {
+  const feTest = spawnSync('npm', ['test', '-w', 'aiagenthub-frontend'], { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
     stdio: 'inherit',
     cwd: rootDir,
     shell: true,
@@ -253,7 +253,7 @@ if (!skipTests) {
   }
 
   console.log('  ▶️ Backend unit tests (dotnet test)...');
-  const beTest = spawnSync('dotnet', ['test', 'tests/AgentHub.UnitTests/AgentHub.UnitTests.csproj', '-c', 'Release'], {
+  const beTest = spawnSync('dotnet', ['test', 'tests/AgentHub.UnitTests/AgentHub.UnitTests.csproj', '-c', 'Release'], { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
     stdio: 'inherit',
     cwd: rootDir,
   });
@@ -277,7 +277,7 @@ if (fs.existsSync(targetPublishDir)) {
       if (process.platform === 'win32') {
         execSync(String.raw`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name = 'AIAgentHub.Web.exe'\" | Where-Object { \$_.ExecutablePath -like '*publish*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }"`, { stdio: 'ignore' });
       } else {
-        execSync('pkill -f AIAgentHub.Web', { stdio: 'ignore' });
+        execSync('/usr/bin/pkill -f AIAgentHub.Web', { stdio: 'ignore' });
       }
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
       fs.rmSync(targetPublishDir, { recursive: true, force: true });
@@ -294,7 +294,7 @@ const publishArgs = [
   `/p:PublishDir=${targetPublishDir}${path.sep}`,
 ];
 
-const publishResult = spawnSync('dotnet', publishArgs, {
+const publishResult = spawnSync('dotnet', publishArgs, { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
   stdio: 'inherit',
   cwd: rootDir,
 });
@@ -319,13 +319,13 @@ function getReleaseTimestamp(version) {
 
   try {
     const tagRef = `v${version}`;
-    const tagCheck = spawnSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tagRef}`], {
+    const tagCheck = spawnSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tagRef}`], { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
       cwd: rootDir,
       encoding: 'utf-8',
     });
 
     const targetRef = (tagCheck.status === 0 && tagCheck.stdout?.trim()) ? tagRef : 'HEAD';
-    const gitLog = spawnSync('git', ['log', '-1', '--format=%cI', targetRef], {
+    const gitLog = spawnSync('git', ['log', '-1', '--format=%cI', targetRef], { // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
       cwd: rootDir,
       encoding: 'utf-8',
     });
@@ -444,11 +444,11 @@ const sha256Hash = generateSha256(resolvedZipPath, resolvedChecksumPath);
 if (createTag) {
   const tagName = `v${targetVersion}`;
   try {
-    const existingTag = spawnSync('git', ['tag', '-l', tagName], { cwd: rootDir, encoding: 'utf-8' });
+    const existingTag = spawnSync('git', ['tag', '-l', tagName], { cwd: rootDir, encoding: 'utf-8' }); // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
     if (existingTag.stdout?.trim() === tagName) {
       console.log(`🏷️ Git tag '${tagName}' already exists.`);
     } else {
-      const tagResult = spawnSync('git', ['tag', '-a', tagName, '-m', `Release ${tagName}`], { cwd: rootDir, encoding: 'utf-8' });
+      const tagResult = spawnSync('git', ['tag', '-a', tagName, '-m', `Release ${tagName}`], { cwd: rootDir, encoding: 'utf-8' }); // NOSONAR - dev-only build script; hardcoding absolute path not portable across machines/CI
       if (tagResult.status === 0) {
         console.log(`🏷️ Created Git tag '${tagName}' successfully.`);
       } else {

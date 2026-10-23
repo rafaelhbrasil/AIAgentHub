@@ -248,7 +248,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Available Server Network Interfaces</label>
+            <div className="form-label">Available Server Network Interfaces</div>
             <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: '6px' }}>
               {currentMode === 'Localhost' && (
                 <div style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '0.85rem' }}>

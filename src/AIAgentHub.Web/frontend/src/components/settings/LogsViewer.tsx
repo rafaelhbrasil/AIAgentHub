@@ -217,10 +217,11 @@ export const LogsViewer: React.FC = () => {
       >
         {/* File Dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          <label htmlFor="logFileSelect" style={{ fontSize: '0.82rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
             Log File:
           </label>
           <select
+            id="logFileSelect"
             className="form-select"
             value={selectedFileName}
             onChange={(e) => setSelectedFileName(e.target.value)}
@@ -238,10 +239,11 @@ export const LogsViewer: React.FC = () => {
 
         {/* Lines Dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          <label htmlFor="logTailSelect" style={{ fontSize: '0.82rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
             Tail:
           </label>
           <select
+            id="logTailSelect"
             className="form-select"
             value={lineLimit}
             onChange={(e) => setLineLimit(Number(e.target.value))}
@@ -308,6 +310,7 @@ export const LogsViewer: React.FC = () => {
             checked={autoScroll}
             onChange={(e) => setAutoScroll(e.target.checked)}
           />
+          {' '}
           Auto-scroll
         </label>
       </div>
